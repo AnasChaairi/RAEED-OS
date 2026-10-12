@@ -131,4 +131,17 @@ do $$ begin
     raise exception 'FAIL: cancellation should notify both parents'; end if;
 end $$;
 
+-- A parent can clear their own first-sign-in flag but cannot edit their own row directly.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+update public.people set phone = '+212699999999' where id = '00000000-0000-0000-0000-00000000000c';
+select public.mark_password_changed();
+reset role;
+do $$ begin
+  if (select phone from people where id = '00000000-0000-0000-0000-00000000000c') <> '+212600000003' then
+    raise exception 'FAIL: person changed their own phone number'; end if;
+  if (select must_change_password from people where id = '00000000-0000-0000-0000-00000000000c') then
+    raise exception 'FAIL: password-changed flag not cleared'; end if;
+end $$;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;
