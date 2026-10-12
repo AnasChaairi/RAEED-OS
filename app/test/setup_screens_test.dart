@@ -4,10 +4,12 @@ import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/setup/models.dart';
+import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/setup/setup_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
+import 'fake_instructor.dart';
 import 'fake_setup.dart';
 
 /// Signs in as an advisor on a tall phone and opens the given tab.
@@ -28,8 +30,13 @@ Future<FakeSetupRepository> openAdvisor(
     ..addPerson('212691015402', 'أنس', '0691015402', {AppRole.advisor})
     ..addPerson('yassine', 'ياسين الإدريسي', '0611111111', {AppRole.instructor});
   await seed?.call(repo);
-  final session = AppSession(auth, await SharedPreferences.getInstance());
-  await tester.pumpWidget(RaeedApp(session: session, setup: SetupStore(repo)));
+  final prefs = await SharedPreferences.getInstance();
+  final session = AppSession(auth, prefs);
+  await tester.pumpWidget(RaeedApp(
+    session: session,
+    setup: SetupStore(repo),
+    instructor: InstructorStore(FakeInstructorRepository(), prefs, retryEvery: null),
+  ));
   await session.start();
   await tester.pumpAndSettle();
   await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text(tab)));

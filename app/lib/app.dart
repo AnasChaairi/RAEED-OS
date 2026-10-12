@@ -7,6 +7,8 @@ import 'auth/messages.dart';
 import 'auth/session_scope.dart';
 import 'auth/sign_in_screen.dart';
 import 'home/home_shell.dart';
+import 'instructor/instructor_store.dart';
+import 'instructor/widgets.dart';
 import 'roles/choose_role_screen.dart';
 import 'setup/setup_store.dart';
 import 'setup/widgets.dart';
@@ -14,12 +16,15 @@ import 'theme/raeed_theme.dart';
 
 /// Arabic only, right to left, everywhere.
 class RaeedApp extends StatelessWidget {
-  const RaeedApp({super.key, required this.session, required this.setup});
+  const RaeedApp({super.key, required this.session, required this.setup, required this.instructor});
 
   final AppSession session;
 
   /// The advisor's setup data. Loaded only when an advisor opens a setup screen.
   final SetupStore setup;
+
+  /// The instructor's sessions and attendance, kept on the phone for offline use.
+  final InstructorStore instructor;
 
   @override
   Widget build(BuildContext context) {
@@ -27,14 +32,17 @@ class RaeedApp extends StatelessWidget {
       session: session,
       child: SetupScope(
         store: setup,
-        child: MaterialApp(
-        title: 'رائد',
-        debugShowCheckedModeBanner: false,
-        theme: buildRaeedTheme(),
-        locale: const Locale('ar', 'MA'),
-        supportedLocales: const [Locale('ar', 'MA')],
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: const SessionGate(),
+        child: InstructorScope(
+          store: instructor,
+          child: MaterialApp(
+            title: 'رائد',
+            debugShowCheckedModeBanner: false,
+            theme: buildRaeedTheme(),
+            locale: const Locale('ar', 'MA'),
+            supportedLocales: const [Locale('ar', 'MA')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            home: const SessionGate(),
+          ),
         ),
       ),
     );

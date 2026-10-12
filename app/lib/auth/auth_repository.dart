@@ -28,6 +28,22 @@ class Profile {
         mustChangePassword: mustChangePassword ?? this.mustChangePassword,
         roles: roles,
       );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'full_name': fullName,
+        'phone': phone,
+        'must_change_password': mustChangePassword,
+        'roles': [for (final r in roles) r.dbName],
+      };
+
+  static Profile fromJson(Map<String, Object?> j) => Profile(
+        id: j['id'] as String,
+        fullName: j['full_name'] as String,
+        phone: j['phone'] as String,
+        mustChangePassword: j['must_change_password'] as bool,
+        roles: [for (final r in j['roles'] as List) ?AppRole.fromDb(r as String)],
+      );
 }
 
 enum AuthFailure {

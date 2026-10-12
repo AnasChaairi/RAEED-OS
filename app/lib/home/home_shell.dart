@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import '../auth/phone.dart';
 import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
+import '../instructor/alerts_screen.dart';
+import '../instructor/groups_screen.dart';
+import '../instructor/sessions_screen.dart';
+import '../instructor/today_screen.dart';
+import '../instructor/widgets.dart';
 import '../roles/choose_role_screen.dart';
 import '../setup/children_screen.dart';
 import '../setup/groups_screen.dart';
@@ -23,11 +28,22 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
     _refreshSetup();
+    // Back in the app: send waiting attendance and pick up changes.
+    _lifecycle = AppLifecycleListener(onResume: () {
+      if (widget.role == AppRole.instructor) InstructorScope.read(context).refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   @override
@@ -45,12 +61,21 @@ class _HomeShellState extends State<HomeShell> {
       final store = SetupScope.read(context);
       WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
     }
+    if (widget.role == AppRole.instructor) {
+      final store = InstructorScope.read(context);
+      final id = SessionScope.read(context).profile!.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) => store.start(id));
+    }
   }
 
   Widget _tabBody(int i) => switch ((widget.role, i)) {
         (AppRole.advisor, 1) => const GroupsList(),
         (AppRole.advisor, 2) => const ChildrenList(),
         (AppRole.advisor, 3) => const SetupHub(),
+        (AppRole.instructor, 0) => const TodayTab(),
+        (AppRole.instructor, 1) => const SessionsTab(),
+        (AppRole.instructor, 2) => const MyGroupsTab(),
+        (AppRole.instructor, 3) => const AlertsTab(),
         _ => EmptyTab(tab: widget.role.tabs[i]),
       };
 
