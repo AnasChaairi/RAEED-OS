@@ -292,27 +292,30 @@ class SupabaseSetupRepository implements SetupRepository {
     }
   }
 
-  Future<T> _guard<T>(Future<T> Function() call) async {
-    try {
-      return await call();
-    } on SetupError {
-      rethrow;
-    } on PostgrestException catch (e) {
-      if (e.code == '23505') throw const SetupError(SetupFailure.duplicateName);
-      if (e.message.contains('at most two parents')) throw const SetupError(SetupFailure.tooManyParents);
-      if (e.code == '42501') throw const SetupError(SetupFailure.notAllowed);
-      throw const SetupError(SetupFailure.unknown);
-    } catch (e) {
-      final text = e.toString();
-      if (text.contains('SocketException') || text.contains('ClientException') || text.contains('TimeoutException')) {
-        throw const SetupError(SetupFailure.offline);
-      }
-      throw const SetupError(SetupFailure.unknown);
-    }
-  }
+  Future<T> _guard<T>(Future<T> Function() call) => guardSupabase(call);
 
   static DateTime? _date(Object? value) => value == null ? null : DateTime.parse(value as String);
 
   static String _day(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// Runs a Supabase call and turns its failures into [SetupError].
+Future<T> guardSupabase<T>(Future<T> Function() call) async {
+  try {
+    return await call();
+  } on SetupError {
+    rethrow;
+  } on PostgrestException catch (e) {
+    if (e.code == '23505') throw const SetupError(SetupFailure.duplicateName);
+    if (e.message.contains('at most two parents')) throw const SetupError(SetupFailure.tooManyParents);
+    if (e.code == '42501') throw const SetupError(SetupFailure.notAllowed);
+    throw const SetupError(SetupFailure.unknown);
+  } catch (e) {
+    final text = e.toString();
+    if (text.contains('SocketException') || text.contains('ClientException') || text.contains('TimeoutException')) {
+      throw const SetupError(SetupFailure.offline);
+    }
+    throw const SetupError(SetupFailure.unknown);
+  }
 }

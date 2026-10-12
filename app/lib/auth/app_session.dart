@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +30,7 @@ class AppSession extends ChangeNotifier {
   AppSession(this._auth, this._prefs);
 
   static const _lastRoleKey = 'last_role';
+  static const _profileKey = 'profile';
 
   final AuthRepository _auth;
   final SharedPreferences _prefs;
@@ -41,6 +44,11 @@ class AppSession extends ChangeNotifier {
   Profile? get profile => _profile;
   AppRole? get role => _role;
   AuthFailure? get profileFailure => _profileFailure;
+
+  /// Started without a connection, from the profile saved on the phone at the last
+  /// sign-in. Only attendance works this way.
+  bool _offlineProfile = false;
+  bool get offlineProfile => _offlineProfile;
 
   /// Picks up a session saved on the phone.
   Future<void> start() async {
@@ -81,6 +89,7 @@ class AppSession extends ChangeNotifier {
     await _auth.signOut();
     _profile = null;
     _role = null;
+    await _prefs.remove(_profileKey);
     _set(SessionStage.signedOut);
   }
 
@@ -88,6 +97,8 @@ class AppSession extends ChangeNotifier {
     try {
       _profile = await _auth.loadProfile();
       _profileFailure = null;
+      _offlineProfile = false;
+      await _prefs.setString(_profileKey, jsonEncode(_profile!.toJson()));
     } on AuthError catch (e) {
       if (e.failure == AuthFailure.noProfile) {
         // An account without a people row cannot use the app; don't leave it signed in.
@@ -96,11 +107,27 @@ class AppSession extends ChangeNotifier {
         _set(SessionStage.signedOut);
         rethrow;
       }
+      final saved = _savedProfile();
+      if (e.failure == AuthFailure.offline && saved != null && saved.id == _auth.currentUserId) {
+        _profile = saved;
+        _offlineProfile = true;
+        return _route();
+      }
       _profileFailure = e.failure;
       _set(SessionStage.profileError);
       return;
     }
     _route();
+  }
+
+  Profile? _savedProfile() {
+    final raw = _prefs.getString(_profileKey);
+    if (raw == null) return null;
+    try {
+      return Profile.fromJson(jsonDecode(raw) as Map<String, Object?>);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _route() {

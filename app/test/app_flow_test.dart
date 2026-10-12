@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/roles/app_role.dart';
+import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/setup/setup_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
+import 'fake_instructor.dart';
 import 'fake_setup.dart';
 
 const advisorPhone = '212691015402';
@@ -30,8 +32,13 @@ FakeAuthRepository fakeAuth() => FakeAuthRepository(accounts: {
 
 Future<AppSession> pumpApp(WidgetTester tester, FakeAuthRepository auth, {Map<String, Object> prefs = const {}}) async {
   SharedPreferences.setMockInitialValues(prefs);
-  final session = AppSession(auth, await SharedPreferences.getInstance());
-  await tester.pumpWidget(RaeedApp(session: session, setup: SetupStore(FakeSetupRepository())));
+  final preferences = await SharedPreferences.getInstance();
+  final session = AppSession(auth, preferences);
+  await tester.pumpWidget(RaeedApp(
+    session: session,
+    setup: SetupStore(FakeSetupRepository()),
+    instructor: InstructorStore(FakeInstructorRepository(), preferences, retryEvery: null),
+  ));
   await session.start();
   await tester.pumpAndSettle();
   return session;

@@ -6,6 +6,8 @@ import 'app.dart';
 import 'auth/app_session.dart';
 import 'auth/auth_repository.dart';
 import 'config.dart';
+import 'instructor/instructor_repository.dart';
+import 'instructor/instructor_store.dart';
 import 'setup/setup_repository.dart';
 import 'setup/setup_store.dart';
 
@@ -15,6 +17,10 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final client = Supabase.instance.client;
   final session = AppSession(SupabaseAuthRepository(client), prefs);
-  runApp(RaeedApp(session: session, setup: SetupStore(SupabaseSetupRepository(client))));
+  runApp(RaeedApp(
+    session: session,
+    setup: SetupStore(SupabaseSetupRepository(client)),
+    instructor: InstructorStore(SupabaseInstructorRepository(client), prefs),
+  ));
   await session.start();
 }
