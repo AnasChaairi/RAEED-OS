@@ -4,6 +4,10 @@ import '../auth/phone.dart';
 import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
 import '../roles/choose_role_screen.dart';
+import '../setup/children_screen.dart';
+import '../setup/groups_screen.dart';
+import '../setup/setup_hub.dart';
+import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
 
 /// The signed-in app: the active role's tabs, with the account and role switcher behind
@@ -21,10 +25,34 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _refreshSetup();
+  }
+
+  @override
   void didUpdateWidget(HomeShell old) {
     super.didUpdateWidget(old);
-    if (old.role != widget.role) _index = 0;
+    if (old.role != widget.role) {
+      _index = 0;
+      _refreshSetup();
+    }
   }
+
+  /// Fresh data each time someone signs in or switches to the advisor role.
+  void _refreshSetup() {
+    if (widget.role == AppRole.advisor) {
+      final store = SetupScope.read(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
+    }
+  }
+
+  Widget _tabBody(int i) => switch ((widget.role, i)) {
+        (AppRole.advisor, 1) => const GroupsList(),
+        (AppRole.advisor, 2) => const ChildrenList(),
+        (AppRole.advisor, 3) => const SetupHub(),
+        _ => EmptyTab(tab: widget.role.tabs[i]),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +86,7 @@ class _HomeShellState extends State<HomeShell> {
       ),
       body: IndexedStack(
         index: _index,
-        children: [for (final tab in tabs) EmptyTab(tab: tab)],
+        children: [for (var i = 0; i < tabs.length; i++) _tabBody(i)],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

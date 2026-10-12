@@ -8,19 +8,26 @@ import 'auth/session_scope.dart';
 import 'auth/sign_in_screen.dart';
 import 'home/home_shell.dart';
 import 'roles/choose_role_screen.dart';
+import 'setup/setup_store.dart';
+import 'setup/widgets.dart';
 import 'theme/raeed_theme.dart';
 
 /// Arabic only, right to left, everywhere.
 class RaeedApp extends StatelessWidget {
-  const RaeedApp({super.key, required this.session});
+  const RaeedApp({super.key, required this.session, required this.setup});
 
   final AppSession session;
+
+  /// The advisor's setup data. Loaded only when an advisor opens a setup screen.
+  final SetupStore setup;
 
   @override
   Widget build(BuildContext context) {
     return SessionScope(
       session: session,
-      child: MaterialApp(
+      child: SetupScope(
+        store: setup,
+        child: MaterialApp(
         title: 'رائد',
         debugShowCheckedModeBanner: false,
         theme: buildRaeedTheme(),
@@ -28,6 +35,7 @@ class RaeedApp extends StatelessWidget {
         supportedLocales: const [Locale('ar', 'MA')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         home: const SessionGate(),
+        ),
       ),
     );
   }
