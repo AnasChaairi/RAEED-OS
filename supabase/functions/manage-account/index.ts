@@ -1,4 +1,4 @@
-// manage-account: advisors create accounts and reset passwords.
+// manage-account: advisors create accounts, reset passwords and change roles.
 //
 // Sign-in is phone number + password with no SMS (NFR7). Supabase's phone sign-in needs an
 // SMS provider, so each account uses an internal e-mail address derived from the phone
@@ -6,8 +6,13 @@
 // only ever type their phone number.
 //
 // POST { action: "create", full_name, phone, roles: ["parent" | "instructor" | "advisor"] }
+//   Returns { person_id, temporary_password } for the advisor to hand over. If the phone
+//   number already has an account (a staff member who is also a parent, say), the roles
+//   are added to it and the reply is { person_id, temporary_password: null, existing: true }.
 // POST { action: "reset", person_id }
-// Both return { person_id, temporary_password } for the advisor to hand over.
+//   Returns { person_id, temporary_password }.
+// POST { action: "set_roles", person_id, roles }
+//   Replaces the person's roles. Advisors cannot remove their own advisor role.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -74,6 +79,20 @@ Deno.serve(async (req) => {
       return json({ error: "invalid_roles" }, 400);
     }
 
+    // Someone already registered with this number: add the roles, keep their password.
+    const { data: existing } = await admin
+      .from("people")
+      .select("id")
+      .eq("phone", `+${phone}`)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await admin
+        .from("person_roles")
+        .upsert(roles.map((role) => ({ person_id: existing.id, role })), { ignoreDuplicates: true });
+      if (error) return json({ error: "create_failed" }, 500);
+      return json({ person_id: existing.id, temporary_password: null, existing: true });
+    }
+
     const password = temporaryPassword();
     const { data: created, error } = await admin.auth.admin.createUser({
       email: phoneToEmail(phone),
@@ -107,6 +126,29 @@ Deno.serve(async (req) => {
     if (error) return json({ error: "reset_failed" }, 400);
     await admin.from("people").update({ must_change_password: true }).eq("id", personId);
     return json({ person_id: personId, temporary_password: password });
+  }
+
+  if (body.action === "set_roles") {
+    const personId = String(body.person_id ?? "");
+    const roles = Array.isArray(body.roles) ? body.roles.map(String) : [];
+    if (roles.length === 0 || !roles.every((r) => ROLES.has(r))) {
+      return json({ error: "invalid_roles" }, 400);
+    }
+    if (personId === caller.user.id && !roles.includes("advisor")) {
+      return json({ error: "cannot_remove_own_advisor_role" }, 400);
+    }
+    const { data: person } = await admin.from("people").select("id").eq("id", personId).maybeSingle();
+    if (!person) return json({ error: "not_found" }, 404);
+    const { error: deleteError } = await admin
+      .from("person_roles")
+      .delete()
+      .eq("person_id", personId)
+      .not("role", "in", `(${roles.join(",")})`);
+    const { error: insertError } = deleteError ? { error: deleteError } : await admin
+      .from("person_roles")
+      .upsert(roles.map((role) => ({ person_id: personId, role })), { ignoreDuplicates: true });
+    if (deleteError || insertError) return json({ error: "update_failed" }, 500);
+    return json({ person_id: personId, roles });
   }
 
   return json({ error: "unknown_action" }, 400);
