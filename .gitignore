@@ -1,0 +1,5 @@
+.dart_tool/
+build/
+.env
+*.local
+supabase/.temp/
