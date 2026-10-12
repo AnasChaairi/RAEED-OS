@@ -11,7 +11,7 @@ Internal mobile app for RAEED Academy: sessions, attendance, absence follow-up a
 |---|---|
 | `supabase/migrations/` | Database schema, row-level security (who sees what, per role), triggers for absence alerts, offline sync and parent notifications |
 | `supabase/tests/` | Access-rule tests that run on plain Postgres |
-| `app/` | Flutter app (coming in stage 1) |
+| `app/` | Flutter app: sign-in, first-sign-in password change, role switcher and each role's tabs (see `app/README.md`) |
 
 ## Testing the database locally
 
