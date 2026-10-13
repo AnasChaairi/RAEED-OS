@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/roles/app_role.dart';
+import 'package:raeed_os/setup/groups_screen.dart' show pickGroupLogo;
 import 'package:raeed_os/setup/models.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/setup/setup_store.dart';
@@ -94,7 +96,7 @@ void main() {
   });
 
   testWidgets('a new instructor gets a temporary password to hand over', (tester) async {
-    await openAdvisor(tester);
+    final repo = await openAdvisor(tester);
     await tester.tap(find.byKey(const Key('setup-staff')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('new-staff')));
@@ -103,12 +105,18 @@ void main() {
     await tester.enterText(find.byKey(const Key('staff-phone')), '06 22 22 22 22');
     await tester.tap(find.byKey(const Key('save-staff')));
     await tester.pumpAndSettle();
+    expect(find.text('اختر الجنس'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('gender-female')));
+    await tester.tap(find.byKey(const Key('save-staff')));
+    await tester.pumpAndSettle();
 
     expect(find.text('كلمات المرور المؤقتة'), findsOneWidget);
     expect(find.byKey(const Key('password-+212622222222')), findsOneWidget);
     await tester.tap(find.byKey(const Key('passwords-done')));
     await tester.pumpAndSettle();
     expect(find.text('سارة الإدريسي'), findsOneWidget);
+    expect(repo.people.values.singleWhere((p) => p.fullName == 'سارة الإدريسي').gender, Gender.female);
   });
 
   testWidgets('a new child with a new parent: password shown, child listed under the group', (tester) async {
@@ -121,7 +129,10 @@ void main() {
     await tester.tap(find.byKey(const Key('save-child')));
     await tester.pumpAndSettle();
     expect(find.text('اكتب رقم الهاتف'), findsOneWidget);
+    expect(find.text('اختر الجنس'), findsOneWidget);
     expect(repo.children, isEmpty);
+
+    await tester.tap(find.byKey(const Key('gender-male')));
 
     await tester.tap(find.byKey(const Key('child-group')));
     await tester.pumpAndSettle();
@@ -139,6 +150,7 @@ void main() {
 
     final child = repo.children.values.single;
     expect(child.consentRecordedAt, isNotNull);
+    expect(child.gender, Gender.male);
     expect(find.text('فئة النجوم · 1'), findsOneWidget);
     expect(find.text('آدم بنعلي'), findsOneWidget);
     expect(find.text('ولي الأمر: كريم بنعلي'), findsOneWidget);
@@ -149,6 +161,7 @@ void main() {
     await tester.tap(find.byKey(const Key('new-child')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('child-name')), 'سلمى');
+    await tester.tap(find.byKey(const Key('gender-female')));
     await tester.enterText(find.byKey(const Key('parent-phone-0')), '0611111111');
     await tester.pump();
     expect(find.textContaining('مسجّل باسم ياسين الإدريسي'), findsOneWidget);
@@ -158,6 +171,75 @@ void main() {
     expect(find.text('كلمات المرور المؤقتة'), findsNothing);
     expect(repo.children.values.single.parentIds, ['yassine']);
     expect(repo.calls.where((c) => c.startsWith('createAccount')), isEmpty);
+  });
+
+  testWidgets('a brother is linked to the parent his sister already has', (tester) async {
+    final repo = await openAdvisor(
+      tester,
+      tab: 'الأطفال',
+      seed: (r) async {
+        r.addPerson('karim', 'كريم بنعلي', '0612345678', {AppRole.parent});
+        r.addPerson('nadia', 'نادية العلوي', '0698765432', {AppRole.parent});
+        final id = await r.saveChild(fullName: 'سلمى بنعلي', gender: Gender.female, recordConsent: true);
+        await r.setChildParents(id, ['karim']);
+      },
+    );
+    await tester.tap(find.byKey(const Key('new-child')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('child-name')), 'آدم بنعلي');
+    await tester.tap(find.byKey(const Key('gender-male')));
+
+    await tester.tap(find.byKey(const Key('pick-parent')));
+    await tester.pumpAndSettle();
+    expect(find.text('نادية العلوي'), findsOneWidget);
+    // Searching by the sister's name finds her father.
+    await tester.enterText(find.byKey(const Key('parent-search')), 'سلمى');
+    await tester.pumpAndSettle();
+    expect(find.text('نادية العلوي'), findsNothing);
+    expect(find.textContaining('أبناؤه: سلمى بنعلي'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pick-parent-karim')));
+    await tester.pumpAndSettle();
+
+    // The empty new-parent form gave way to the chosen parent.
+    expect(find.byKey(const Key('parent-phone-0')), findsNothing);
+    expect(find.text('كريم بنعلي'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('consent')));
+    await tester.tap(find.byKey(const Key('save-child')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('كلمات المرور المؤقتة'), findsNothing);
+    final adam = repo.children.values.singleWhere((c) => c.fullName == 'آدم بنعلي');
+    expect(adam.parentIds, ['karim']);
+    expect(repo.calls.where((c) => c.startsWith('createAccount')), isEmpty);
+  });
+
+  testWidgets('a group logo is uploaded, then removed', (tester) async {
+    final picked = Uint8List.fromList(List.filled(2000, 7));
+    pickGroupLogo = () async => picked;
+    addTearDown(() => pickGroupLogo = () async => null);
+    final repo = await openAdvisor(tester, tab: 'الفئات', seed: (r) => r.saveGroup(stars));
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('remove-logo')), findsNothing);
+    await tester.tap(find.byKey(const Key('pick-logo')));
+    await tester.pumpAndSettle();
+    expect(find.text('تغيير الصورة'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('save-group')));
+    await tester.pumpAndSettle();
+
+    final path = repo.groups.values.single.logoPath;
+    expect(path, isNotNull);
+    expect(repo.logos[path], picked);
+
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('remove-logo')));
+    await tester.pump();
+    expect(find.text('رفع صورة الشعار'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('save-group')));
+    await tester.pumpAndSettle();
+    expect(repo.groups.values.single.logoPath, isNull);
+    expect(repo.logos, isEmpty);
   });
 
   testWidgets('the season shows on the setup tab and its own screen', (tester) async {

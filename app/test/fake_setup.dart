@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:raeed_os/auth/phone.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/setup/models.dart';
@@ -47,6 +49,7 @@ class FakeSetupRepository implements SetupRepository {
           id: c.id,
           fullName: c.fullName,
           birthDate: c.birthDate,
+          gender: c.gender,
           groupId: c.groupId,
           parentIds: c.parentIds.where((p) => p != personId).toList(),
           consentRecordedAt: c.consentRecordedAt,
@@ -66,6 +69,7 @@ class FakeSetupRepository implements SetupRepository {
       name: d.name,
       logoLetter: d.logoLetter,
       logoColor: d.logoColor,
+      logoPath: groups[id]?.logoPath,
       ageMin: d.ageMin,
       ageMax: d.ageMax,
       archived: d.archived,
@@ -96,11 +100,53 @@ class FakeSetupRepository implements SetupRepository {
         name: g.name,
         logoLetter: g.logoLetter,
         logoColor: g.logoColor,
+        logoPath: g.logoPath,
         ageMin: g.ageMin,
         ageMax: g.ageMax,
         archived: g.archived,
         instructorIds: ids,
       );
+
+  /// Uploaded logos by path.
+  final logos = <String, Uint8List>{};
+
+  @override
+  Future<void> setGroupLogo(String groupId, Uint8List? image, {String? replaces}) async {
+    _check();
+    calls.add('setGroupLogo $groupId ${image == null ? 'none' : '${image.length} bytes'} replaces=$replaces');
+    String? path;
+    if (image != null) {
+      path = '$groupId/${logos.length + 1}.jpg';
+      logos[path] = image;
+    }
+    if (replaces != null) logos.remove(replaces);
+    final g = groups[groupId]!;
+    groups[groupId] = Group(
+      id: g.id,
+      name: g.name,
+      logoLetter: g.logoLetter,
+      logoColor: g.logoColor,
+      logoPath: path,
+      ageMin: g.ageMin,
+      ageMax: g.ageMax,
+      archived: g.archived,
+      instructorIds: g.instructorIds,
+    );
+  }
+
+  @override
+  Future<void> setGender(String personId, Gender gender) async {
+    calls.add('setGender $personId ${gender.dbName}');
+    final p = people[personId]!;
+    people[personId] = Person(
+      id: p.id,
+      fullName: p.fullName,
+      phone: p.phone,
+      roles: p.roles,
+      mustChangePassword: p.mustChangePassword,
+      gender: gender,
+    );
+  }
 
   @override
   Future<NewAccount> createAccount({required String fullName, required String phone, required Set<AppRole> roles}) async {
@@ -110,7 +156,13 @@ class FakeSetupRepository implements SetupRepository {
     calls.add('createAccount $fullName');
     final existing = people.values.where((p) => p.phone == '+$n').firstOrNull;
     if (existing != null) {
-      people[existing.id] = Person(id: existing.id, fullName: existing.fullName, phone: existing.phone, roles: {...existing.roles, ...roles});
+      people[existing.id] = Person(
+        id: existing.id,
+        fullName: existing.fullName,
+        phone: existing.phone,
+        roles: {...existing.roles, ...roles},
+        gender: existing.gender,
+      );
       return NewAccount(personId: existing.id);
     }
     final id = _id('person');
@@ -128,18 +180,24 @@ class FakeSetupRepository implements SetupRepository {
   Future<void> setRoles(String personId, Set<AppRole> roles) async {
     calls.add('setRoles $personId ${roles.map((r) => r.dbName).join(',')}');
     final p = people[personId]!;
-    people[personId] = Person(id: p.id, fullName: p.fullName, phone: p.phone, roles: roles);
+    people[personId] = Person(id: p.id, fullName: p.fullName, phone: p.phone, roles: roles, gender: p.gender);
   }
 
   @override
   Future<void> renamePerson(String personId, String fullName) async {
     calls.add('renamePerson $personId $fullName');
     final p = people[personId]!;
-    people[personId] = Person(id: p.id, fullName: fullName, phone: p.phone, roles: p.roles);
+    people[personId] = Person(id: p.id, fullName: fullName, phone: p.phone, roles: p.roles, gender: p.gender);
   }
 
   @override
-  Future<String> saveChild({String? id, required String fullName, DateTime? birthDate, required bool recordConsent}) async {
+  Future<String> saveChild({
+    String? id,
+    required String fullName,
+    DateTime? birthDate,
+    Gender? gender,
+    required bool recordConsent,
+  }) async {
     _check();
     calls.add('saveChild $fullName consent=$recordConsent');
     final childId = id ?? _id('child');
@@ -148,6 +206,7 @@ class FakeSetupRepository implements SetupRepository {
       id: childId,
       fullName: fullName,
       birthDate: birthDate,
+      gender: gender ?? before?.gender,
       groupId: before?.groupId,
       parentIds: before?.parentIds ?? const [],
       consentRecordedAt: recordConsent ? DateTime(2026, 10, 12) : before?.consentRecordedAt,
@@ -159,7 +218,7 @@ class FakeSetupRepository implements SetupRepository {
   Future<void> moveChild(String childId, String? groupId) async {
     calls.add('moveChild $childId $groupId');
     final c = children[childId]!;
-    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, groupId: groupId, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt);
+    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: groupId, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt);
   }
 
   @override
@@ -167,7 +226,7 @@ class FakeSetupRepository implements SetupRepository {
     calls.add('setChildParents $childId ${parentIds.join(',')}');
     if (parentIds.length > 2) throw const SetupError(SetupFailure.tooManyParents);
     final c = children[childId]!;
-    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, groupId: c.groupId, parentIds: parentIds, consentRecordedAt: c.consentRecordedAt);
+    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: c.groupId, parentIds: parentIds, consentRecordedAt: c.consentRecordedAt);
   }
 
   @override

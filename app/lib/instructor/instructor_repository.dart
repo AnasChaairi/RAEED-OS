@@ -63,7 +63,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
       _db
           .from('groups')
           .select(
-            'id, name, logo_letter, logo_color, age_min, age_max, group_instructors(person_id, people(full_name))',
+            'id, name, logo_letter, logo_color, logo_path, age_min, age_max, group_instructors(person_id, people(full_name))',
           )
           .inFilter('id', ids)
           .eq('archived', false)
@@ -102,6 +102,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
           name: g['name'] as String,
           logoLetter: g['logo_letter'] as String,
           logoColor: g['logo_color'] as int,
+          logoPath: g['logo_path'] as String?,
           ageMin: g['age_min'] as int?,
           ageMax: g['age_max'] as int?,
           instructorIds: [for (final i in staff) i['person_id'] as String],

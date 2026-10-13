@@ -84,6 +84,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
   late final Set<AppRole> _roles = widget.person == null
       ? {AppRole.instructor}
       : widget.person!.roles.where((r) => r != AppRole.parent).toSet();
+  late Gender? _gender = widget.person?.gender;
   Set<String>? _groups;
   bool _busy = false;
   String? _error;
@@ -110,6 +111,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
           phone: _phone.text,
           roles: _roles,
           groupIds: _groups?.toList() ?? const [],
+          gender: _gender,
         );
         if (!mounted) return;
         setState(() => _busy = false);
@@ -126,6 +128,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
           fullName: _name.text.trim(),
           roles: _roles,
           groupIds: _groups?.toList() ?? store.data.groupsTaughtBy(widget.person!.id).map((g) => g.id).toList(),
+          gender: _gender,
         );
       }
       if (mounted) Navigator.pop(context);
@@ -193,6 +196,12 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                   decoration: const InputDecoration(labelText: 'رقم الهاتف'),
                   child: Text(formatPhone(person.phone), textDirection: TextDirection.ltr, textAlign: TextAlign.end),
                 ),
+              const SizedBox(height: 10),
+              GenderField(
+                fieldKey: const Key('staff-gender'),
+                value: _gender,
+                onChanged: (g) => setState(() => _gender = g),
+              ),
               const SectionLabel('الدور'),
               Wrap(
                 spacing: 6,

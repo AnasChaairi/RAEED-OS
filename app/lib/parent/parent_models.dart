@@ -117,6 +117,7 @@ Map<String, Object?> groupToJson(Group g) => {
   'name': g.name,
   'logo_letter': g.logoLetter,
   'logo_color': g.logoColor,
+  'logo_path': g.logoPath,
   'age_min': g.ageMin,
   'age_max': g.ageMax,
 };
@@ -126,6 +127,7 @@ Group groupFromJson(Map<String, dynamic> g) => Group(
   name: g['name'] as String,
   logoLetter: g['logo_letter'] as String,
   logoColor: g['logo_color'] as int,
+  logoPath: g['logo_path'] as String?,
   ageMin: g['age_min'] as int?,
   ageMax: g['age_max'] as int?,
 );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../auth/phone.dart';
+import '../config.dart';
 import '../theme/raeed_theme.dart';
 import 'models.dart';
 import 'setup_repository.dart';
@@ -40,29 +41,52 @@ const groupLogoColors = <(LinearGradient, Color)>[
 ];
 
 class GroupLogo extends StatelessWidget {
-  const GroupLogo({super.key, required this.letter, required this.color, this.size = 44});
+  const GroupLogo({super.key, required this.letter, required this.color, this.size = 44, this.image});
 
-  GroupLogo.of(Group g, {Key? key, double size = 44}) : this(key: key, letter: g.logoLetter, color: g.logoColor, size: size);
+  GroupLogo.of(Group g, {Key? key, double size = 44})
+      : this(key: key, letter: g.logoLetter, color: g.logoColor, size: size, image: groupLogoImage(g.logoPath));
 
   final String letter;
   final int color;
   final double size;
 
+  /// The uploaded logo. While it loads, or when it can't be fetched (offline), the
+  /// letter shows instead.
+  final ImageProvider? image;
+
   @override
   Widget build(BuildContext context) {
     final (gradient, ink) = groupLogoColors[(color - 1).clamp(0, groupLogoColors.length - 1)];
-    return Container(
+    final radius = BorderRadius.circular(size * 0.32);
+    final tile = Container(
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(gradient: gradient, borderRadius: BorderRadius.circular(size * 0.32)),
+      decoration: BoxDecoration(gradient: gradient, borderRadius: radius),
       child: Text(
         letter,
         style: TextStyle(fontFamily: RaeedFonts.display, fontWeight: FontWeight.w700, fontSize: size * 0.45, height: 1.2, color: ink),
       ),
     );
+    if (image == null) return tile;
+    return ClipRRect(
+      borderRadius: radius,
+      child: Image(
+        image: image!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, sync) => frame == null && !sync ? tile : child,
+        errorBuilder: (context, error, stack) => tile,
+      ),
+    );
   }
 }
+
+/// The public address of an uploaded group logo.
+ImageProvider? groupLogoImage(String? path) => path == null
+    ? null
+    : NetworkImage('${AppConfig.supabaseUrl}/storage/v1/object/public/$groupLogoBucket/$path');
 
 /// A round initial for a person or child.
 class InitialAvatar extends StatelessWidget {
@@ -317,4 +341,45 @@ String countLabel(int n, {required String one, required String two, required Str
   final mod = n % 100;
   if (mod >= 3 && mod <= 10) return '$n $few';
   return '$n $many';
+}
+
+/// ذكر or أنثى, required.
+class GenderField extends StatelessWidget {
+  const GenderField({super.key, required this.value, required this.onChanged, this.fieldKey});
+
+  final Gender? value;
+  final ValueChanged<Gender> onChanged;
+  final Key? fieldKey;
+
+  @override
+  Widget build(BuildContext context) => FormField<Gender>(
+        key: fieldKey,
+        initialValue: value,
+        validator: (v) => v == null ? 'اختر الجنس' : null,
+        builder: (state) => InputDecorator(
+          decoration: InputDecoration(
+            labelText: 'الجنس',
+            errorText: state.errorText,
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: SegmentedButton<Gender>(
+              emptySelectionAllowed: true,
+              showSelectedIcon: false,
+              segments: [
+                for (final g in Gender.values)
+                  ButtonSegment(value: g, label: Text(g.label, key: Key('gender-${g.dbName}'))),
+              ],
+              selected: {?value},
+              onSelectionChanged: (s) {
+                if (s.isEmpty) return;
+                onChanged(s.first);
+                state.didChange(s.first);
+              },
+            ),
+          ),
+        ),
+      );
 }

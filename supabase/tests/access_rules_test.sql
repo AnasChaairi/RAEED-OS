@@ -228,6 +228,18 @@ begin
   if (m->>'families')::int <> 1 or (m->>'families_signed_in')::int <> 1 then raise exception 'FAIL: families %', m; end if;
   if jsonb_array_length(m->'advisors') <> 1 then raise exception 'FAIL: advisors %', m; end if;
 end $$;
+-- Gender: the advisor sets it on a child and a staff member; nothing else is accepted.
+update public.children set gender = 'male' where id = '20000000-0000-0000-0000-000000000001';
+update public.people set gender = 'female' where id = '00000000-0000-0000-0000-00000000000a';
+do $$ begin
+  if (select gender from children where id = '20000000-0000-0000-0000-000000000001') is distinct from 'male' then
+    raise exception 'FAIL: advisor sets a child''s gender'; end if;
+  begin
+    update public.children set gender = 'x' where id = '20000000-0000-0000-0000-000000000002';
+    raise exception 'FAIL: accepted an unknown gender';
+  exception when check_violation then null;
+  end;
+end $$;
 reset role;
 
 select 'ALL ACCESS RULE TESTS PASSED' as result;

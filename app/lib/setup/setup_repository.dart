@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/phone.dart';
@@ -44,19 +46,30 @@ abstract interface class SetupRepository {
   Future<void> setGroupInstructors(String groupId, List<String> personIds);
   Future<void> setInstructorGroups(String personId, List<String> groupIds);
 
+  /// Uploads [image] as the group's logo, or clears the logo when null, then deletes the
+  /// image it [replaces].
+  Future<void> setGroupLogo(String groupId, Uint8List? image, {String? replaces});
+
   /// Creates an account through the manage-account server function. A phone number that
   /// already has an account gets the roles added instead.
   Future<NewAccount> createAccount({required String fullName, required String phone, required Set<AppRole> roles});
   Future<String> resetPassword(String personId);
   Future<void> setRoles(String personId, Set<AppRole> roles);
   Future<void> renamePerson(String personId, String fullName);
+  Future<void> setGender(String personId, Gender gender);
 
   /// Deletes the account, or anonymises it when its name is on the academy's records.
   Future<void> deleteAccount(String personId);
 
   /// Inserts or updates the child row and returns its id. [recordConsent] stamps the consent
   /// with now and the signed-in advisor; it is never cleared.
-  Future<String> saveChild({String? id, required String fullName, DateTime? birthDate, required bool recordConsent});
+  Future<String> saveChild({
+    String? id,
+    required String fullName,
+    DateTime? birthDate,
+    Gender? gender,
+    required bool recordConsent,
+  });
 
   /// Ends the current group membership today and starts the new one. Null removes the
   /// child from any group.
@@ -81,13 +94,13 @@ class SupabaseSetupRepository implements SetupRepository {
   @override
   Future<SetupSnapshot> load() => _guard(() async {
         final results = await Future.wait([
-          _db.from('groups').select('id, name, logo_letter, logo_color, age_min, age_max, archived, group_instructors(person_id)').order('name'),
+          _db.from('groups').select('id, name, logo_letter, logo_color, logo_path, age_min, age_max, archived, group_instructors(person_id)').order('name'),
           _db
               .from('people')
-              .select('id, full_name, phone, must_change_password, person_roles(role)')
+              .select('id, full_name, phone, gender, must_change_password, person_roles(role)')
               .not('phone', 'like', 'deleted-%')
               .order('full_name'),
-          _db.from('children').select('id, full_name, birth_date, consent_recorded_at, child_groups(group_id, to_date), child_parents(parent_id)').order('full_name'),
+          _db.from('children').select('id, full_name, birth_date, gender, consent_recorded_at, child_groups(group_id, to_date), child_parents(parent_id)').order('full_name'),
           _db.from('seasons').select('id, name, starts_on, ends_on, terms(id, name, starts_on, ends_on)').order('starts_on', ascending: false),
           _db.from('account_deletion_requests').select('person_id, requested_at').order('requested_at'),
         ]);
@@ -99,6 +112,7 @@ class SupabaseSetupRepository implements SetupRepository {
                 name: g['name'] as String,
                 logoLetter: g['logo_letter'] as String,
                 logoColor: g['logo_color'] as int,
+                logoPath: g['logo_path'] as String?,
                 ageMin: g['age_min'] as int?,
                 ageMax: g['age_max'] as int?,
                 archived: g['archived'] as bool,
@@ -112,6 +126,7 @@ class SupabaseSetupRepository implements SetupRepository {
                 fullName: p['full_name'] as String,
                 phone: p['phone'] as String,
                 mustChangePassword: p['must_change_password'] as bool,
+                gender: Gender.fromDb(p['gender']),
                 roles: {
                   for (final r in p['person_roles'] as List)
                     ?AppRole.fromDb(r['role'] as String),
@@ -124,6 +139,7 @@ class SupabaseSetupRepository implements SetupRepository {
                 id: c['id'] as String,
                 fullName: c['full_name'] as String,
                 birthDate: _date(c['birth_date']),
+                gender: Gender.fromDb(c['gender']),
                 consentRecordedAt: c['consent_recorded_at'] == null ? null : DateTime.parse(c['consent_recorded_at'] as String),
                 groupId: [
                   for (final m in c['child_groups'] as List)
@@ -200,6 +216,26 @@ class SupabaseSetupRepository implements SetupRepository {
       });
 
   @override
+  Future<void> setGroupLogo(String groupId, Uint8List? image, {String? replaces}) => _guard(() async {
+        final bucket = _db.storage.from(groupLogoBucket);
+        String? path;
+        if (image != null) {
+          // A new name each time, so phones that cached the old picture fetch the new one.
+          final (ext, type) = _imageType(image);
+          path = '$groupId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+          await bucket.uploadBinary(path, image, fileOptions: FileOptions(contentType: type));
+        }
+        await _db.from('groups').update({'logo_path': path}).eq('id', groupId);
+        if (replaces != null) {
+          try {
+            await bucket.remove([replaces]);
+          } catch (_) {
+            // A leftover image costs a few kilobytes; the group already shows the new one.
+          }
+        }
+      });
+
+  @override
   Future<NewAccount> createAccount({required String fullName, required String phone, required Set<AppRole> roles}) =>
       _guard(() async {
         final normalized = normalizePhone(phone);
@@ -235,9 +271,24 @@ class SupabaseSetupRepository implements SetupRepository {
       });
 
   @override
-  Future<String> saveChild({String? id, required String fullName, DateTime? birthDate, required bool recordConsent}) =>
+  Future<void> setGender(String personId, Gender gender) => _guard(() async {
+        await _db.from('people').update({'gender': gender.dbName}).eq('id', personId);
+      });
+
+  @override
+  Future<String> saveChild({
+    String? id,
+    required String fullName,
+    DateTime? birthDate,
+    Gender? gender,
+    required bool recordConsent,
+  }) =>
       _guard(() async {
-        final row = <String, dynamic>{'full_name': fullName, 'birth_date': birthDate == null ? null : _day(birthDate)};
+        final row = <String, dynamic>{
+          'full_name': fullName,
+          'birth_date': birthDate == null ? null : _day(birthDate),
+          'gender': ?gender?.dbName,
+        };
         if (recordConsent) {
           row['consent_recorded_at'] = DateTime.now().toUtc().toIso8601String();
           row['consent_recorded_by'] = _db.auth.currentUser!.id;
@@ -313,6 +364,13 @@ class SupabaseSetupRepository implements SetupRepository {
     }
   }
 
+  /// The picker keeps PNG and WebP as they are and gives JPEG for everything else.
+  static (String, String) _imageType(Uint8List b) {
+    if (b.length > 4 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return ('png', 'image/png');
+    if (b.length > 12 && String.fromCharCodes(b.sublist(8, 12)) == 'WEBP') return ('webp', 'image/webp');
+    return ('jpg', 'image/jpeg');
+  }
+
   Future<T> _guard<T>(Future<T> Function() call) => guardSupabase(call);
 
   static DateTime? _date(Object? value) => value == null ? null : DateTime.parse(value as String);
@@ -320,6 +378,9 @@ class SupabaseSetupRepository implements SetupRepository {
   static String _day(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
+
+/// The public storage bucket for uploaded group logos.
+const groupLogoBucket = 'group-logos';
 
 /// Runs a Supabase call and turns its failures into [SetupError].
 Future<T> guardSupabase<T>(Future<T> Function() call) async {

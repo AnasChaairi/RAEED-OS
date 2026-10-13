@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
@@ -84,6 +86,14 @@ class _Empty extends StatelessWidget {
       );
 }
 
+/// Lets the advisor choose a logo from the phone's photos, scaled down for upload.
+/// Replaced in tests.
+@visibleForTesting
+Future<Uint8List?> Function() pickGroupLogo = () async {
+  final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
+  return file?.readAsBytes();
+};
+
 Future<void> openGroupForm(BuildContext context, {Group? group}) =>
     Navigator.push(context, MaterialPageRoute<void>(builder: (_) => GroupFormScreen(group: group)));
 
@@ -107,6 +117,8 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
   late bool _archived = widget.group?.archived ?? false;
   late final Set<String> _instructors = {...?widget.group?.instructorIds};
   bool _letterEdited = false;
+  Uint8List? _newLogo;
+  bool _removeLogo = false;
   bool _busy = false;
   String? _error;
 
@@ -139,6 +151,8 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
         name: _name.text.trim(),
         logoLetter: _letter.text.trim(),
         logoColor: _color,
+        newLogo: _newLogo,
+        removeLogo: _removeLogo,
         ageMin: int.tryParse(_ageMin.text),
         ageMax: int.tryParse(_ageMax.text),
         archived: _archived,
@@ -150,6 +164,28 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _pickLogo() async {
+    final Uint8List? bytes;
+    try {
+      bytes = await pickGroupLogo();
+    } catch (_) {
+      if (mounted) setState(() => _error = 'تعذّر فتح الصور. تحقّق من إذن الوصول إلى الصور.');
+      return;
+    }
+    if (bytes == null || !mounted) return;
+    if (bytes.length > 1024 * 1024) return setState(() => _error = 'الصورة كبيرة جداً. اختر صورة أصغر.');
+    setState(() {
+      _newLogo = bytes;
+      _removeLogo = false;
+      _error = null;
+    });
+  }
+
+  ImageProvider? get _logoImage {
+    if (_newLogo != null) return MemoryImage(_newLogo!);
+    return _removeLogo ? null : groupLogoImage(widget.group?.logoPath);
   }
 
   String? _age(String? v) {
@@ -180,7 +216,13 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
               const SectionLabel('الشعار'),
               Row(
                 children: [
-                  GroupLogo(letter: _letter.text.isEmpty ? '؟' : _letter.text, color: _color, size: 56),
+                  GroupLogo(
+                    key: const Key('group-logo-preview'),
+                    letter: _letter.text.isEmpty ? '؟' : _letter.text,
+                    color: _color,
+                    size: 56,
+                    image: _logoImage,
+                  ),
                   const SizedBox(width: 12),
                   SizedBox(
                     width: 96,
@@ -194,6 +236,33 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    key: const Key('pick-logo'),
+                    onPressed: _busy ? null : _pickLogo,
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text(_logoImage == null ? 'رفع صورة الشعار' : 'تغيير الصورة'),
+                  ),
+                  if (_logoImage != null)
+                    TextButton(
+                      key: const Key('remove-logo'),
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                                _newLogo = null;
+                                _removeLogo = true;
+                              }),
+                      child: const Text('إزالة الصورة'),
+                    ),
+                ],
+              ),
+              Text(
+                'الحرف واللون يظهران عندما لا توجد صورة، أو قبل أن تُحمَّل.',
+                style: text.bodySmall?.copyWith(color: RaeedColors.grey),
               ),
               const SizedBox(height: 10),
               Wrap(
