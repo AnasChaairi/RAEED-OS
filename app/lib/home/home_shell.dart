@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../advisor/stats_screen.dart';
+import '../advisor/stats_store.dart';
 import '../auth/phone.dart';
 import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
@@ -8,6 +12,10 @@ import '../instructor/groups_screen.dart';
 import '../instructor/sessions_screen.dart';
 import '../instructor/today_screen.dart';
 import '../instructor/widgets.dart';
+import '../notifications/push.dart';
+import '../parent/account_screen.dart';
+import '../parent/parent_store.dart';
+import '../parent/schedule_screen.dart';
 import '../roles/choose_role_screen.dart';
 import '../setup/children_screen.dart';
 import '../setup/groups_screen.dart';
@@ -29,21 +37,44 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   late final AppLifecycleListener _lifecycle;
+  StreamSubscription<PushMessage>? _pushes;
 
   @override
   void initState() {
     super.initState();
     _refreshSetup();
     // Back in the app: send waiting attendance and pick up changes.
-    _lifecycle = AppLifecycleListener(onResume: () {
-      if (widget.role == AppRole.instructor) InstructorScope.read(context).refresh();
-    });
+    _lifecycle = AppLifecycleListener(onResume: _refreshRole);
+    final push = PushScope.read(context);
+    _pushes = push.messages.listen(_showPush);
+    WidgetsBinding.instance.addPostFrameCallback((_) => push.register());
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
+    _pushes?.cancel();
     super.dispose();
+  }
+
+  void _refreshRole() {
+    switch (widget.role) {
+      case AppRole.instructor:
+        InstructorScope.read(context).refresh();
+      case AppRole.parent:
+        ParentScope.read(context).refresh();
+      case AppRole.advisor:
+        StatsScope.read(context).load();
+    }
+  }
+
+  /// A notification while the app is open: show it, and fetch what it is about.
+  void _showPush(PushMessage m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(m.body.isEmpty ? m.title : '${m.title}\n${m.body}')),
+    );
+    _refreshRole();
   }
 
   @override
@@ -59,7 +90,16 @@ class _HomeShellState extends State<HomeShell> {
   void _refreshSetup() {
     if (widget.role == AppRole.advisor) {
       final store = SetupScope.read(context);
-      WidgetsBinding.instance.addPostFrameCallback((_) => store.load());
+      final stats = StatsScope.read(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        store.load();
+        stats.load();
+      });
+    }
+    if (widget.role == AppRole.parent) {
+      final store = ParentScope.read(context);
+      final id = SessionScope.read(context).profile!.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) => store.start(id));
     }
     if (widget.role == AppRole.instructor) {
       final store = InstructorScope.read(context);
@@ -69,13 +109,16 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Widget _tabBody(int i) => switch ((widget.role, i)) {
+        (AppRole.advisor, 0) => const StatsTab(),
         (AppRole.advisor, 1) => const GroupsList(),
-        (AppRole.advisor, 2) => const ChildrenList(),
+        (AppRole.advisor, 2) => const ChildrenList(profiles: true),
         (AppRole.advisor, 3) => const SetupHub(),
         (AppRole.instructor, 0) => const TodayTab(),
         (AppRole.instructor, 1) => const SessionsTab(),
         (AppRole.instructor, 2) => const MyGroupsTab(),
         (AppRole.instructor, 3) => const AlertsTab(),
+        (AppRole.parent, 0) => const ParentScheduleTab(),
+        (AppRole.parent, 1) => const ParentAccountTab(),
         _ => EmptyTab(tab: widget.role.tabs[i]),
       };
 

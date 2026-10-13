@@ -9,9 +9,12 @@ import 'session_scope.dart';
 const minPasswordLength = 8;
 
 /// Screen 2 of the main screens: shown once, after signing in with the temporary
-/// password the advisor handed over.
+/// password the advisor handed over. Also opened from the account screen, where it
+/// closes itself once saved.
 class ChangePasswordScreen extends StatefulWidget {
-  const ChangePasswordScreen({super.key});
+  const ChangePasswordScreen({super.key, this.fromAccount = false});
+
+  final bool fromAccount;
 
   @override
   State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
@@ -39,6 +42,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     });
     try {
       await SessionScope.read(context).changePassword(_first.text);
+      if (widget.fromAccount && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تغيير كلمة المرور ✓')));
+        Navigator.pop(context);
+      }
     } on AuthError catch (e) {
       if (mounted) setState(() => _error = failureMessage(e.failure));
     } finally {
@@ -52,9 +59,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('إنشاء كلمة المرور'),
+        title: Text(widget.fromAccount ? 'تغيير كلمة المرور' : 'إنشاء كلمة المرور'),
         actions: [
-          TextButton(onPressed: _busy ? null : session.signOut, child: const Text('خروج')),
+          if (!widget.fromAccount)
+            TextButton(onPressed: _busy ? null : session.signOut, child: const Text('خروج')),
         ],
       ),
       body: SafeArea(
@@ -63,6 +71,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             children: [
+              if (!widget.fromAccount) ...[
               Text('أول دخول · ${session.profile?.fullName ?? ''}', style: text.bodyMedium?.copyWith(color: RaeedColors.grey)),
               const SizedBox(height: 16),
               Card(
@@ -74,6 +83,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   ),
                 ),
               ),
+              ],
               const SizedBox(height: 20),
               TextFormField(
                 key: const Key('new-password'),
@@ -109,7 +119,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               FilledButton(
                 key: const Key('save-password'),
                 onPressed: _busy ? null : _submit,
-                child: _busy ? const ButtonSpinner() : const Text('حفظ والمتابعة'),
+                child: _busy ? const ButtonSpinner() : Text(widget.fromAccount ? 'حفظ' : 'حفظ والمتابعة'),
               ),
             ],
           ),

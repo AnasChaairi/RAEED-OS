@@ -162,6 +162,9 @@ class Session {
     this.status = SessionStatus.planned,
     this.cancelReason,
     this.materials = const [],
+    this.originalDate,
+    this.originalStart,
+    this.originalEnd,
   });
 
   final String id;
@@ -183,6 +186,11 @@ class Session {
   final String? cancelReason;
   final List<SessionMaterial> materials;
 
+  /// When the session was first planned, if it has since moved.
+  final DateTime? originalDate;
+  final int? originalStart;
+  final int? originalEnd;
+
   bool get cancelled => status == SessionStatus.cancelled;
   bool get away => place == SessionPlace.away;
   DateTime get startsAt => date.add(Duration(minutes: start));
@@ -192,6 +200,15 @@ class Session {
   String get placeLabel => away ? 'خارج المقر · ${address ?? ''}' : 'جمعية سماء · الطابق ${floors[floor] ?? ''}';
 
   String get timeLabel => '${formatTime(start)} – ${formatTime(end)}';
+
+  /// "كان 17:00", or "كان الأربعاء 10 فبراير 17:00" when the day moved too. Null when the
+  /// session is where it was first planned.
+  String? get movedFrom {
+    if (originalDate == null || originalStart == null) return null;
+    if (originalDate == date && originalStart == start && originalEnd == end) return null;
+    if (originalDate == date) return 'كان ${formatTime(originalStart!)}';
+    return 'كان ${longDay(originalDate!)} ${formatTime(originalStart!)}';
+  }
 
   SessionDraft toDraft() => SessionDraft(
     groupId: groupId,
@@ -229,6 +246,9 @@ class Session {
     'status': status.name,
     'cancel_reason': cancelReason,
     'materials': [for (final m in materials) m.toJson()],
+    'original_date': originalDate == null ? null : dbDay(originalDate!),
+    'original_start': originalStart == null ? null : formatTime(originalStart!),
+    'original_end': originalEnd == null ? null : formatTime(originalEnd!),
   };
 
   /// Reads a sessions row (with its materials) or [toJson]'s output.
@@ -253,6 +273,9 @@ class Session {
     materials: [
       for (final m in (j['materials'] as List? ?? const [])) SessionMaterial.fromJson(m as Map<String, dynamic>),
     ],
+    originalDate: j['original_date'] == null ? null : DateTime.parse(j['original_date'] as String),
+    originalStart: _timeOrNull(j['original_start']),
+    originalEnd: _timeOrNull(j['original_end']),
   );
 }
 

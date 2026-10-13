@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'advisor/stats_store.dart';
 import 'auth/app_session.dart';
 import 'auth/change_password_screen.dart';
 import 'auth/messages.dart';
@@ -9,6 +10,9 @@ import 'auth/sign_in_screen.dart';
 import 'home/home_shell.dart';
 import 'instructor/instructor_store.dart';
 import 'instructor/widgets.dart';
+import 'notifications/push.dart';
+import 'parent/parent_store.dart';
+import 'profile/profile_repository.dart';
 import 'roles/choose_role_screen.dart';
 import 'setup/setup_store.dart';
 import 'setup/widgets.dart';
@@ -16,7 +20,16 @@ import 'theme/raeed_theme.dart';
 
 /// Arabic only, right to left, everywhere.
 class RaeedApp extends StatelessWidget {
-  const RaeedApp({super.key, required this.session, required this.setup, required this.instructor});
+  const RaeedApp({
+    super.key,
+    required this.session,
+    required this.setup,
+    required this.instructor,
+    required this.parent,
+    required this.stats,
+    required this.profiles,
+    required this.push,
+  });
 
   final AppSession session;
 
@@ -26,6 +39,16 @@ class RaeedApp extends StatelessWidget {
   /// The instructor's sessions and attendance, kept on the phone for offline use.
   final InstructorStore instructor;
 
+  /// The parent's schedule, kept on the phone.
+  final ParentStore parent;
+
+  /// The advisor's statistics.
+  final StatsStore stats;
+
+  /// Child profiles, for advisors and instructors.
+  final ProfileRepository profiles;
+  final PushService push;
+
   @override
   Widget build(BuildContext context) {
     return SessionScope(
@@ -34,7 +57,16 @@ class RaeedApp extends StatelessWidget {
         store: setup,
         child: InstructorScope(
           store: instructor,
-          child: MaterialApp(
+          child: ParentScope(
+            store: parent,
+            child: StatsScope(
+              store: stats,
+              child: PushScope(
+                push: push,
+                child: ProfileScope(
+                  repo: profiles,
+                  clock: instructor.now,
+                  child: MaterialApp(
             title: 'رائد',
             debugShowCheckedModeBanner: false,
             theme: buildRaeedTheme(),
@@ -42,6 +74,10 @@ class RaeedApp extends StatelessWidget {
             supportedLocales: const [Locale('ar', 'MA')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: const SessionGate(),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

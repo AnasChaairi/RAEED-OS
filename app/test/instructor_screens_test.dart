@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'fake_auth.dart';
 import 'fake_instructor.dart';
 import 'fake_setup.dart';
+import 'fake_stage4.dart';
 
 const me = '212612345678';
 final now = DateTime(2027, 2, 6, 9, 41);
@@ -48,7 +49,18 @@ Future<Opened> openInstructor(
   final prefs = await SharedPreferences.getInstance();
   final session = AppSession(auth, prefs);
   final store = InstructorStore(repo, prefs, retryEvery: null, clock: () => now);
-  await tester.pumpWidget(RaeedApp(session: session, setup: SetupStore(FakeSetupRepository()), instructor: store));
+  final extra = stage4(prefs, clock: () => now);
+  await tester.pumpWidget(
+    RaeedApp(
+      session: session,
+      setup: SetupStore(FakeSetupRepository()),
+      instructor: store,
+      parent: extra.parent,
+      stats: extra.stats,
+      profiles: extra.profiles,
+      push: extra.push,
+    ),
+  );
   await session.start();
   await tester.pumpAndSettle();
   return Opened(repo, store, auth, session);
@@ -201,5 +213,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('0%'), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
+  });
+
+  testWidgets('a child in my group opens the child profile', (tester) async {
+    await openInstructor(tester);
+    await tab(tester, 'فئاتي');
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('kid-adam')));
+    await tester.pumpAndSettle();
+    expect(find.text('ملف الطفل'), findsNothing);
+    expect(find.text('الملاحظات مرئية لمؤطري الطفل والمشرفين فقط'), findsOneWidget);
   });
 }

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'fake_auth.dart';
 import 'fake_instructor.dart';
 import 'fake_setup.dart';
+import 'fake_stage4.dart';
 
 const advisorPhone = '212691015402';
 const multiPhone = '212612345678';
@@ -34,10 +35,15 @@ Future<AppSession> pumpApp(WidgetTester tester, FakeAuthRepository auth, {Map<St
   SharedPreferences.setMockInitialValues(prefs);
   final preferences = await SharedPreferences.getInstance();
   final session = AppSession(auth, preferences);
+  final extra = stage4(preferences);
   await tester.pumpWidget(RaeedApp(
     session: session,
     setup: SetupStore(FakeSetupRepository()),
     instructor: InstructorStore(FakeInstructorRepository(), preferences, retryEvery: null),
+    parent: extra.parent,
+    stats: extra.stats,
+    profiles: extra.profiles,
+    push: extra.push,
   ));
   await session.start();
   await tester.pumpAndSettle();
