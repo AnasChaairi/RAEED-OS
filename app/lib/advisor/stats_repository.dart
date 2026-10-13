@@ -8,6 +8,12 @@ import 'stats_models.dart';
 /// The advisor's reads for the statistics. Throws [SetupError].
 abstract interface class StatsRepository {
   Future<StatsData> load();
+
+  /// The pilot measures for the days [from] to [to], both included.
+  Future<PilotMetrics> pilotMetrics(DateTime from, DateTime to);
+
+  /// Notes that the advisor opened the statistics, for the pilot metrics.
+  Future<void> logView();
 }
 
 class SupabaseStatsRepository implements StatsRepository {
@@ -118,4 +124,13 @@ class SupabaseStatsRepository implements StatsRepository {
       termStart: termStart,
     );
   });
+
+  @override
+  Future<PilotMetrics> pilotMetrics(DateTime from, DateTime to) => guardSupabase(() async {
+    final j = await _db.rpc('pilot_metrics', params: {'p_from': dbDay(from), 'p_to': dbDay(to)});
+    return PilotMetrics.fromJson(Map<String, dynamic>.from(j as Map));
+  });
+
+  @override
+  Future<void> logView() => guardSupabase(() => _db.from('usage_events').insert({'kind': 'stats_view'}));
 }

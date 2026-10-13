@@ -215,3 +215,74 @@ class Stats {
 
 /// 91%
 String percent(double? rate) => rate == null ? '—' : '${(rate * 100).round()}%';
+
+/// The pilot's success measures from the product definition, between two days.
+class PilotMetrics {
+  const PilotMetrics({
+    this.sessionsHeld = 0,
+    this.recordedWithin24h = 0,
+    this.recordedLate = 0,
+    this.groups = const [],
+    this.medianSheetSeconds,
+    this.sheetsTimed = 0,
+    this.alertsDue = 0,
+    this.alertsFollowedUp = 0,
+    this.families = 0,
+    this.familiesSignedIn = 0,
+    this.advisors = const [],
+  });
+
+  factory PilotMetrics.fromJson(Map<String, dynamic> j) => PilotMetrics(
+    sessionsHeld: j['sessions_held'] as int,
+    recordedWithin24h: j['recorded_within_24h'] as int,
+    recordedLate: j['recorded_late'] as int,
+    groups: [
+      for (final g in j['by_group'] as List)
+        (groupId: g['group_id'] as String, held: g['held'] as int, onTime: g['on_time'] as int),
+    ],
+    medianSheetSeconds: (j['median_sheet_seconds'] as num?)?.round(),
+    sheetsTimed: j['sheets_timed'] as int,
+    alertsDue: j['alerts_due'] as int,
+    alertsFollowedUp: j['alerts_followed_up'] as int,
+    families: j['families'] as int,
+    familiesSignedIn: j['families_signed_in'] as int,
+    advisors: [
+      for (final a in j['advisors'] as List)
+        (
+          name: a['full_name'] as String,
+          weeksOpened: a['weeks_opened'] as int,
+          lastOpened: a['last_opened'] == null ? null : DateTime.parse(a['last_opened'] as String).toLocal(),
+        ),
+    ],
+  );
+
+  /// Sessions that ended in the period, and how many had attendance within 24 hours.
+  final int sessionsHeld;
+  final int recordedWithin24h;
+  final int recordedLate;
+  final List<({String groupId, int held, int onTime})> groups;
+
+  /// The median time from opening the attendance sheet to a first save.
+  final int? medianSheetSeconds;
+  final int sheetsTimed;
+
+  /// Alerts at least seven days old or already followed up, and how many were followed
+  /// up within seven days.
+  final int alertsDue;
+  final int alertsFollowedUp;
+
+  /// Children with a parent account, and how many have a parent who signed in.
+  final int families;
+  final int familiesSignedIn;
+  final List<({String name, int weeksOpened, DateTime? lastOpened})> advisors;
+
+  double? get onTimeRate => sessionsHeld == 0 ? null : recordedWithin24h / sessionsHeld;
+  double? get followUpRate => alertsDue == 0 ? null : alertsFollowedUp / alertsDue;
+  double? get signedInRate => families == 0 ? null : familiesSignedIn / families;
+}
+
+/// The pilot's targets (product definition).
+const pilotOnTimeTarget = 0.9;
+const pilotSheetSecondsTarget = 180;
+const pilotFollowUpTarget = 0.8;
+const pilotSignedInTarget = 0.7;

@@ -84,6 +84,9 @@ abstract interface class AuthRepository {
   /// Sets a new password and clears people.must_change_password.
   Future<void> changePassword(String newPassword);
 
+  /// Asks the advisor to delete this account and its data. Asking twice is harmless.
+  Future<void> requestDeletion();
+
   Future<void> signOut();
 }
 
@@ -127,6 +130,13 @@ class SupabaseAuthRepository implements AuthRepository {
         await _client.auth.updateUser(UserAttributes(password: newPassword));
         await _client.rpc('mark_password_changed');
       });
+
+  @override
+  Future<void> requestDeletion() => _guard(
+        () => _client
+            .from('account_deletion_requests')
+            .upsert({'person_id': _client.auth.currentUser!.id}, ignoreDuplicates: true),
+      );
 
   @override
   Future<void> signOut() async {

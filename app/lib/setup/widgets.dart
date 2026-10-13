@@ -22,6 +22,7 @@ String setupFailureMessage(SetupFailure f) => switch (f) {
       SetupFailure.invalidPhone => 'رقم الهاتف غير صحيح. اكتبه هكذا: 06 12 34 56 78',
       SetupFailure.tooManyParents => 'لا يمكن تسجيل أكثر من وليّي أمر لطفل واحد.',
       SetupFailure.ownAdvisorRole => 'لا يمكنك إزالة دور المشرف عن حسابك.',
+      SetupFailure.ownAccount => 'لا يمكنك حذف حسابك بنفسك. اطلب ذلك من مشرف آخر.',
       SetupFailure.notAllowed => 'ليست لديك صلاحية لهذا التغيير.',
       SetupFailure.unknown => 'حدث خطأ. حاول مرة أخرى بعد قليل.',
     };

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../advisor/stats_screen.dart';
 import '../advisor/stats_store.dart';
+import '../auth/delete_account.dart';
 import '../auth/phone.dart';
 import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
@@ -252,6 +253,7 @@ Future<void> showAccountSheet(BuildContext context) {
                 icon: const Icon(Icons.logout),
                 label: const Text('تسجيل الخروج'),
               ),
+              const DeleteAccountButton(),
             ],
           ),
         ),

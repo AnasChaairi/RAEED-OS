@@ -30,6 +30,9 @@ abstract interface class InstructorRepository {
 
   /// The parent was reached: closes the alert with the reason.
   Future<void> closeAlert(String alertId, String reason);
+
+  /// How long the attendance sheet took, for the pilot metrics.
+  Future<void> logSheet(String sessionId, int seconds);
 }
 
 class SupabaseInstructorRepository implements InstructorRepository {
@@ -230,5 +233,10 @@ class SupabaseInstructorRepository implements InstructorRepository {
           'closed_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', alertId),
+  );
+
+  @override
+  Future<void> logSheet(String sessionId, int seconds) => guardSupabase(
+    () => _db.from('usage_events').insert({'kind': 'attendance_sheet', 'session_id': sessionId, 'seconds': seconds}),
   );
 }

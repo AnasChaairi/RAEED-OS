@@ -102,12 +102,16 @@ class SetupSnapshot {
     this.people = const [],
     this.children = const [],
     this.seasons = const [],
+    this.deletionRequests = const [],
   });
 
   final List<Group> groups;
   final List<Person> people;
   final List<Child> children;
   final List<Season> seasons;
+
+  /// People who asked for their account to be deleted, oldest request first.
+  final List<({String personId, DateTime requestedAt})> deletionRequests;
 
   Group? group(String? id) => id == null ? null : groups.where((g) => g.id == id).firstOrNull;
   Person? person(String? id) => id == null ? null : people.where((p) => p.id == id).firstOrNull;

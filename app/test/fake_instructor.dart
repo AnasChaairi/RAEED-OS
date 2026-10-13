@@ -199,6 +199,15 @@ class FakeInstructorRepository implements InstructorRepository {
       closedAt: DateTime.now(),
     );
   }
+
+  /// Timed attendance sheets, as "sessionId seconds".
+  final sheets = <String>[];
+
+  @override
+  Future<void> logSheet(String sessionId, int seconds) async {
+    _check();
+    sheets.add('$sessionId $seconds');
+  }
 }
 
 /// A group of three children taught by [me], with a session today at 10:00 and one a

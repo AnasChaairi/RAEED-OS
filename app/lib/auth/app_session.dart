@@ -50,6 +50,9 @@ class AppSession extends ChangeNotifier {
   bool _offlineProfile = false;
   bool get offlineProfile => _offlineProfile;
 
+  /// Asks the advisor to delete this account. Throws [AuthError].
+  Future<void> requestDeletion() => _auth.requestDeletion();
+
   /// Picks up a session saved on the phone.
   Future<void> start() async {
     if (_auth.currentUserId == null) {

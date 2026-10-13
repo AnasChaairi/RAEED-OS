@@ -29,8 +29,21 @@ class FakeParentRepository implements ParentRepository {
 class FakeStatsRepository implements StatsRepository {
   StatsData data = const StatsData();
 
+  PilotMetrics pilot = const PilotMetrics();
+  final pilotAsked = <(DateTime, DateTime)>[];
+  int views = 0;
+
   @override
   Future<StatsData> load() async => data;
+
+  @override
+  Future<PilotMetrics> pilotMetrics(DateTime from, DateTime to) async {
+    pilotAsked.add((from, to));
+    return pilot;
+  }
+
+  @override
+  Future<void> logView() async => views++;
 }
 
 class FakeProfileRepository implements ProfileRepository {

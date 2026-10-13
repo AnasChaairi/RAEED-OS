@@ -108,9 +108,10 @@ ParentSnapshot seededParent() => ParentSnapshot(
 );
 
 class OpenedParent {
-  OpenedParent(this.repo, this.push, this.session);
+  OpenedParent(this.repo, this.push, this.session, this.auth);
 
   final FakeParentRepository repo;
+  final FakeAuthRepository auth;
   final FakePush push;
   final AppSession session;
 }
@@ -149,7 +150,7 @@ Future<OpenedParent> openParent(
   );
   await session.start();
   await tester.pumpAndSettle();
-  return OpenedParent(repo, push, session);
+  return OpenedParent(repo, push, session, auth);
 }
 
 void main() {
@@ -261,5 +262,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('تم تغيير كلمة المرور ✓'), findsOneWidget);
     expect(find.text('من يتلقى الإشعارات'), findsOneWidget, reason: 'back on the account');
+  });
+
+  testWidgets('a parent asks for their account to be deleted, after confirming', (tester) async {
+    final o = await openParent(tester);
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('حسابي')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('request-deletion')), 200);
+    await tester.tap(find.byKey(const Key('request-deletion')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(o.auth.deletionRequests, isEmpty);
+
+    await tester.tap(find.byKey(const Key('request-deletion')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-deletion')));
+    await tester.pumpAndSettle();
+    expect(o.auth.deletionRequests, {karim});
+    expect(find.text('وصل طلبك إلى المشرف ✓'), findsOneWidget);
   });
 }

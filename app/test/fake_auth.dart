@@ -50,6 +50,14 @@ class FakeAuthRepository implements AuthRepository {
       ..mustChangePassword = false;
   }
 
+  final deletionRequests = <String>{};
+
+  @override
+  Future<void> requestDeletion() async {
+    if (offline) throw const AuthError(AuthFailure.offline);
+    deletionRequests.add(signedInAs!);
+  }
+
   @override
   Future<void> signOut() async => signedInAs = null;
 }
