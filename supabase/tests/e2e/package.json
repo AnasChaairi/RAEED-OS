@@ -1,0 +1,12 @@
+{
+  "name": "raeed-os-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests of the RAEED OS backend against a local Supabase (supabase start).",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.45.4"
+  }
+}
