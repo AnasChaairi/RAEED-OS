@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'fake_auth.dart';
 import 'fake_instructor.dart';
 import 'fake_setup.dart';
+import 'fake_stage4.dart';
 
 /// Signs in as an advisor on a tall phone and opens the given tab.
 Future<FakeSetupRepository> openAdvisor(
@@ -32,10 +33,15 @@ Future<FakeSetupRepository> openAdvisor(
   await seed?.call(repo);
   final prefs = await SharedPreferences.getInstance();
   final session = AppSession(auth, prefs);
+  final extra = stage4(prefs);
   await tester.pumpWidget(RaeedApp(
     session: session,
     setup: SetupStore(repo),
     instructor: InstructorStore(FakeInstructorRepository(), prefs, retryEvery: null),
+    parent: extra.parent,
+    stats: extra.stats,
+    profiles: extra.profiles,
+    push: extra.push,
   ));
   await session.start();
   await tester.pumpAndSettle();

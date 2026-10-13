@@ -32,5 +32,23 @@ avatar at the top switches roles or signs out.
 | `lib/auth/` | Supabase sign-in, the session state, sign-in and password screens |
 | `lib/roles/` | Roles, their tabs, and the role chooser |
 | `lib/home/` | The tab shell and the account sheet with the role switcher |
+| `lib/setup/` | The advisor's setup: groups, staff, children and parents, seasons |
+| `lib/instructor/` | The instructor's tabs: today, sessions, groups, alerts, offline attendance |
+| `lib/parent/` | The parent's schedule, session detail and account |
+| `lib/advisor/` | The advisor's statistics |
+| `lib/profile/` | The child profile, for advisors and instructors |
+| `lib/notifications/` | Push notifications through Firebase |
 | `lib/theme/` | RAEED colours and fonts |
 | `assets/fonts/` | Baloo Bhaijaan 2 (titles) and IBM Plex Sans Arabic (text), SIL Open Font License |
+
+## Push notifications
+
+Session changes queue one row per parent in `notification_outbox`. The `send-notifications` server
+function sends each as a push notification through Firebase Cloud Messaging to every phone the
+parent signed in on, and records how many phones it reached.
+
+The app uses the Firebase project `raeed-os`; its Android settings from `google-services.json` are in
+`lib/config.dart` and can be overridden with `--dart-define=FIREBASE_API_KEY=…` and the like. The
+server needs that project's service account key: in Firebase, Project settings, Service accounts,
+generate a private key, and in Supabase, Edge Functions, Secrets, save its whole JSON as
+`FCM_SERVICE_ACCOUNT`. Until then rows wait in the queue.

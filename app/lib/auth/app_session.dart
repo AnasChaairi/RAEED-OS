@@ -85,7 +85,12 @@ class AppSession extends ChangeNotifier {
     _set(SessionStage.ready);
   }
 
+  /// Runs before signing out, while still signed in: this phone stops receiving the
+  /// person's notifications.
+  Future<void> Function()? beforeSignOut;
+
   Future<void> signOut() async {
+    await beforeSignOut?.call();
     await _auth.signOut();
     _profile = null;
     _role = null;

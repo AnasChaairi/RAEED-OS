@@ -144,4 +144,40 @@ do $$ begin
     raise exception 'FAIL: password-changed flag not cleared'; end if;
 end $$;
 
+-- Stage 4: a moved session remembers its first time, and parents see who is notified.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+update public.sessions set start_time = '10:30' where id = '30000000-0000-0000-0000-000000000001';
+update public.sessions set start_time = '10:45' where id = '30000000-0000-0000-0000-000000000001';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+select public.register_device('token-soad', 'android');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ begin
+  if (select original_start from sessions where id = '30000000-0000-0000-0000-000000000001') <> '10:00' then
+    raise exception 'FAIL: a moved session should keep its first start time'; end if;
+  if (select count(*) from my_children_parents()) <> 2 then raise exception 'FAIL: parent should see both parents'; end if;
+  if (select full_name from my_children_parents() limit 1) <> 'كريم بنعلي' then
+    raise exception 'FAIL: the caller should come first'; end if;
+  if (select string_agg(notified::text, ',') from my_children_parents()) <> 'false,true' then
+    raise exception 'FAIL: notification status per parent'; end if;
+end $$;
+-- The same phone signed in as Karim moves the token to him.
+select public.register_device('token-soad', 'android');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+do $$ begin
+  if (select count(*) from my_children_parents()) <> 0 then raise exception 'FAIL: instructor sees parents through my_children_parents'; end if;
+  begin
+    perform public.claim_notifications(10);
+    raise exception 'FAIL: app can claim notifications';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+reset role;
+do $$ begin
+  if (select person_id from devices where push_token = 'token-soad') <> '00000000-0000-0000-0000-00000000000c' then
+    raise exception 'FAIL: token should move to whoever signed in'; end if;
+  if (select count(*) from claim_notifications(100)) = 0 then raise exception 'FAIL: claim returns nothing'; end if;
+  if (select count(*) from claim_notifications(100)) <> 0 then raise exception 'FAIL: claimed rows claimed twice'; end if;
+end $$;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;

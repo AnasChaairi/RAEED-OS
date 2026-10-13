@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-import '../auth/phone.dart';
+import '../profile/child_profile_screen.dart';
 import '../setup/models.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
-import 'attendance_screen.dart';
 import 'models.dart';
 import 'session_form_screen.dart';
 import 'sessions_screen.dart';
@@ -160,8 +157,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             const SizedBox(height: 6),
             Text(
               data.termStart == null
-                  ? 'نسبة الحضور في آخر 30 يوماً. اضغط على اسم لرؤية أولياء الأمور والملاحظات.'
-                  : 'نسبة الحضور هذا الفصل. اضغط على اسم لرؤية أولياء الأمور والملاحظات.',
+                  ? 'نسبة الحضور في آخر 30 يوماً. اضغط على اسم لفتح ملف الطفل.'
+                  : 'نسبة الحضور هذا الفصل. اضغط على اسم لفتح ملف الطفل.',
               style: text.bodySmall?.copyWith(color: RaeedColors.grey),
             ),
           ] else ...[
@@ -210,50 +207,7 @@ class _KidRate extends StatelessWidget {
           color: rate == null ? RaeedColors.grey : (low ? RaeedColors.error : const Color(0xFF1C7A55)),
         ),
       ),
-      onTap: () => _showChild(context, child),
+      onTap: () => openChildProfile(context, child.id),
     );
   }
 }
-
-/// The parents to call and the note button. The full child profile comes with the
-/// statistics stage.
-Future<void> _showChild(BuildContext context, RosterChild child) => showModalBottomSheet<void>(
-  context: context,
-  builder: (sheet) {
-    final text = Theme.of(sheet).textTheme;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(child.fullName, style: text.titleLarge),
-            const SectionLabel('أولياء الأمور'),
-            if (child.parents.isEmpty) const Text('لا يوجد ولي أمر مسجّل.', style: TextStyle(color: RaeedColors.grey)),
-            for (final p in child.parents)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(p.fullName),
-                subtitle: Text(formatPhone(p.phone), textDirection: TextDirection.ltr, textAlign: TextAlign.end),
-                trailing: IconButton(
-                  tooltip: 'اتصال',
-                  onPressed: () => launchUrl(Uri.parse('tel:${p.phone}')),
-                  icon: const Icon(Icons.call, color: RaeedColors.blue),
-                ),
-              ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(sheet);
-                showNoteSheet(context, child);
-              },
-              icon: const Icon(Icons.note_add_outlined),
-              label: const Text('ملاحظة'),
-            ),
-          ],
-        ),
-      ),
-    );
-  },
-);

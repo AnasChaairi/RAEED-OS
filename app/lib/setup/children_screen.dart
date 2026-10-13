@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/phone.dart';
+import '../profile/child_profile_screen.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
 import 'models.dart';
@@ -10,7 +11,10 @@ import 'widgets.dart';
 
 /// Children by فئة, with search. The advisor's الأطفال tab and Setup's children list.
 class ChildrenList extends StatefulWidget {
-  const ChildrenList({super.key});
+  const ChildrenList({super.key, this.profiles = false});
+
+  /// Tapping a child opens their profile (the الأطفال tab) instead of the edit form.
+  final bool profiles;
 
   @override
   State<ChildrenList> createState() => _ChildrenListState();
@@ -68,7 +72,7 @@ class _ChildrenListState extends State<ChildrenList> {
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(color: RaeedColors.grey)),
                   ]),
                 ),
-                for (final c in kids) ...[_ChildRow(child: c, data: data), const SizedBox(height: 8)],
+                for (final c in kids) ...[_ChildRow(child: c, data: data, profile: widget.profiles), const SizedBox(height: 8)],
               ],
             ],
           );
@@ -87,10 +91,11 @@ class ChildrenScreen extends StatelessWidget {
 }
 
 class _ChildRow extends StatelessWidget {
-  const _ChildRow({required this.child, required this.data});
+  const _ChildRow({required this.child, required this.data, this.profile = false});
 
   final Child child;
   final SetupSnapshot data;
+  final bool profile;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +107,7 @@ class _ChildRow extends StatelessWidget {
       trailing: child.consentRecordedAt == null
           ? const Tooltip(message: 'الموافقة غير مسجّلة', child: Icon(Icons.assignment_late_outlined, color: Color(0xFFF06C00)))
           : null,
-      onTap: () => openChildForm(context, child: child),
+      onTap: () => profile ? openChildProfile(context, child.id) : openChildForm(context, child: child),
     );
   }
 }
