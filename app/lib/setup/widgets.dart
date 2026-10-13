@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../auth/phone.dart';
 import '../config.dart';
 import '../theme/raeed_theme.dart';
+import '../widgets/pickers.dart';
 import 'models.dart';
 import 'setup_repository.dart';
 import 'setup_store.dart';
@@ -289,9 +290,20 @@ Future<void> showIssuedPasswords(BuildContext context, List<IssuedPassword> issu
   );
 }
 
-/// A date shown as 12/10/2026, tapping opens the date picker.
+/// A date shown as 12/10/2026. Tapping opens day, month and year wheels, or with [upcoming]
+/// the next two weeks as day cards.
 class DateField extends StatelessWidget {
-  const DateField({super.key, required this.label, required this.value, required this.onChanged, this.firstDate, this.lastDate, this.required = false});
+  const DateField({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.firstDate,
+    this.lastDate,
+    this.required = false,
+    this.upcoming = false,
+    this.suggested,
+  });
 
   final String label;
   final DateTime? value;
@@ -300,6 +312,12 @@ class DateField extends StatelessWidget {
   final DateTime? lastDate;
   final bool required;
 
+  /// For session dates, which are nearly always in the coming days.
+  final bool upcoming;
+
+  /// Where the wheels start when there is no value yet.
+  final DateTime? suggested;
+
   @override
   Widget build(BuildContext context) {
     return FormField<DateTime>(
@@ -307,12 +325,11 @@ class DateField extends StatelessWidget {
       validator: (_) => required && value == null ? 'اختر التاريخ' : null,
       builder: (state) => InkWell(
         onTap: () async {
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: value ?? DateTime.now(),
-            firstDate: firstDate ?? DateTime(2000),
-            lastDate: lastDate ?? DateTime(2100),
-          );
+          final first = firstDate ?? DateTime(2000);
+          final last = lastDate ?? DateTime(DateTime.now().year + 5, 12, 31);
+          final picked = upcoming
+              ? await showUpcomingDateSheet(context, title: label, initial: value, firstDate: first, lastDate: last)
+              : await showDateWheelsSheet(context, title: label, initial: value ?? suggested, firstDate: first, lastDate: last);
           if (picked != null) {
             onChanged(picked);
             state.didChange(picked);
