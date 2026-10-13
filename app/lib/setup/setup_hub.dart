@@ -4,7 +4,9 @@ import '../roles/app_role.dart';
 import '../theme/raeed_theme.dart';
 import 'children_screen.dart';
 import 'groups_screen.dart';
+import 'models.dart';
 import 'seasons_screen.dart';
+import 'setup_repository.dart';
 import 'staff_screen.dart';
 import 'widgets.dart';
 
@@ -77,6 +79,26 @@ class SetupHub extends StatelessWidget {
               ],
               onTap: () => open(const SeasonsScreen()),
             ),
+            if (data.deletionRequests.isNotEmpty) ...[
+              const SectionLabel('طلبات حذف الحساب'),
+              for (final r in data.deletionRequests)
+                if (data.person(r.personId) case final p?)
+                  Card(
+                    child: ListTile(
+                      key: Key('deletion-${p.id}'),
+                      title: Text(p.fullName),
+                      subtitle: Text(
+                        '${[for (final role in p.roles) role.label].join('، ')} · طلب في ${formatDate(r.requestedAt)}',
+                      ),
+                      trailing: TextButton(
+                        key: Key('delete-account-${p.id}'),
+                        style: TextButton.styleFrom(foregroundColor: RaeedColors.error),
+                        onPressed: () => _confirmDelete(context, p),
+                        child: const Text('حذف'),
+                      ),
+                    ),
+                  ),
+            ],
             if (warnings.isNotEmpty) ...[
               const SizedBox(height: 16),
               WarningCard(title: 'قبل البدء', lines: warnings),
@@ -88,6 +110,37 @@ class SetupHub extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+Future<void> _confirmDelete(BuildContext context, Person person) async {
+  final store = SetupScope.read(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('حذف حساب ${person.fullName}؟'),
+      content: const Text(
+        'يُحذف الحساب ورقم الهاتف ولا يمكن التراجع. إن كان اسمه على سجلات الحضور أو الملاحظات، '
+        'تبقى السجلات باسم "حساب محذوف".',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+        FilledButton(
+          key: const Key('confirm-delete-account'),
+          style: FilledButton.styleFrom(backgroundColor: RaeedColors.error),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('حذف'),
+        ),
+      ],
+    ),
+  );
+  if (ok != true) return;
+  try {
+    await store.deleteAccount(person);
+    messenger.showSnackBar(SnackBar(content: Text('حُذف حساب ${person.fullName} ✓')));
+  } on SetupError catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
   }
 }
 

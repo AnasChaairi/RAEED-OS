@@ -77,7 +77,11 @@ ChildProfile adamProfile() => ChildProfile(
   termStart: DateTime(2027, 1, 5),
 );
 
-Future<FakeProfileRepository> openAdvisor(WidgetTester tester) async {
+Future<FakeProfileRepository> openAdvisor(
+  WidgetTester tester, {
+  FakeStatsRepository? stats,
+  FakeSetupRepository? setup,
+}) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -90,12 +94,12 @@ Future<FakeProfileRepository> openAdvisor(WidgetTester tester) async {
     signedInAs: anas,
   );
   final profiles = FakeProfileRepository()..profiles['adam'] = adamProfile();
-  final extra = stage4(prefs, stats: FakeStatsRepository()..data = seededStats(), profiles: profiles, clock: () => now);
+  final extra = stage4(prefs, stats: (stats ?? FakeStatsRepository())..data = seededStats(), profiles: profiles, clock: () => now);
   final session = AppSession(auth, prefs);
   await tester.pumpWidget(
     RaeedApp(
       session: session,
-      setup: SetupStore(FakeSetupRepository()..addPerson(anas, 'أنس', '0691015402', {AppRole.advisor})),
+      setup: SetupStore((setup ?? FakeSetupRepository())..addPerson(anas, 'أنس', '0691015402', {AppRole.advisor})),
       instructor: InstructorStore(FakeInstructorRepository(), prefs, retryEvery: null, clock: () => now),
       parent: extra.parent,
       stats: extra.stats,
@@ -151,5 +155,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(profiles.added, ['يحتاج تشجيعاً']);
     expect(find.text('يحتاج تشجيعاً'), findsOneWidget);
+  });
+
+  testWidgets('the pilot measures show against their targets for the chosen period', (tester) async {
+    final stats = FakeStatsRepository()
+      ..pilot = PilotMetrics(
+        sessionsHeld: 20,
+        recordedWithin24h: 19,
+        recordedLate: 1,
+        groups: const [(groupId: 'stars', held: 12, onTime: 12), (groupId: 'knights', held: 8, onTime: 7)],
+        medianSheetSeconds: 215,
+        sheetsTimed: 18,
+        alertsDue: 4,
+        alertsFollowedUp: 3,
+        families: 10,
+        familiesSignedIn: 8,
+        advisors: [(name: 'أنس', weeksOpened: 3, lastOpened: DateTime(2027, 2, 20, 9))],
+      );
+    await openAdvisor(tester, stats: stats);
+    expect(stats.views, 1, reason: 'opening the statistics is counted');
+    await tester.scrollUntilVisible(find.byKey(const Key('open-pilot')), 200);
+    await tester.tap(find.byKey(const Key('open-pilot')));
+    await tester.pumpAndSettle();
+    expect(stats.pilotAsked.single, (DateTime(2027, 2), now));
+    expect(find.descendant(of: find.byKey(const Key('pilot-on-time')), matching: find.text('95%')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pilot-sheet-time')), matching: find.text('3:35')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pilot-follow-up')), matching: find.text('75%')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pilot-families')), matching: find.text('80%')), findsOneWidget);
+    expect(find.text('7 من 8'), findsOneWidget);
+    expect(find.text('3 أسابيع'), findsOneWidget);
+  });
+
+  testWidgets('the advisor sees deletion requests in setup and deletes the account', (tester) async {
+    final setup = FakeSetupRepository()
+      ..addPerson('suad', 'سعاد العلوي', '0612345679', {AppRole.parent})
+      ..deletionRequests.add((personId: 'suad', requestedAt: DateTime(2027, 2, 19)));
+    await openAdvisor(tester, setup: setup);
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('الإعدادات')));
+    await tester.pumpAndSettle();
+    expect(find.text('ولي أمر · طلب في 19/2/2027'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete-account-suad')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-account')));
+    await tester.pumpAndSettle();
+    expect(setup.calls, contains('deleteAccount suad'));
+    expect(find.byKey(const Key('deletion-suad')), findsNothing);
   });
 }

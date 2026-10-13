@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../setup/setup_repository.dart';
@@ -15,6 +17,9 @@ class StatsStore extends ChangeNotifier {
   bool _loading = false;
   SetupFailure? _failure;
   StatsPeriod _period = StatsPeriod.month;
+  bool _logged = false;
+  PilotMetrics? _pilot;
+  SetupFailure? _pilotFailure;
 
   StatsData? get data => _data;
   bool get loading => _loading;
@@ -22,14 +27,37 @@ class StatsStore extends ChangeNotifier {
   StatsPeriod get period => _period;
   DateTime now() => _clock();
 
+  PilotMetrics? get pilot => _pilot;
+  SetupFailure? get pilotFailure => _pilotFailure;
+
   Stats? get stats => _data?.compute(_period, _clock());
 
   void choosePeriod(StatsPeriod p) {
     _period = p;
+    _pilot = null;
+    notifyListeners();
+  }
+
+  /// The pilot measures from the start of the chosen period to today.
+  Future<void> loadPilot() async {
+    _pilotFailure = null;
+    notifyListeners();
+    final today = _clock();
+    final from = (_data ?? const StatsData()).periodStart(_period, today);
+    try {
+      _pilot = await _repo.pilotMetrics(from, today);
+    } on SetupError catch (e) {
+      _pilotFailure = e.failure;
+    }
     notifyListeners();
   }
 
   Future<void> load() async {
+    if (!_logged) {
+      _logged = true;
+      // Best effort: a visit made offline is not counted.
+      unawaited(_repo.logView().catchError((_) {}));
+    }
     _loading = true;
     _failure = null;
     notifyListeners();

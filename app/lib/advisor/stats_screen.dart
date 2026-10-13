@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../profile/child_profile_screen.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import 'pilot_screen.dart';
 import 'stats_models.dart';
 import 'stats_store.dart';
 
@@ -162,6 +163,18 @@ class StatsTab extends StatelessWidget {
                 ],
               ),
             ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              key: const Key('open-pilot'),
+              leading: const Icon(Icons.flag_outlined, color: RaeedColors.blue),
+              title: const Text('مؤشرات التجربة'),
+              subtitle: const Text('التسجيل في الوقت، مدة التسجيل، المتابعة، دخول الأسر'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () =>
+                  Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PilotScreen())),
+            ),
+          ),
         ],
       ),
     );

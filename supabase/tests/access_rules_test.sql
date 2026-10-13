@@ -180,4 +180,54 @@ do $$ begin
   if (select count(*) from claim_notifications(100)) <> 0 then raise exception 'FAIL: claimed rows claimed twice'; end if;
 end $$;
 
+-- Stage 5: usage is logged by its owner only, and only advisors read it or the pilot metrics.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+insert into public.sessions (id, group_id, title, session_date, start_time, end_time, floor) values
+ ('30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'حصة سابقة', '2026-09-01', '10:00', '11:00', 1),
+ ('30000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'حصة سابقة', '2026-09-08', '10:00', '11:00', 1);
+insert into public.attendance (id, session_id, child_id, status, recorded_by, recorded_at) values
+ ('40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001',
+  'present', '00000000-0000-0000-0000-00000000000b', '2026-09-01 12:00+01'),
+ ('40000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000001',
+  'present', '00000000-0000-0000-0000-00000000000b', '2026-09-10 12:00+01');
+insert into public.usage_events (kind, session_id, seconds) values
+ ('attendance_sheet', '30000000-0000-0000-0000-000000000003', 100),
+ ('attendance_sheet', '30000000-0000-0000-0000-000000000004', 200);
+do $$ begin
+  begin
+    insert into public.usage_events (person_id, kind) values ('00000000-0000-0000-0000-00000000000a', 'stats_view');
+    raise exception 'FAIL: logged usage as someone else';
+  exception when insufficient_privilege then null;
+  end;
+  if (select count(*) from usage_events) <> 0 then raise exception 'FAIL: instructor reads usage'; end if;
+  begin
+    perform public.pilot_metrics('2026-09-01', '2026-09-30');
+    raise exception 'FAIL: instructor reads pilot metrics';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+-- Karim asks for his account to be deleted; Soad cannot see or withdraw his request.
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+insert into public.account_deletion_requests default values;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+delete from public.account_deletion_requests;
+do $$ begin
+  if (select count(*) from account_deletion_requests) <> 0 then raise exception 'FAIL: parent sees another''s deletion request'; end if;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+insert into public.usage_events (kind) values ('stats_view');
+do $$
+declare m jsonb := public.pilot_metrics('2026-09-01', '2026-09-30');
+begin
+  if (select count(*) from account_deletion_requests) <> 1 then raise exception 'FAIL: advisor should see the deletion request'; end if;
+  if (select count(*) from usage_events) <> 3 then raise exception 'FAIL: advisor should read usage'; end if;
+  if (m->>'sessions_held')::int <> 2 or (m->>'recorded_within_24h')::int <> 1 or (m->>'recorded_late')::int <> 1 then
+    raise exception 'FAIL: pilot sessions %', m; end if;
+  if (m->>'median_sheet_seconds')::numeric <> 150 then raise exception 'FAIL: median sheet time %', m; end if;
+  if (m->>'families')::int <> 1 or (m->>'families_signed_in')::int <> 1 then raise exception 'FAIL: families %', m; end if;
+  if jsonb_array_length(m->'advisors') <> 1 then raise exception 'FAIL: advisors %', m; end if;
+end $$;
+reset role;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;

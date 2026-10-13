@@ -20,6 +20,13 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   Map<String, AttendanceStatus>? _statuses;
   bool _busy = false;
+  DateTime? _openedAt;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _openedAt ??= InstructorScope.read(context).now();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +141,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final store = InstructorScope.read(context);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await store.saveAttendance(widget.sessionId, Map.of(statuses));
+      await store.saveAttendance(widget.sessionId, Map.of(statuses), openedAt: _openedAt);
       messenger.showSnackBar(
         SnackBar(
           content: Text(

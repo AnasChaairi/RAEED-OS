@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/change_password_screen.dart';
+import '../auth/delete_account.dart';
 import '../auth/session_scope.dart';
 import '../notifications/push.dart';
 import '../setup/widgets.dart';
@@ -109,6 +110,7 @@ class ParentAccountTab extends StatelessWidget {
           onPressed: session.signOut,
           child: const Text('تسجيل الخروج'),
         ),
+        const DeleteAccountButton(),
       ],
     );
   }

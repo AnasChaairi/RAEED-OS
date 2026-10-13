@@ -17,6 +17,9 @@ enum SetupFailure {
   /// An advisor tried to take away their own advisor role.
   ownAdvisorRole,
 
+  /// An advisor tried to delete their own account.
+  ownAccount,
+
   /// The server said this account may not do that.
   notAllowed,
   unknown,
@@ -48,6 +51,9 @@ abstract interface class SetupRepository {
   Future<void> setRoles(String personId, Set<AppRole> roles);
   Future<void> renamePerson(String personId, String fullName);
 
+  /// Deletes the account, or anonymises it when its name is on the academy's records.
+  Future<void> deleteAccount(String personId);
+
   /// Inserts or updates the child row and returns its id. [recordConsent] stamps the consent
   /// with now and the signed-in advisor; it is never cleared.
   Future<String> saveChild({String? id, required String fullName, DateTime? birthDate, required bool recordConsent});
@@ -76,9 +82,14 @@ class SupabaseSetupRepository implements SetupRepository {
   Future<SetupSnapshot> load() => _guard(() async {
         final results = await Future.wait([
           _db.from('groups').select('id, name, logo_letter, logo_color, age_min, age_max, archived, group_instructors(person_id)').order('name'),
-          _db.from('people').select('id, full_name, phone, must_change_password, person_roles(role)').order('full_name'),
+          _db
+              .from('people')
+              .select('id, full_name, phone, must_change_password, person_roles(role)')
+              .not('phone', 'like', 'deleted-%')
+              .order('full_name'),
           _db.from('children').select('id, full_name, birth_date, consent_recorded_at, child_groups(group_id, to_date), child_parents(parent_id)').order('full_name'),
           _db.from('seasons').select('id, name, starts_on, ends_on, terms(id, name, starts_on, ends_on)').order('starts_on', ascending: false),
+          _db.from('account_deletion_requests').select('person_id, requested_at').order('requested_at'),
         ]);
         return SetupSnapshot(
           groups: [
@@ -139,6 +150,10 @@ class SupabaseSetupRepository implements SetupRepository {
                 ]..sort((a, b) => a.startsOn.compareTo(b.startsOn)),
               ),
           ],
+          deletionRequests: [
+            for (final r in results[4])
+              (personId: r['person_id'] as String, requestedAt: DateTime.parse(r['requested_at'] as String).toLocal()),
+          ],
         );
       });
 
@@ -196,6 +211,11 @@ class SupabaseSetupRepository implements SetupRepository {
           'roles': [for (final r in roles) r.dbName],
         });
         return NewAccount(personId: result['person_id'] as String, temporaryPassword: result['temporary_password'] as String?);
+      });
+
+  @override
+  Future<void> deleteAccount(String personId) => _guard(() async {
+        await _call({'action': 'delete', 'person_id': personId});
       });
 
   @override
@@ -286,6 +306,7 @@ class SupabaseSetupRepository implements SetupRepository {
       throw SetupError(switch (code) {
         'invalid_phone' => SetupFailure.invalidPhone,
         'cannot_remove_own_advisor_role' => SetupFailure.ownAdvisorRole,
+        'cannot_delete_self' => SetupFailure.ownAccount,
         'advisors_only' || 'not_signed_in' => SetupFailure.notAllowed,
         _ => SetupFailure.unknown,
       });

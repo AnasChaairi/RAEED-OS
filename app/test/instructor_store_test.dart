@@ -41,6 +41,15 @@ void main() {
     expect(store.sent.keys, ['today']);
   });
 
+  test('a first recording is timed for the pilot, an edit is not', () async {
+    final repo = seededInstructorRepo(me: me, today: today);
+    final store = await openStore(repo);
+    final opened = store.now().subtract(const Duration(seconds: 95));
+    await store.saveAttendance('today', {'adam': AttendanceStatus.absent}, openedAt: opened);
+    await store.saveAttendance('today', {'adam': AttendanceStatus.late}, openedAt: opened);
+    expect(repo.sheets, ['today 95']);
+  });
+
   test('offline, attendance waits on the phone and survives a restart, then is sent', () async {
     final repo = seededInstructorRepo(me: me, today: today);
     await openStore(repo);

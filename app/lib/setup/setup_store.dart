@@ -88,6 +88,12 @@ class SetupStore extends ChangeNotifier {
   }
 
   /// Throws [SetupError].
+  Future<void> deleteAccount(Person person) async {
+    await _repo.deleteAccount(person.id);
+    await load();
+  }
+
+  /// Throws [SetupError].
   Future<IssuedPassword> resetPassword(Person person) async {
     final password = await _repo.resetPassword(person.id);
     await load();

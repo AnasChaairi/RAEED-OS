@@ -10,6 +10,7 @@ class FakeSetupRepository implements SetupRepository {
   final children = <String, Child>{};
   final seasons = <String, Season>{};
   final calls = <String>[];
+  final deletionRequests = <({String personId, DateTime requestedAt})>[];
   var _next = 0;
   bool offline = false;
 
@@ -30,7 +31,28 @@ class FakeSetupRepository implements SetupRepository {
       people: people.values.toList(),
       children: children.values.toList(),
       seasons: seasons.values.toList(),
+      deletionRequests: List.of(deletionRequests),
     );
+  }
+
+  @override
+  Future<void> deleteAccount(String personId) async {
+    _check();
+    calls.add('deleteAccount $personId');
+    people.remove(personId);
+    deletionRequests.removeWhere((r) => r.personId == personId);
+    for (final c in children.values.toList()) {
+      if (c.parentIds.contains(personId)) {
+        children[c.id] = Child(
+          id: c.id,
+          fullName: c.fullName,
+          birthDate: c.birthDate,
+          groupId: c.groupId,
+          parentIds: c.parentIds.where((p) => p != personId).toList(),
+          consentRecordedAt: c.consentRecordedAt,
+        );
+      }
+    }
   }
 
   @override

@@ -1,4 +1,4 @@
-// manage-account: advisors create accounts, reset passwords and change roles.
+// manage-account: advisors create accounts, reset passwords, change roles and delete accounts.
 //
 // Sign-in is phone number + password with no SMS (NFR7). Supabase's phone sign-in needs an
 // SMS provider, so each account uses an internal e-mail address derived from the phone
@@ -13,6 +13,11 @@
 //   Returns { person_id, temporary_password }.
 // POST { action: "set_roles", person_id, roles }
 //   Replaces the person's roles. Advisors cannot remove their own advisor role.
+// POST { action: "delete", person_id }
+//   Deletes the account and everything that is only about this person. Someone whose name
+//   is on attendance, notes or follow-ups is anonymised instead: the records stay with the
+//   academy under "حساب محذوف", and the phone number, roles, devices and sign-in are gone.
+//   Advisors cannot delete their own account.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -149,6 +154,38 @@ Deno.serve(async (req) => {
       .upsert(roles.map((role) => ({ person_id: personId, role })), { ignoreDuplicates: true });
     if (deleteError || insertError) return json({ error: "update_failed" }, 500);
     return json({ person_id: personId, roles });
+  }
+
+  if (body.action === "delete") {
+    const personId = String(body.person_id ?? "");
+    if (personId === caller.user.id) return json({ error: "cannot_delete_self" }, 400);
+    const { data: person } = await admin.from("people").select("id").eq("id", personId).maybeSingle();
+    if (!person) return json({ error: "not_found" }, 404);
+
+    const { error } = await admin.auth.admin.deleteUser(personId);
+    if (!error) return json({ person_id: personId, deleted: true });
+
+    // Their name is on records that belong to the academy: anonymise them instead.
+    const steps = await Promise.all([
+      admin.from("person_roles").delete().eq("person_id", personId),
+      admin.from("child_parents").delete().eq("parent_id", personId),
+      admin.from("group_instructors").delete().eq("person_id", personId),
+      admin.from("devices").delete().eq("person_id", personId),
+      admin.from("account_deletion_requests").delete().eq("person_id", personId),
+    ]);
+    const { error: personError } = await admin
+      .from("people")
+      .update({ full_name: "حساب محذوف", phone: `deleted-${personId}`, must_change_password: true })
+      .eq("id", personId);
+    const { error: authError } = await admin.auth.admin.updateUserById(personId, {
+      email: `deleted-${personId}@phone.raeed.app`,
+      email_confirm: true,
+      password: temporaryPassword(32),
+      ban_duration: "876000h",
+      user_metadata: {},
+    });
+    if (personError || authError || steps.some((r) => r.error)) return json({ error: "delete_failed" }, 500);
+    return json({ person_id: personId, deleted: true, anonymised: true });
   }
 
   return json({ error: "unknown_action" }, 400);

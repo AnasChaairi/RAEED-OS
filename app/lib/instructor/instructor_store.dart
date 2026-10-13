@@ -95,9 +95,16 @@ class InstructorStore extends ChangeNotifier {
   }
 
   /// Saves the sheet on the phone, then tries to send it.
-  Future<void> saveAttendance(String sessionId, Map<String, AttendanceStatus> statuses) async {
+  /// [openedAt] is when the sheet was opened: the time a first recording took goes to
+  /// the pilot metrics.
+  Future<void> saveAttendance(String sessionId, Map<String, AttendanceStatus> statuses, {DateTime? openedAt}) async {
     final existing = _data.attendanceFor(sessionId);
     final at = _clock();
+    if (openedAt != null && existing.isEmpty) {
+      final seconds = at.difference(openedAt).inSeconds.clamp(0, 86400);
+      // Best effort: a sheet saved offline is simply not timed.
+      unawaited(_repo.logSheet(sessionId, seconds).catchError((_) {}));
+    }
     final records = [
       for (final e in statuses.entries)
         AttendanceRecord(

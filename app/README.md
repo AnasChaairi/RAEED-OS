@@ -35,10 +35,11 @@ avatar at the top switches roles or signs out.
 | `lib/setup/` | The advisor's setup: groups, staff, children and parents, seasons |
 | `lib/instructor/` | The instructor's tabs: today, sessions, groups, alerts, offline attendance |
 | `lib/parent/` | The parent's schedule, session detail and account |
-| `lib/advisor/` | The advisor's statistics |
+| `lib/advisor/` | The advisor's statistics and the pilot measures |
 | `lib/profile/` | The child profile, for advisors and instructors |
 | `lib/notifications/` | Push notifications through Firebase |
 | `lib/theme/` | RAEED colours and fonts |
+| `tool/make_icons.py` | Rebuilds the launcher icons from the logo |
 | `assets/fonts/` | Baloo Bhaijaan 2 (titles) and IBM Plex Sans Arabic (text), SIL Open Font License |
 
 ## Push notifications
@@ -52,3 +53,39 @@ The app uses the Firebase project `raeed-os`; its Android settings from `google-
 server needs that project's service account key: in Firebase, Project settings, Service accounts,
 generate a private key, and in Supabase, Edge Functions, Secrets, save its whole JSON as
 `FCM_SERVICE_ACCOUNT`. Until then rows wait in the queue.
+
+## Pilot measures
+
+The advisor's statistics open a مؤشرات التجربة page with the product definition's success measures
+for the chosen period, from the `pilot_metrics` database function:
+
+- sessions with attendance saved within 24 hours of their end (target 90%);
+- the median time from opening the attendance sheet to its first save (target 3 minutes), logged by
+  the app in `usage_events`; sheets saved offline are not timed;
+- absence alerts with a call attempt or a closing within 7 days (target 80%);
+- children with a parent who has signed in and set a password (target 70%);
+- how many weeks each advisor opened the statistics, also from `usage_events`.
+
+## Account deletion
+
+Anyone can ask for their account to be deleted from the account sheet (or the parent's حسابي tab).
+The request appears in the advisor's الإعدادات, where the advisor deletes the account through
+`manage-account`. Someone whose name is on attendance, notes or follow-ups is anonymised instead:
+the records stay under "حساب محذوف", and the phone number, roles, devices and sign-in are removed.
+
+## Store builds
+
+Release builds are signed with the upload key when `android/key.properties` exists (it is ignored
+by git, like the key itself):
+
+```
+storeFile=/absolute/path/to/raeed-upload.jks
+storePassword=…
+keyAlias=upload
+keyPassword=…
+```
+
+Without it they are signed with the debug key, which installs fine from an APK but is refused by
+the Play Store. For the store, build an app bundle with `flutter build appbundle --release` and
+raise the build number in `pubspec.yaml` (`version: 1.0.0+N`) for each upload.
+
