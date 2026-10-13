@@ -61,7 +61,7 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Image.asset('assets/images/raeed-logo.png', height: 96, semanticLabel: 'شعار أكاديمية رائد'),
+                    Image.asset('assets/images/raeed-logo.png', height: 140, semanticLabel: 'شعار أكاديمية رائد'),
                     const SizedBox(height: 16),
                     Text('مرحباً بك في رائد', style: text.headlineMedium, textAlign: TextAlign.center),
                     const SizedBox(height: 4),
