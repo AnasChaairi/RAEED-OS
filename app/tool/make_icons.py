@@ -1,12 +1,14 @@
-# Builds the Android and iOS launcher icons from the mark in assets/images/raeed-logo.png.
+# Builds the Android and iOS launcher icons from the mark (the figure and star) in
+# tool/raeed-logo-square.jpg, the academy's 640 px logo.
 # Usage, from app/: python3 tool/make_icons.py . [preview.png]  (needs Pillow)
 import sys, os, json
 from PIL import Image
 app=sys.argv[1]
-im=Image.open(f'{app}/assets/images/raeed-logo.png').convert('RGBA');px=im.load()
+im=Image.open(f'{app}/tool/raeed-logo-square.jpg').convert('RGBA');px=im.load()
 xs=[];ys=[]
-for y in range(0,240):
-    for x in range(376,im.size[0]):
+# The mark sits right of x=366 and above the academy's name (y=400).
+for y in range(0,400):
+    for x in range(366,im.size[0]):
         r,g,b,a=px[x,y]
         if a>40 and max(r,g,b)-min(r,g,b)>60: xs.append(x);ys.append(y)
 mark=im.crop((min(xs),min(ys),max(xs)+1,max(ys)+1))
