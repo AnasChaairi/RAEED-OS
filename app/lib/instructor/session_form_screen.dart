@@ -4,6 +4,7 @@ import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
+import '../widgets/pickers.dart';
 import 'models.dart';
 import 'sessions_screen.dart';
 import 'widgets.dart';
@@ -185,6 +186,7 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
                 label: _weekly ? 'أول حصة' : 'التاريخ',
                 value: _date,
                 required: true,
+                upcoming: true,
                 firstDate: DateTime(2026),
                 onChanged: (d) => setState(() {
                   _date = d;
@@ -341,6 +343,7 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
                     label: 'ينتهي في',
                     value: _until,
                     required: true,
+                    upcoming: true,
                     firstDate: _date ?? DateTime(2026),
                     onChanged: (d) => setState(() => _until = d),
                   ),
@@ -453,7 +456,7 @@ class _Preview extends StatelessWidget {
   }
 }
 
-/// A time shown as 17:00; tapping opens the time picker.
+/// A time shown as 17:00; tapping opens the hour and minute buttons.
 class TimeField extends StatelessWidget {
   const TimeField({
     super.key,
@@ -480,14 +483,8 @@ class TimeField extends StatelessWidget {
       validator: (_) => required && value == null ? 'اختر الساعة' : validator?.call(value),
       builder: (state) => InkWell(
         onTap: () async {
-          final picked = await showTimePicker(
-            context: context,
-            initialTime: value == null
-                ? const TimeOfDay(hour: 10, minute: 0)
-                : TimeOfDay(hour: value! ~/ 60, minute: value! % 60),
-          );
-          if (picked != null) {
-            final t = picked.hour * 60 + picked.minute;
+          final t = await showTimeSheet(context, title: label, initial: value);
+          if (t != null) {
             onChanged(t);
             state.didChange(t);
           }

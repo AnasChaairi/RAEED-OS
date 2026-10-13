@@ -264,10 +264,12 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
               ),
               const SizedBox(height: 14),
               DateField(
+                key: const Key('child-birth'),
                 label: 'تاريخ الميلاد',
                 value: _birthDate,
                 firstDate: DateTime(2005),
                 lastDate: DateTime.now(),
+                suggested: DateTime(DateTime.now().year - 8, 1, 1),
                 onChanged: (d) => setState(() => _birthDate = d),
               ),
               const SizedBox(height: 10),
