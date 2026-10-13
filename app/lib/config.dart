@@ -11,13 +11,19 @@ abstract final class AppConfig {
     defaultValue: 'sb_publishable_5yufcRQeD-d_JTp9LK8CWw_yslKVT1k',
   );
 
-  // Firebase, for push notifications. Not secret: Firebase's own rules decide what these
-  // can do. Empty until the academy's Firebase project exists; the app then runs without
-  // notifications.
-  static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
-  static const firebaseAppId = String.fromEnvironment('FIREBASE_APP_ID');
-  static const firebaseSenderId = String.fromEnvironment('FIREBASE_SENDER_ID');
-  static const firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  // Firebase project raeed-os, for push notifications (from google-services.json). Not
+  // secret: Firebase's own rules decide what these can do. With all four empty the app runs
+  // without notifications.
+  static const firebaseApiKey = String.fromEnvironment(
+    'FIREBASE_API_KEY',
+    defaultValue: 'AIzaSyDTy47JIyqqr0GspVmqi6riWBCJzmf45hY',
+  );
+  static const firebaseAppId = String.fromEnvironment(
+    'FIREBASE_APP_ID',
+    defaultValue: '1:765815959359:android:162d3ce59cbb6d252e6d8a',
+  );
+  static const firebaseSenderId = String.fromEnvironment('FIREBASE_SENDER_ID', defaultValue: '765815959359');
+  static const firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: 'raeed-os');
 
   static bool get pushConfigured =>
       firebaseApiKey != '' && firebaseAppId != '' && firebaseSenderId != '' && firebaseProjectId != '';

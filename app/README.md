@@ -47,12 +47,8 @@ Session changes queue one row per parent in `notification_outbox`. The `send-not
 function sends each as a push notification through Firebase Cloud Messaging to every phone the
 parent signed in on, and records how many phones it reached.
 
-Until the academy's Firebase project exists, the app runs without notifications and rows wait in the
-queue. To turn them on:
-
-1. In the Firebase console, create a project and add an Android app with the package name
-   `app.raeed.raeed_os`.
-2. Build with the values from that app's `google-services.json`:
-   `flutter build apk --dart-define=FIREBASE_API_KEY=… --dart-define=FIREBASE_APP_ID=… --dart-define=FIREBASE_SENDER_ID=… --dart-define=FIREBASE_PROJECT_ID=…`
-3. In Firebase, Project settings, Service accounts, generate a private key. In Supabase, Edge
-   Functions, Secrets, save its whole JSON as `FCM_SERVICE_ACCOUNT`.
+The app uses the Firebase project `raeed-os`; its Android settings from `google-services.json` are in
+`lib/config.dart` and can be overridden with `--dart-define=FIREBASE_API_KEY=…` and the like. The
+server needs that project's service account key: in Firebase, Project settings, Service accounts,
+generate a private key, and in Supabase, Edge Functions, Secrets, save its whole JSON as
+`FCM_SERVICE_ACCOUNT`. Until then rows wait in the queue.
