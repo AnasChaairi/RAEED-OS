@@ -140,7 +140,7 @@ class _Notice extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.asset('assets/images/raeed-logo.png', height: 80),
+              Image.asset('assets/images/raeed-logo.png', height: 110),
               const SizedBox(height: 24),
               Text(message, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
               const SizedBox(height: 24),
