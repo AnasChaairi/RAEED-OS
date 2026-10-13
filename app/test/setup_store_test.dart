@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/setup/models.dart';
@@ -87,6 +89,29 @@ void main() {
     await store.updateStaff(person: store.data.person('hamza')!, fullName: 'حمزة', roles: {AppRole.advisor}, groupIds: const []);
     expect(store.data.person('hamza')!.roles, {AppRole.advisor, AppRole.parent});
     expect(store.data.groups.single.instructorIds, isEmpty);
+  });
+
+  test('a new group logo replaces the old one, and saving without a change keeps it', () async {
+    final first = Uint8List.fromList([1, 2, 3]);
+    await store.saveGroup(GroupDraft(name: 'أ', logoLetter: 'أ', logoColor: 1, newLogo: first));
+    final group = store.data.groups.single;
+    final firstPath = group.logoPath!;
+    await store.saveGroup(GroupDraft(id: group.id, name: 'أ', logoLetter: 'أ', logoColor: 2));
+    expect(store.data.groups.single.logoPath, firstPath);
+
+    await store.saveGroup(GroupDraft(id: group.id, name: 'أ', logoLetter: 'أ', logoColor: 2, newLogo: Uint8List(4)));
+    expect(store.data.groups.single.logoPath, isNot(firstPath));
+    expect(repo.logos.keys, [store.data.groups.single.logoPath]);
+    expect(repo.calls.where((c) => c.startsWith('setGroupLogo')).last, endsWith('replaces=$firstPath'));
+  });
+
+  test('staff gender is saved on creation and only sent again when it changes', () async {
+    await store.createStaff(fullName: 'سارة', phone: '0622222222', roles: {AppRole.instructor}, groupIds: const [], gender: Gender.female);
+    final sara = store.data.people.singleWhere((p) => p.fullName == 'سارة');
+    expect(sara.gender, Gender.female);
+    repo.calls.clear();
+    await store.updateStaff(person: sara, fullName: 'سارة', roles: {AppRole.instructor}, groupIds: const [], gender: Gender.female);
+    expect(repo.calls.where((c) => c.startsWith('setGender')), isEmpty);
   });
 
   test('a load failure is kept for the screen to explain', () async {

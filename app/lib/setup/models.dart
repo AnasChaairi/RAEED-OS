@@ -1,4 +1,19 @@
+import 'dart:typed_data';
+
 import '../roles/app_role.dart';
+
+enum Gender {
+  male('ذكر'),
+  female('أنثى');
+
+  const Gender(this.label);
+
+  final String label;
+
+  String get dbName => name;
+
+  static Gender? fromDb(Object? value) => values.where((g) => g.name == value).firstOrNull;
+}
 
 /// A فئة.
 class Group {
@@ -7,6 +22,7 @@ class Group {
     required this.name,
     required this.logoLetter,
     required this.logoColor,
+    this.logoPath,
     this.ageMin,
     this.ageMax,
     this.archived = false,
@@ -19,6 +35,9 @@ class Group {
 
   /// 1 to 8, an index into [groupLogoColors].
   final int logoColor;
+
+  /// The uploaded logo in the "group-logos" bucket, shown instead of the letter.
+  final String? logoPath;
   final int? ageMin;
   final int? ageMax;
   final bool archived;
@@ -40,12 +59,14 @@ class Person {
     required this.phone,
     required this.roles,
     this.mustChangePassword = false,
+    this.gender,
   });
 
   final String id;
   final String fullName;
   final String phone;
   final Set<AppRole> roles;
+  final Gender? gender;
 
   /// Still on the temporary password from the advisor.
   final bool mustChangePassword;
@@ -58,6 +79,7 @@ class Child {
     required this.id,
     required this.fullName,
     this.birthDate,
+    this.gender,
     this.groupId,
     this.parentIds = const [],
     this.consentRecordedAt,
@@ -66,6 +88,9 @@ class Child {
   final String id;
   final String fullName;
   final DateTime? birthDate;
+
+  /// Null on children added before gender was asked.
+  final Gender? gender;
 
   /// The current group, if any.
   final String? groupId;
@@ -118,6 +143,7 @@ class SetupSnapshot {
 
   List<Person> get staff => people.where((p) => p.isStaff).toList();
   List<Person> get instructors => people.where((p) => p.roles.contains(AppRole.instructor)).toList();
+  List<Person> get parents => people.where((p) => p.roles.contains(AppRole.parent)).toList();
   List<Group> get activeGroups => groups.where((g) => !g.archived).toList();
   List<Child> childrenIn(String groupId) => children.where((c) => c.groupId == groupId).toList();
   List<Group> groupsTaughtBy(String personId) => groups.where((g) => g.instructorIds.contains(personId)).toList();
@@ -136,6 +162,8 @@ class GroupDraft {
     required this.name,
     required this.logoLetter,
     required this.logoColor,
+    this.newLogo,
+    this.removeLogo = false,
     this.ageMin,
     this.ageMax,
     this.archived = false,
@@ -146,6 +174,12 @@ class GroupDraft {
   final String name;
   final String logoLetter;
   final int logoColor;
+
+  /// A picked image, already scaled down, to upload as the group's logo.
+  final Uint8List? newLogo;
+
+  /// Go back to the letter.
+  final bool removeLogo;
   final int? ageMin;
   final int? ageMax;
   final bool archived;
@@ -167,6 +201,7 @@ class ChildDraft {
     this.id,
     required this.fullName,
     this.birthDate,
+    this.gender,
     this.groupId,
     this.parents = const [],
     this.consent = false,
@@ -175,6 +210,7 @@ class ChildDraft {
   final String? id;
   final String fullName;
   final DateTime? birthDate;
+  final Gender? gender;
   final String? groupId;
 
   /// At most two.

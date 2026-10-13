@@ -139,6 +139,7 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.child?.fullName);
   late DateTime? _birthDate = widget.child?.birthDate;
+  late Gender? _gender = widget.child?.gender;
   late String? _groupId = widget.child?.groupId;
   late final List<String> _existingParents = [...?widget.child?.parentIds];
   final List<_NewParent> _newParents = [];
@@ -183,6 +184,7 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
         id: widget.child?.id,
         fullName: _name.text.trim(),
         birthDate: _birthDate,
+        gender: _gender,
         groupId: _groupId,
         parents: parents,
         consent: _consent,
@@ -205,6 +207,26 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
     return existing != null
         ? ParentDraft.existing(existing.id)
         : ParentDraft.create(fullName: p.name.text.trim(), phone: p.phone.text);
+  }
+
+  /// For brothers and sisters: links a parent who already has an account.
+  Future<void> _pickParent(SetupSnapshot data) async {
+    final picked = await showModalBottomSheet<Person>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ParentPicker(
+        data: data,
+        exclude: {..._existingParents, for (final p in _newParents) ?_matchedPerson(data, p.phone.text)?.id},
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      final empty = _newParents.where((p) => p.name.text.trim().isEmpty && p.phone.text.trim().isEmpty).firstOrNull;
+      if (empty != null) _newParents.remove(empty..dispose());
+      _existingParents.add(picked.id);
+      _error = null;
+    });
   }
 
   Future<void> _resetParent(Person parent) async {
@@ -247,6 +269,12 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                 firstDate: DateTime(2005),
                 lastDate: DateTime.now(),
                 onChanged: (d) => setState(() => _birthDate = d),
+              ),
+              const SizedBox(height: 10),
+              GenderField(
+                fieldKey: const Key('child-gender'),
+                value: _gender,
+                onChanged: (g) => setState(() => _gender = g),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String?>(
@@ -331,16 +359,26 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
-              if (_parentCount < 2)
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: TextButton.icon(
-                    key: const Key('add-parent'),
-                    onPressed: () => setState(() => _newParents.add(_NewParent())),
-                    icon: const Icon(Icons.add),
-                    label: const Text('إضافة ولي أمر'),
-                  ),
-                ),
+              Wrap(
+                spacing: 4,
+                children: [
+                  if (_parentCount < 2)
+                    TextButton.icon(
+                      key: const Key('add-parent'),
+                      onPressed: () => setState(() => _newParents.add(_NewParent())),
+                      icon: const Icon(Icons.add),
+                      label: const Text('إضافة ولي أمر'),
+                    ),
+                  if (_existingParents.length + _newParents.where((p) => p.phone.text.trim().isNotEmpty).length < 2 &&
+                      data.parents.isNotEmpty)
+                    TextButton.icon(
+                      key: const Key('pick-parent'),
+                      onPressed: () => _pickParent(data),
+                      icon: const Icon(Icons.family_restroom),
+                      label: const Text('اختيار ولي أمر مسجّل'),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
               Card(
                 child: CheckboxListTile(
@@ -414,6 +452,81 @@ class _ExistingParent extends StatelessWidget {
                 PopupMenuItem(value: 'reset', enabled: onReset != null, child: const Text('إعادة تعيين كلمة المرور')),
                 const PopupMenuItem(value: 'remove', child: Text('إزالة من هذا الطفل')),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A searchable list of parents who already have an account, with their children.
+class _ParentPicker extends StatefulWidget {
+  const _ParentPicker({required this.data, required this.exclude});
+
+  final SetupSnapshot data;
+  final Set<String> exclude;
+
+  @override
+  State<_ParentPicker> createState() => _ParentPickerState();
+}
+
+class _ParentPickerState extends State<_ParentPicker> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data;
+    final q = _query.trim();
+    final phone = normalizePhone(q);
+    final parents = [
+      for (final p in data.parents)
+        if (!widget.exclude.contains(p.id) &&
+            (q.isEmpty ||
+                p.fullName.contains(q) ||
+                p.phone.contains(phone ?? q) ||
+                data.childrenOf(p.id).any((c) => c.fullName.contains(q))))
+          p,
+    ];
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.75,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                key: const Key('parent-search'),
+                autofocus: true,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'ابحث باسم ولي الأمر أو هاتفه أو اسم أحد أبنائه',
+                ),
+                onChanged: (v) => setState(() => _query = v),
+              ),
+            ),
+            Expanded(
+              child: parents.isEmpty
+                  ? const Center(child: Text('لا يوجد ولي أمر مطابق.', style: TextStyle(color: RaeedColors.grey)))
+                  : ListView(
+                      children: [
+                        for (final p in parents)
+                          ListTile(
+                            key: Key('pick-parent-${p.id}'),
+                            leading: InitialAvatar(p.fullName),
+                            title: Text(p.fullName),
+                            subtitle: Text(
+                              [
+                                '\u2066${formatPhone(p.phone)}\u2069',
+                                if (data.childrenOf(p.id).isNotEmpty)
+                                  'أبناؤه: ${data.childrenOf(p.id).map((c) => c.fullName).join('، ')}',
+                              ].join(' · '),
+                            ),
+                            onTap: () => Navigator.pop(context, p),
+                          ),
+                      ],
+                    ),
             ),
           ],
         ),

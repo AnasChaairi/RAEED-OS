@@ -73,6 +73,18 @@ The request appears in the advisor's الإعدادات, where the advisor delet
 `manage-account`. Someone whose name is on attendance, notes or follow-ups is anonymised instead:
 the records stay under "حساب محذوف", and the phone number, roles, devices and sign-in are removed.
 
+## Group logos, gender, brothers and sisters
+
+- **Group logo:** on the group form, «رفع صورة الشعار» picks a photo (scaled to 512 px) and
+  uploads it to the public storage bucket `group-logos`; `groups.logo_path` names it. Only
+  advisors can upload or remove one. The letter and colour still show while the image loads,
+  offline, or when there is no image.
+- **Gender:** children and staff (`children.gender`, `people.gender`, `male` or `female`).
+  The forms require it; records made before it existed stay empty until next saved.
+- **Brothers and sisters:** on the child form, «اختيار ولي أمر مسجّل» lists parents who
+  already have an account, searchable by name, phone or a child's name, and links the new
+  child to them without a new account. Typing a registered number still links too.
+
 ## Store builds
 
 Release builds are signed with the upload key when `android/key.properties` exists (it is ignored

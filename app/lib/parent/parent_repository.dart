@@ -22,7 +22,7 @@ class SupabaseParentRepository implements ParentRepository {
     final rows = await _db
         .from('child_parents')
         .select(
-          'children(id, full_name, child_groups(to_date, groups(id, name, logo_letter, logo_color, age_min, age_max)))',
+          'children(id, full_name, child_groups(to_date, groups(id, name, logo_letter, logo_color, logo_path, age_min, age_max)))',
         )
         .eq('parent_id', personId);
     final children = <ParentChild>[];

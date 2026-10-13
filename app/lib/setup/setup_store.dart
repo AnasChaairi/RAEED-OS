@@ -45,6 +45,10 @@ class SetupStore extends ChangeNotifier {
   Future<void> saveGroup(GroupDraft draft) async {
     final id = await _repo.saveGroup(draft);
     await _repo.setGroupInstructors(id, draft.instructorIds);
+    final before = _data.group(id)?.logoPath;
+    if (draft.newLogo != null || (draft.removeLogo && before != null)) {
+      await _repo.setGroupLogo(id, draft.newLogo, replaces: before);
+    }
     await load();
   }
 
@@ -56,8 +60,10 @@ class SetupStore extends ChangeNotifier {
     required String phone,
     required Set<AppRole> roles,
     required List<String> groupIds,
+    Gender? gender,
   }) async {
     final account = await _repo.createAccount(fullName: fullName, phone: phone, roles: roles);
+    if (gender != null) await _repo.setGender(account.personId, gender);
     if (roles.contains(AppRole.instructor) && groupIds.isNotEmpty) {
       final existing = _data.groupsTaughtBy(account.personId).map((g) => g.id);
       await _repo.setInstructorGroups(account.personId, {...existing, ...groupIds}.toList());
@@ -72,8 +78,10 @@ class SetupStore extends ChangeNotifier {
     required String fullName,
     required Set<AppRole> roles,
     required List<String> groupIds,
+    Gender? gender,
   }) async {
     if (fullName != person.fullName) await _repo.renamePerson(person.id, fullName);
+    if (gender != null && gender != person.gender) await _repo.setGender(person.id, gender);
     // Keep the parent role: it comes from the children's records, not from this form.
     final allRoles = {...roles, if (person.roles.contains(AppRole.parent)) AppRole.parent};
     if (!setEquals(allRoles, person.roles)) await _repo.setRoles(person.id, allRoles);
@@ -121,6 +129,7 @@ class SetupStore extends ChangeNotifier {
       id: draft.id,
       fullName: draft.fullName,
       birthDate: draft.birthDate,
+      gender: draft.gender,
       recordConsent: draft.consent && before?.consentRecordedAt == null,
     );
     if (before?.groupId != draft.groupId) await _repo.moveChild(childId, draft.groupId);
