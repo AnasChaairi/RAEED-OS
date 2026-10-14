@@ -66,6 +66,7 @@ class _HomeShellState extends State<HomeShell> {
         ParentScope.read(context).refresh();
       case AppRole.advisor:
         StatsScope.read(context).load();
+        InstructorScope.read(context).refresh();
     }
   }
 
@@ -92,9 +93,13 @@ class _HomeShellState extends State<HomeShell> {
     if (widget.role == AppRole.advisor) {
       final store = SetupScope.read(context);
       final stats = StatsScope.read(context);
+      // The advisor plans every group's sessions.
+      final sessions = InstructorScope.read(context);
+      final id = SessionScope.read(context).profile!.id;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         store.load();
         stats.load();
+        sessions.start(id, allGroups: true);
       });
     }
     if (widget.role == AppRole.parent) {
@@ -111,9 +116,10 @@ class _HomeShellState extends State<HomeShell> {
 
   Widget _tabBody(int i) => switch ((widget.role, i)) {
         (AppRole.advisor, 0) => const StatsTab(),
-        (AppRole.advisor, 1) => const GroupsList(),
-        (AppRole.advisor, 2) => const ChildrenList(profiles: true),
-        (AppRole.advisor, 3) => const SetupHub(),
+        (AppRole.advisor, 1) => const SessionsTab(),
+        (AppRole.advisor, 2) => const GroupsList(),
+        (AppRole.advisor, 3) => const ChildrenList(profiles: true),
+        (AppRole.advisor, 4) => const SetupHub(),
         (AppRole.instructor, 0) => const TodayTab(),
         (AppRole.instructor, 1) => const SessionsTab(),
         (AppRole.instructor, 2) => const MyGroupsTab(),

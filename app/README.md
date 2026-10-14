@@ -33,7 +33,7 @@ avatar at the top switches roles or signs out.
 | `lib/roles/` | Roles, their tabs, and the role chooser |
 | `lib/home/` | The tab shell and the account sheet with the role switcher |
 | `lib/setup/` | The advisor's setup: groups, staff, children and parents, seasons |
-| `lib/instructor/` | The instructor's tabs: today, sessions, groups, alerts, offline attendance |
+| `lib/instructor/` | The instructor's tabs: today, sessions, groups, alerts, offline attendance; the advisor's sessions tab reuses them |
 | `lib/parent/` | The parent's schedule, session detail and account |
 | `lib/advisor/` | The advisor's statistics and the pilot measures |
 | `lib/profile/` | The child profile, for advisors and instructors |
@@ -84,6 +84,15 @@ the records stay under "حساب محذوف", and the phone number, roles, devic
 - **Brothers and sisters:** on the child form, «اختيار ولي أمر مسجّل» lists parents who
   already have an account, searchable by name, phone or a child's name, and links the new
   child to them without a new account. Typing a registered number still links too.
+
+## Who plans sessions
+
+Only advisors create, edit and cancel sessions, from their «الحصص» tab, which covers every
+active group (`InstructorStore` opened with `allGroups: true`). A group's instructors see its
+sessions and take attendance; they no longer see the planning buttons. The server holds the
+same rule: `create_sessions`, `update_sessions`, `cancel_sessions` and the writes on
+`sessions`, `session_series` and `materials` need the advisor role
+(`20261018000000_advisor_schedules_sessions.sql`).
 
 ## Store builds
 

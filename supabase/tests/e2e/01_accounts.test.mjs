@@ -149,7 +149,7 @@ test("deleting someone whose name is on attendance anonymises them instead", asy
   await must(advisor.from("group_instructors").insert({ group_id: g.id, person_id: teacher.userId }));
   const c = await must(advisor.from("children").insert({ full_name: `طفل ${t}` }).select("id").single());
   await must(advisor.from("child_groups").insert({ child_id: c.id, group_id: g.id }));
-  const sessionId = await must(teacher.rpc("create_sessions", { p_group: g.id, p_fields: inSamae("ورشة", day(-1)), p_dates: [day(-1)], p_weekdays: null }));
+  const sessionId = await must(advisor.rpc("create_sessions", { p_group: g.id, p_fields: inSamae("ورشة", day(-1)), p_dates: [day(-1)], p_weekdays: null }));
   await must(teacher.from("attendance").insert({
     id: crypto.randomUUID(), session_id: sessionId, child_id: c.id, status: "present",
     recorded_by: teacher.userId, recorded_at: new Date().toISOString(),

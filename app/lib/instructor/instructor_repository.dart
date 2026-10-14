@@ -8,8 +8,9 @@ import 'models.dart';
 /// [SetupFailure.offline].
 abstract interface class InstructorRepository {
   /// The groups [personId] teaches, their children and parents, this term's sessions
-  /// and attendance, and the alerts still open or closed in the last month.
-  Future<InstructorSnapshot> load(String personId);
+  /// and attendance, and the alerts still open or closed in the last month. With
+  /// [allGroups], every active group instead: the advisor's view for planning sessions.
+  Future<InstructorSnapshot> load(String personId, {bool allGroups = false});
 
   /// Sends attendance saved on the phone. Sending a record twice is harmless.
   Future<void> pushAttendance(List<AttendanceRecord> records);
@@ -43,7 +44,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
   String get _me => _db.auth.currentUser!.id;
 
   @override
-  Future<InstructorSnapshot> load(String personId) => guardSupabase(() async {
+  Future<InstructorSnapshot> load(String personId, {bool allGroups = false}) => guardSupabase(() async {
     final today = dayOnly(DateTime.now());
     final terms = await _db
         .from('terms')
@@ -52,8 +53,10 @@ class SupabaseInstructorRepository implements InstructorRepository {
         .gte('ends_on', dbDay(today))
         .limit(1);
     final termStart = terms.isEmpty ? null : DateTime.parse(terms.first['starts_on'] as String);
-    final mine = await _db.from('group_instructors').select('group_id').eq('person_id', personId);
-    final ids = [for (final r in mine) r['group_id'] as String];
+    final mine = allGroups
+        ? await _db.from('groups').select('id').eq('archived', false)
+        : await _db.from('group_instructors').select('group_id').eq('person_id', personId);
+    final ids = [for (final r in mine) (r['group_id'] ?? r['id']) as String];
     if (ids.isEmpty) return InstructorSnapshot(termStart: termStart);
 
     var from = today.subtract(const Duration(days: 30));
