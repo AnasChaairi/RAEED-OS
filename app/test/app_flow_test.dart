@@ -72,7 +72,7 @@ void main() {
     await pumpApp(tester, fakeAuth());
     await signIn(tester, '06 91 01 54 02', 'secret-pass');
 
-    expect(tabLabels(tester), ['الإحصائيات', 'الفئات', 'الأطفال', 'الإعدادات']);
+    expect(tabLabels(tester), ['الإحصائيات', 'الحصص', 'الفئات', 'الأطفال', 'الإعدادات']);
     expect(find.text('مشرف · أنس'), findsOneWidget);
 
     await tester.tap(find.text('الأطفال'));
@@ -155,7 +155,7 @@ void main() {
   testWidgets('a saved session skips sign-in', (tester) async {
     final auth = fakeAuth()..signedInAs = advisorPhone;
     await pumpApp(tester, auth);
-    expect(tabLabels(tester), hasLength(4));
+    expect(tabLabels(tester), hasLength(5));
   });
 
   testWidgets('sign out returns to sign-in', (tester) async {

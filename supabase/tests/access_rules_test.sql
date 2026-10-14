@@ -42,9 +42,9 @@ do $$ begin
   end;
 end $$;
 
--- Instructor Yassine creates a session: both of Adam's parents get a notification naming Adam.
+-- The advisor creates sessions for Adam's group: both of Adam's parents get a notification naming Adam.
 set role authenticated;
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 insert into public.sessions (id, group_id, title, session_date, start_time, end_time, floor) values
  ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'حفظ سورة الملك', '2027-01-30', '10:00', '11:30', 1),
  ('30000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'مراجعة', '2027-02-06', '10:00', '11:30', 1);
@@ -55,14 +55,34 @@ do $$ begin
   end if;
 end $$;
 
--- Yassine cannot create a session for a group he does not teach.
+-- Only advisors plan sessions: Yassine cannot create, move or cancel one, even in his own group.
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 do $$ begin
   begin
     insert into public.sessions (group_id, title, session_date, start_time, end_time, floor)
-    values ('10000000-0000-0000-0000-000000000002', 'x', '2027-02-01', '10:00', '11:00', 0);
-    raise exception 'FAIL: instructor wrote to another group';
+    values ('10000000-0000-0000-0000-000000000001', 'x', '2027-02-01', '10:00', '11:00', 0);
+    raise exception 'FAIL: instructor created a session';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.create_sessions('10000000-0000-0000-0000-000000000001',
+      '{"title": "x", "start_time": "10:00", "end_time": "11:00", "floor": 0}', array['2027-02-01'::date], null);
+    raise exception 'FAIL: instructor created sessions through the function';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.cancel_sessions('30000000-0000-0000-0000-000000000001', 'x', false);
+    raise exception 'FAIL: instructor cancelled a session';
+  exception when insufficient_privilege then null;
+  end;
+  update public.sessions set start_time = '09:00' where id = '30000000-0000-0000-0000-000000000001';
+  if (select start_time from sessions where id = '30000000-0000-0000-0000-000000000001') <> '10:00' then
+    raise exception 'FAIL: instructor moved a session'; end if;
+  begin
+    insert into public.materials (session_id, kind, url, label)
+    values ('30000000-0000-0000-0000-000000000001', 'youtube', 'https://youtube.com/watch?v=y', 'x');
+    raise exception 'FAIL: instructor added material';
   exception when insufficient_privilege then null;
   end;
 end $$;
@@ -95,8 +115,9 @@ do $$ begin
 end $$;
 
 -- Parent Karim sees Adam's sessions and materials, but no attendance, notes or alerts.
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 insert into public.materials (session_id, kind, url, label) values ('30000000-0000-0000-0000-000000000001', 'youtube', 'https://youtube.com/watch?v=x', 'تلاوة');
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 insert into public.notes (child_id, author_id, body) values ('20000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 'ملاحظة داخلية');
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 do $$ begin
@@ -123,7 +144,7 @@ reset role;
 
 -- Cancelling notifies both parents.
 set role authenticated;
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 update public.sessions set status = 'cancelled', cancel_reason = 'عطلة' where id = '30000000-0000-0000-0000-000000000002';
 reset role;
 do $$ begin
@@ -146,7 +167,7 @@ end $$;
 
 -- Stage 4: a moved session remembers its first time, and parents see who is notified.
 set role authenticated;
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 update public.sessions set start_time = '10:30' where id = '30000000-0000-0000-0000-000000000001';
 update public.sessions set start_time = '10:45' where id = '30000000-0000-0000-0000-000000000001';
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
@@ -182,10 +203,11 @@ end $$;
 
 -- Stage 5: usage is logged by its owner only, and only advisors read it or the pilot metrics.
 set role authenticated;
-set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 insert into public.sessions (id, group_id, title, session_date, start_time, end_time, floor) values
  ('30000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'حصة سابقة', '2026-09-01', '10:00', '11:00', 1),
  ('30000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'حصة سابقة', '2026-09-08', '10:00', '11:00', 1);
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 insert into public.attendance (id, session_id, child_id, status, recorded_by, recorded_at) values
  ('40000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000001',
   'present', '00000000-0000-0000-0000-00000000000b', '2026-09-01 12:00+01'),
@@ -227,6 +249,17 @@ begin
   if (m->>'median_sheet_seconds')::numeric <> 150 then raise exception 'FAIL: median sheet time %', m; end if;
   if (m->>'families')::int <> 1 or (m->>'families_signed_in')::int <> 1 then raise exception 'FAIL: families %', m; end if;
   if jsonb_array_length(m->'advisors') <> 1 then raise exception 'FAIL: advisors %', m; end if;
+end $$;
+-- The advisor plans and cancels a weekly series for any group through the app's functions.
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ declare first uuid; begin
+  first := public.create_sessions('10000000-0000-0000-0000-000000000002',
+    '{"title": "نادي", "start_time": "17:00", "end_time": "18:00", "place": "samae", "floor": 0}',
+    array['2027-03-01', '2027-03-08']::date[], array[1]::smallint[]);
+  perform public.update_sessions(first, '{"title": "نادي القراءة", "session_date": "2027-03-01", "start_time": "17:30", "end_time": "18:30", "place": "samae", "floor": 0}', true);
+  perform public.cancel_sessions(first, 'عطلة', true);
+  if (select count(*) from sessions where title = 'نادي القراءة' and status = 'cancelled') <> 2 then
+    raise exception 'FAIL: advisor plans a series for any group'; end if;
 end $$;
 -- Gender: the advisor sets it on a child and a staff member; nothing else is accepted.
 update public.children set gender = 'male' where id = '20000000-0000-0000-0000-000000000001';

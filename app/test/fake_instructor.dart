@@ -22,9 +22,9 @@ class FakeInstructorRepository implements InstructorRepository {
   }
 
   @override
-  Future<InstructorSnapshot> load(String personId) async {
+  Future<InstructorSnapshot> load(String personId, {bool allGroups = false}) async {
     _check();
-    final mine = groups.where((g) => g.instructorIds.contains(personId)).map((g) => g.id).toSet();
+    final mine = groups.where((g) => allGroups || g.instructorIds.contains(personId)).map((g) => g.id).toSet();
     final list = sessions.where((s) => mine.contains(s.groupId)).toList()
       ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
     return InstructorSnapshot(

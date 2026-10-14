@@ -174,13 +174,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               const SizedBox(height: 8),
             ],
           ],
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            key: const Key('new-session-for-group'),
-            onPressed: () => openSessionForm(context, groupId: group.id),
-            icon: const Icon(Icons.add),
-            label: const Text('حصة جديدة لهذه الفئة'),
-          ),
+          if (store.schedules) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              key: const Key('new-session-for-group'),
+              onPressed: () => openSessionForm(context, groupId: group.id),
+              icon: const Icon(Icons.add),
+              label: const Text('حصة جديدة لهذه الفئة'),
+            ),
+          ],
         ],
       ),
     );

@@ -25,7 +25,7 @@ before(async () => {
   a = await academy();
   S = [];
   for (const offset of [-28, -21, -14, -7]) {
-    S.push(await must(a.teacherA.rpc("create_sessions", {
+    S.push(await must(a.advisor.rpc("create_sessions", {
       p_group: a.groupA, p_fields: inSamae("حصة أسبوعية", day(offset)), p_dates: [day(offset)], p_weekdays: null,
     })));
   }
@@ -130,10 +130,10 @@ test("a cancelled session does not count towards absences in a row", async () =>
   await must(record(a.teacherA, S[1], c.id, "present"));
   await must(record(a.teacherA, S[2], c.id, "absent"));
   // S[3] was cancelled after the sheet was filled: its absence must not pair with S[2]'s.
-  const extra = await must(a.teacherA.rpc("create_sessions", {
+  const extra = await must(a.advisor.rpc("create_sessions", {
     p_group: a.groupA, p_fields: inSamae("حصة ملغاة", day(-3)), p_dates: [day(-3)], p_weekdays: null,
   }));
-  await must(a.teacherA.rpc("cancel_sessions", { p_session: extra, p_reason: "مطر", p_upcoming: false }));
+  await must(a.advisor.rpc("cancel_sessions", { p_session: extra, p_reason: "مطر", p_upcoming: false }));
   await must(record(a.teacherA, extra, c.id, "absent"));
   assert.deepEqual(await alertsFor(a.advisor, c.id), []);
 });

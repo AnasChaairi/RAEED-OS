@@ -12,6 +12,9 @@ import 'models.dart';
 /// The instructor's data. Everything is read online, and a copy is kept on the phone.
 /// Attendance is the one thing written offline: it is saved on the phone first, then
 /// sent by a waiting list as soon as there is a connection.
+///
+/// An advisor opens the same store over every group to plan sessions: only advisors
+/// create, edit and cancel sessions, and instructors take attendance.
 class InstructorStore extends ChangeNotifier {
   InstructorStore(this._repo, this._prefs, {this.retryEvery = const Duration(seconds: 30), DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
@@ -25,6 +28,7 @@ class InstructorStore extends ChangeNotifier {
   final Duration? retryEvery;
 
   String? _personId;
+  bool _allGroups = false;
   InstructorSnapshot _data = const InstructorSnapshot();
   bool _loaded = false;
   bool _loading = false;
@@ -36,6 +40,10 @@ class InstructorStore extends ChangeNotifier {
 
   InstructorSnapshot get data => _data;
   String? get personId => _personId;
+
+  /// Opened by an advisor over every group: sessions can be planned, attendance is
+  /// left to the instructors.
+  bool get schedules => _allGroups;
 
   /// True once there is something to show, from the server or from the phone.
   bool get loaded => _loaded;
@@ -55,14 +63,16 @@ class InstructorStore extends ChangeNotifier {
   /// When each session's attendance last reached the server, for this week.
   Map<String, DateTime> get sent => Map.unmodifiable(_sent);
 
-  String get _cacheKey => 'instructor_cache_$_personId';
+  String get _cacheKey => _allGroups ? 'advisor_sessions_cache_$_personId' : 'instructor_cache_$_personId';
   String get _pendingKey => 'attendance_pending_$_personId';
   String get _sentKey => 'attendance_sent_$_personId';
 
-  /// Opens [personId]'s data: the copy on the phone at once, then the server's.
-  Future<void> start(String personId) async {
-    if (_personId != personId) {
+  /// Opens [personId]'s data: the copy on the phone at once, then the server's. With
+  /// [allGroups], every group, for an advisor.
+  Future<void> start(String personId, {bool allGroups = false}) async {
+    if (_personId != personId || _allGroups != allGroups) {
       _personId = personId;
+      _allGroups = allGroups;
       _data = const InstructorSnapshot();
       _loaded = false;
       _loadFailure = null;
@@ -79,7 +89,7 @@ class InstructorStore extends ChangeNotifier {
     notifyListeners();
     try {
       await _send();
-      final fresh = await _repo.load(_personId!);
+      final fresh = await _repo.load(_personId!, allGroups: _allGroups);
       _data = _withPending(fresh);
       _loaded = true;
       _offline = false;
@@ -204,6 +214,7 @@ class InstructorStore extends ChangeNotifier {
   void clear() {
     _retry?.cancel();
     _personId = null;
+    _allGroups = false;
     _data = const InstructorSnapshot();
     _loaded = false;
     _pending = [];

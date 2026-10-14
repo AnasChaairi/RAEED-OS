@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// A role from person_roles. One account can hold several.
 enum AppRole {
-  advisor('advisor', 'مشرف', 'الإحصائيات والفئات والإعدادات'),
+  advisor('advisor', 'مشرف', 'الإحصائيات والحصص والفئات والإعدادات'),
   instructor('instructor', 'مؤطر', 'الحصص والحضور وفئاتي'),
   parent('parent', 'ولي أمر', 'جدول أطفالي وحسابي');
 
@@ -32,6 +32,7 @@ enum AppRole {
   List<RoleTab> get tabs => switch (this) {
         AppRole.advisor => const [
             RoleTab('الإحصائيات', Icons.insights_outlined, Icons.insights),
+            RoleTab('الحصص', Icons.calendar_month_outlined, Icons.calendar_month),
             RoleTab('الفئات', Icons.groups_outlined, Icons.groups),
             RoleTab('الأطفال', Icons.child_care_outlined, Icons.child_care),
             RoleTab('الإعدادات', Icons.settings_outlined, Icons.settings),

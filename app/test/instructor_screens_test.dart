@@ -5,6 +5,7 @@ import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
 import 'package:raeed_os/roles/app_role.dart';
+import 'package:raeed_os/setup/models.dart';
 import 'package:raeed_os/setup/setup_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -26,13 +27,14 @@ class Opened {
   final AppSession session;
 }
 
-/// Signs in as an instructor of فئة النجوم on a tall phone. Keeps what is already on the
-/// phone unless [fresh].
+/// Signs in as an instructor of فئة النجوم on a tall phone, or as an advisor with [role].
+/// Keeps what is already on the phone unless [fresh].
 Future<Opened> openInstructor(
   WidgetTester tester, {
   FakeInstructorRepository? repo,
   bool fresh = true,
   bool offline = false,
+  AppRole role = AppRole.instructor,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -40,7 +42,7 @@ Future<Opened> openInstructor(
   if (fresh) SharedPreferences.setMockInitialValues({});
   final auth = FakeAuthRepository(
     accounts: {
-      me: FakeAccount(fullName: 'ياسين', password: 'secret-pass', roles: {AppRole.instructor}),
+      me: FakeAccount(fullName: 'ياسين', password: 'secret-pass', roles: {role}),
     },
     signedInAs: me,
   )..offline = offline;
@@ -172,8 +174,45 @@ void main() {
     expect(find.text('حاول مرة أخرى'), findsOneWidget);
   });
 
+  testWidgets('instructors see their sessions and take attendance, but do not plan them', (tester) async {
+    await openInstructor(tester);
+    await tab(tester, 'الحصص');
+    expect(find.byKey(const Key('new-session')), findsNothing);
+    await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('take-attendance')), findsOneWidget);
+    expect(find.byKey(const Key('edit-session')), findsNothing);
+    expect(find.byKey(const Key('cancel-session')), findsNothing);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tab(tester, 'فئاتي');
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الحصص').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('new-session-for-group')), findsNothing);
+  });
+
+  testWidgets('the advisor plans the sessions of every group and leaves attendance to instructors', (tester) async {
+    final repo = seededInstructorRepo(me: me, today: today);
+    repo.groups.add(const Group(id: 'knights', name: 'فئة الفرسان', logoLetter: 'ف', logoColor: 2, instructorIds: ['hamza']));
+    repo.sessions.add(
+      Session(id: 'knights-today', groupId: 'knights', title: 'رياضة', date: today, start: 960, end: 1020, floor: 0),
+    );
+    final o = await openInstructor(tester, repo: repo, role: AppRole.advisor);
+    expect(o.store.schedules, isTrue);
+    await tab(tester, 'الحصص');
+    expect(find.text('فئة الفرسان · رياضة'), findsOneWidget);
+    expect(find.byKey(const Key('new-session')), findsOneWidget);
+    await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('take-attendance')), findsNothing);
+    expect(find.byKey(const Key('edit-session')), findsOneWidget);
+    expect(find.byKey(const Key('cancel-session')), findsOneWidget);
+  });
+
   testWidgets('editing a weekly session asks this one or all upcoming', (tester) async {
-    final o = await openInstructor(tester);
+    final o = await openInstructor(tester, role: AppRole.advisor);
     await tab(tester, 'الحصص');
     await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
     await tester.pumpAndSettle();
@@ -191,7 +230,7 @@ void main() {
   });
 
   testWidgets('a session is cancelled with a reason', (tester) async {
-    final o = await openInstructor(tester);
+    final o = await openInstructor(tester, role: AppRole.advisor);
     await tab(tester, 'الحصص');
     await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
     await tester.pumpAndSettle();

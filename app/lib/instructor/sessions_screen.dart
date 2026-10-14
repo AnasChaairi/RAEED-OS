@@ -9,7 +9,8 @@ import 'models.dart';
 import 'session_form_screen.dart';
 import 'widgets.dart';
 
-/// The الحصص tab: the instructor's week, Sunday to Saturday.
+/// The الحصص tab: the week, Sunday to Saturday. Instructors see their groups' sessions;
+/// the advisor sees every group's and is the one who plans them.
 class SessionsTab extends StatefulWidget {
   const SessionsTab({super.key});
 
@@ -30,7 +31,7 @@ class _SessionsTabState extends State<SessionsTab> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: store.data.groups.isEmpty
+      floatingActionButton: !store.schedules || store.data.groups.isEmpty
           ? null
           : FloatingActionButton.extended(
               key: const Key('new-session'),
@@ -77,9 +78,13 @@ class _SessionsTabState extends State<SessionsTab> {
                 ],
               ),
               if (data.groups.isEmpty)
-                const _Hint('لم تُسند إليك أي فئة بعد. تواصل مع المشرف.')
+                _Hint(store.schedules
+                    ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
+                    : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف.')
               else if (days.isEmpty)
-                const _Hint('لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'),
+                _Hint(store.schedules
+                    ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
+                    : 'لا حصص هذا الأسبوع. يخطّط المشرف الحصص وتظهر هنا.'),
               for (final e in days.entries) ...[
                 SectionLabel(dayLabel(e.key, now)),
                 for (final s in e.value) ...[
@@ -199,14 +204,14 @@ class SessionDetailScreen extends StatelessWidget {
             for (final m in s.materials) MaterialRow(material: m),
           ],
           const SizedBox(height: 16),
-          if (!s.cancelled && started)
+          if (!store.schedules && !s.cancelled && started)
             FilledButton.icon(
               key: const Key('take-attendance'),
               onPressed: () => openAttendance(context, s.id),
               icon: const Icon(Icons.fact_check_outlined),
               label: Text(taken > 0 ? 'تعديل الحضور' : 'تسجيل الحضور'),
             ),
-          if (!s.cancelled) ...[
+          if (store.schedules && !s.cancelled) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               key: const Key('edit-session'),
