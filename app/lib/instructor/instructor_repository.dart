@@ -78,7 +78,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
           .isFilter('to_date', null),
       _db
           .from('sessions')
-          .select('*, materials(kind, url, label)')
+          .select('*, materials(kind, url, label), session_instructors(person_id)')
           .inFilter('group_id', ids)
           .gte('session_date', dbDay(from))
           .lte('session_date', dbDay(today.add(const Duration(days: 200))))
@@ -169,6 +169,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
             'p_dates': [for (final d in dates) dbDay(d)],
             'p_weekdays': weekdays == null ? null : (weekdays.toList()..sort()),
             'p_materials': [for (final m in draft.materials) m.toJson()],
+            'p_instructors': draft.instructorIds,
           },
         );
         return id as String;
@@ -178,7 +179,12 @@ class SupabaseInstructorRepository implements InstructorRepository {
   Future<void> updateSessions(String sessionId, SessionDraft draft, {required bool upcoming}) => guardSupabase(
     () => _db.rpc(
       'update_sessions',
-      params: {'p_session': sessionId, 'p_fields': draft.toFields(), 'p_upcoming': upcoming},
+      params: {
+        'p_session': sessionId,
+        'p_fields': draft.toFields(),
+        'p_upcoming': upcoming,
+        'p_instructors': draft.instructorIds,
+      },
     ),
   );
 

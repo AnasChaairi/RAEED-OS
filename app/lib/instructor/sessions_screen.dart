@@ -167,6 +167,11 @@ class SessionDetailScreen extends StatelessWidget {
                   Text(s.timeLabel, style: text.titleMedium?.copyWith(color: RaeedColors.grey)),
                   const SizedBox(height: 8),
                   Text(s.away ? 'خارج المقر' : 'جمعية سماء · الطابق ${floors[s.floor] ?? ''}'),
+                  if (s.instructorIds.isNotEmpty)
+                    Text(
+                      'المؤطرون: ${[for (final id in s.instructorIds) data.staffNames[id] ?? 'مؤطر'].join('، ')}',
+                      key: const Key('session-instructors'),
+                    ),
                   if (s.away) ...[
                     if (s.address != null) Text(s.address!),
                     if (s.dropoffTime != null || s.dropoffPlace != null)

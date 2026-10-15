@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../setup/models.dart';
 import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
@@ -40,6 +41,7 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
   final _materialUrl = TextEditingController();
 
   String? _groupId;
+  late final Set<String> _instructors = {...?_initial?.instructorIds};
   late DateTime? _date = _initial?.date;
   late int? _start = _initial?.start;
   late int? _end = _initial?.end;
@@ -80,7 +82,16 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
     pickupPlace: _pickupPlace.text.trim(),
     pickupTime: _pickupTime,
     materials: _materials,
+    instructorIds: _instructors.toList(),
   );
+
+  /// Keeps the chosen instructors who teach [group]; a group with one instructor picks them.
+  void _fitInstructors(Group? group) {
+    _instructors.retainAll(group?.instructorIds ?? const []);
+    if (_instructors.isEmpty && group != null && group.instructorIds.length == 1) {
+      _instructors.add(group.instructorIds.single);
+    }
+  }
 
   List<DateTime> get _dates =>
       !_weekly ? [?_date] : (_date == null || _until == null ? const [] : seriesDates(_date!, _until!, _days));
@@ -101,7 +112,11 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
   }
 
   Future<void> _save() async {
-    if (_busy || !_form.currentState!.validate()) return;
+    if (_busy) return;
+    // Said next to the button too: the picker is at the top, often scrolled out of sight.
+    final noInstructor = _instructors.isEmpty;
+    setState(() => _error = noInstructor ? 'اختر مؤطراً واحداً على الأقل لهذه الحصة.' : null);
+    if (!_form.currentState!.validate() || noInstructor) return;
     if (_weekly && _dates.isEmpty) return setState(() => _error = 'لا توجد أيام بين البداية والنهاية.');
     if (_dates.length > 150) return setState(() => _error = 'سلسلة طويلة جداً. اختر تاريخ نهاية أقرب.');
     var upcoming = false;
@@ -137,7 +152,10 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
     final store = InstructorScope.of(context);
     final data = store.data;
     final groups = data.groups;
-    _groupId ??= widget.session?.groupId ?? widget.groupId ?? (groups.length == 1 ? groups.single.id : null);
+    if (_groupId == null) {
+      _groupId = widget.session?.groupId ?? widget.groupId ?? (groups.length == 1 ? groups.single.id : null);
+      if (_groupId != null) _fitInstructors(data.group(_groupId!));
+    }
     final text = Theme.of(context).textTheme;
     final group = _groupId == null ? null : data.group(_groupId!);
     return Scaffold(
@@ -168,8 +186,22 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
                   initialValue: _groupId,
                   decoration: const InputDecoration(labelText: 'الفئة'),
                   items: [for (final g in groups) DropdownMenuItem(value: g.id, child: Text(g.name))],
-                  onChanged: (v) => setState(() => _groupId = v),
+                  onChanged: (v) => setState(() {
+                    _groupId = v;
+                    _fitInstructors(v == null ? null : data.group(v));
+                  }),
                   validator: (v) => v == null ? 'اختر الفئة' : null,
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (group != null) ...[
+                _InstructorPicker(
+                  // A new key per group so the error clears when the group changes.
+                  key: Key('session-instructors-${group.id}'),
+                  group: group,
+                  names: data.staffNames,
+                  selected: _instructors,
+                  onChanged: (id, on) => setState(() => on ? _instructors.add(id) : _instructors.remove(id)),
                 ),
                 const SizedBox(height: 14),
               ],
@@ -421,6 +453,65 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
     final kid = _groupId == null ? null : data.childrenIn(_groupId!).firstOrNull;
     final name = kid == null ? 'اسم الطفل' : kid.fullName.split(' ').first;
     return '$verb · $name\n$title${when.isEmpty ? '' : ' · $when'}';
+  }
+}
+
+/// The group's instructors as chips; at least one must be chosen to run the session.
+class _InstructorPicker extends StatelessWidget {
+  const _InstructorPicker({
+    super.key,
+    required this.group,
+    required this.names,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final Group group;
+  final Map<String, String> names;
+  final Set<String> selected;
+  final void Function(String id, bool on) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return FormField<void>(
+      validator: (_) => group.instructorIds.isEmpty
+          ? 'لا مؤطرين في هذه الفئة. أسندهم من الإعداد ثم الفئات.'
+          : selected.isEmpty
+          ? 'اختر مؤطراً واحداً على الأقل'
+          : null,
+      builder: (state) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('المؤطرون', style: text.labelLarge),
+          const SizedBox(height: 6),
+          if (group.instructorIds.isEmpty)
+            Text('لم يُسند أي مؤطر لهذه الفئة بعد.', style: text.bodySmall?.copyWith(color: RaeedColors.grey))
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final id in group.instructorIds)
+                  FilterChip(
+                    key: Key('instructor-$id'),
+                    label: Text(names[id] ?? 'مؤطر'),
+                    selected: selected.contains(id),
+                    onSelected: (on) {
+                      onChanged(id, on);
+                      state.didChange(null);
+                    },
+                  ),
+              ],
+            ),
+          if (state.errorText != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(state.errorText!, style: text.bodySmall?.copyWith(color: RaeedColors.error)),
+            ),
+        ],
+      ),
+    );
   }
 }
 
