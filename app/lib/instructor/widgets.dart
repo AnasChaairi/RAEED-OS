@@ -104,6 +104,7 @@ class SessionCard extends StatelessWidget {
       if (s.materials.isNotEmpty)
         countLabel(s.materials.length, one: 'مادة مرفقة', two: 'مادتان مرفقتان', few: 'مواد مرفقة', many: 'مادة مرفقة'),
       s.seriesId == null ? 'مرة واحدة' : 'أسبوعي',
+      if (s.instructorIds.isNotEmpty) [for (final id in s.instructorIds) data.staffNames[id] ?? 'مؤطر'].join('، '),
       if (taken && !s.cancelled) 'الحضور مسجّل',
     ];
     return Card(

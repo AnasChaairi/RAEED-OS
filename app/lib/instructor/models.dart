@@ -106,6 +106,7 @@ class SessionDraft {
     this.pickupPlace,
     this.pickupTime,
     this.materials = const [],
+    this.instructorIds = const [],
   });
 
   final String groupId;
@@ -122,6 +123,9 @@ class SessionDraft {
   final String? pickupPlace;
   final int? pickupTime;
   final List<SessionMaterial> materials;
+
+  /// Who runs the session: one or more of the group's instructors.
+  final List<String> instructorIds;
 
   bool get away => place == SessionPlace.away;
 
@@ -162,6 +166,7 @@ class Session {
     this.status = SessionStatus.planned,
     this.cancelReason,
     this.materials = const [],
+    this.instructorIds = const [],
     this.originalDate,
     this.originalStart,
     this.originalEnd,
@@ -185,6 +190,9 @@ class Session {
   final SessionStatus status;
   final String? cancelReason;
   final List<SessionMaterial> materials;
+
+  /// Who runs the session. Empty for sessions planned before the advisor picked them.
+  final List<String> instructorIds;
 
   /// When the session was first planned, if it has since moved.
   final DateTime? originalDate;
@@ -225,6 +233,7 @@ class Session {
     pickupPlace: pickupPlace,
     pickupTime: pickupTime,
     materials: materials,
+    instructorIds: instructorIds,
   );
 
   Map<String, Object?> toJson() => {
@@ -246,12 +255,13 @@ class Session {
     'status': status.name,
     'cancel_reason': cancelReason,
     'materials': [for (final m in materials) m.toJson()],
+    'instructor_ids': instructorIds,
     'original_date': originalDate == null ? null : dbDay(originalDate!),
     'original_start': originalStart == null ? null : formatTime(originalStart!),
     'original_end': originalEnd == null ? null : formatTime(originalEnd!),
   };
 
-  /// Reads a sessions row (with its materials) or [toJson]'s output.
+  /// Reads a sessions row (with its materials and session_instructors) or [toJson]'s output.
   static Session fromJson(Map<String, dynamic> j) => Session(
     id: j['id'] as String,
     groupId: j['group_id'] as String,
@@ -272,6 +282,10 @@ class Session {
     cancelReason: j['cancel_reason'] as String?,
     materials: [
       for (final m in (j['materials'] as List? ?? const [])) SessionMaterial.fromJson(m as Map<String, dynamic>),
+    ],
+    instructorIds: [
+      for (final i in (j['instructor_ids'] as List? ?? const [])) i as String,
+      for (final i in (j['session_instructors'] as List? ?? const [])) (i as Map)['person_id'] as String,
     ],
     originalDate: j['original_date'] == null ? null : DateTime.parse(j['original_date'] as String),
     originalStart: _timeOrNull(j['original_start']),

@@ -4,6 +4,7 @@ import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
+import 'package:raeed_os/instructor/session_form_screen.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/setup/models.dart';
 import 'package:raeed_os/setup/setup_store.dart';
@@ -218,15 +219,34 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('edit-session')));
     await tester.pumpAndSettle();
+    final form = find.descendant(of: find.byType(SessionFormScreen), matching: find.byType(Scrollable)).first;
     await tester.enterText(find.byKey(const Key('session-title')), 'حفظ سورة النبأ');
     await tester.pump();
     expect(find.textContaining('تغيير موعد · آدم'), findsOneWidget, reason: 'the parent notification preview');
+    await tester.scrollUntilVisible(find.byKey(const Key('save-session')), 300, scrollable: form);
+    await tester.ensureVisible(find.byKey(const Key('save-session')));
+    await tester.tap(find.byKey(const Key('save-session')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('اختر مؤطراً واحداً على الأقل'), findsWidgets, reason: 'an instructor must run it');
+    expect(o.repo.calls, isNot(contains('updateSessions today upcoming')));
+    await tester.scrollUntilVisible(find.byKey(const Key('instructor-sara')), -300, scrollable: form);
+    await tester.tap(find.byKey(const Key('instructor-sara')));
+    await tester.pump();
+    await tester.scrollUntilVisible(find.byKey(const Key('save-session')), 300, scrollable: form);
+    await tester.ensureVisible(find.byKey(const Key('save-session')));
     await tester.tap(find.byKey(const Key('save-session')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('scope-upcoming')));
     await tester.pumpAndSettle();
     expect(o.repo.calls, contains('updateSessions today upcoming'));
-    expect(o.repo.sessions.where((s) => s.title == 'حفظ سورة النبأ').map((s) => s.id), ['today', 'next-week']);
+    final edited = o.repo.sessions.where((s) => s.title == 'حفظ سورة النبأ');
+    expect(edited.map((s) => s.id), ['today', 'next-week']);
+    expect(edited.map((s) => s.instructorIds), [
+      ['sara'],
+      ['sara'],
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.text('المؤطرون: سارة الإدريسي'), findsOneWidget);
   });
 
   testWidgets('a session is cancelled with a reason', (tester) async {

@@ -261,6 +261,45 @@ do $$ declare first uuid; begin
   if (select count(*) from sessions where title = 'نادي القراءة' and status = 'cancelled') <> 2 then
     raise exception 'FAIL: advisor plans a series for any group'; end if;
 end $$;
+-- The advisor names who runs each session, among the group's instructors only.
+do $$ declare first uuid; begin
+  first := public.create_sessions('10000000-0000-0000-0000-000000000002',
+    '{"title": "رسم", "start_time": "17:00", "end_time": "18:00", "place": "samae", "floor": 0}',
+    array['2027-04-05', '2027-04-12']::date[], array[1]::smallint[], '[]',
+    array['00000000-0000-0000-0000-00000000000e']::uuid[]);
+  if (select count(*) from session_instructors si join sessions s on s.id = si.session_id where s.title = 'رسم') <> 2 then
+    raise exception 'FAIL: instructors on every session of the series'; end if;
+  begin
+    perform public.create_sessions('10000000-0000-0000-0000-000000000002',
+      '{"title": "x", "start_time": "17:00", "end_time": "18:00", "place": "samae", "floor": 0}',
+      array['2027-04-05']::date[], null, '[]', array['00000000-0000-0000-0000-00000000000b']::uuid[]);
+    raise exception 'FAIL: accepted an instructor from another group';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.create_sessions('10000000-0000-0000-0000-000000000002',
+      '{"title": "x", "start_time": "17:00", "end_time": "18:00", "place": "samae", "floor": 0}',
+      array['2027-04-05']::date[], null, '[]', array[]::uuid[]);
+    raise exception 'FAIL: accepted a session with no instructor';
+  exception when invalid_parameter_value then null;
+  end;
+  insert into group_instructors values ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000b');
+  perform public.update_sessions(first, '{"title": "رسم", "session_date": "2027-04-05", "start_time": "17:00", "end_time": "18:00", "place": "samae", "floor": 0}',
+    true, array['00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000e']::uuid[]);
+  if (select count(*) from session_instructors si join sessions s on s.id = si.session_id where s.title = 'رسم') <> 4 then
+    raise exception 'FAIL: update replaces the instructors of the series'; end if;
+  delete from group_instructors where group_id = '10000000-0000-0000-0000-000000000002' and person_id = '00000000-0000-0000-0000-00000000000b';
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+do $$ begin
+  if (select count(*) from session_instructors) <> 4 then raise exception 'FAIL: instructor reads who runs their sessions'; end if;
+  begin
+    delete from session_instructors;
+    if (select count(*) from session_instructors) <> 4 then raise exception 'FAIL: instructor changed who runs a session'; end if;
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 -- Gender: the advisor sets it on a child and a staff member; nothing else is accepted.
 update public.children set gender = 'male' where id = '20000000-0000-0000-0000-000000000001';
 update public.people set gender = 'female' where id = '00000000-0000-0000-0000-00000000000a';
