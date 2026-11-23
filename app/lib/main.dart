@@ -10,6 +10,7 @@ import 'auth/auth_repository.dart';
 import 'config.dart';
 import 'instructor/instructor_repository.dart';
 import 'instructor/instructor_store.dart';
+import 'messages/messages_repository.dart';
 import 'notifications/push.dart';
 import 'parent/parent_repository.dart';
 import 'parent/parent_store.dart';
@@ -32,6 +33,7 @@ Future<void> main() async {
     stats: StatsStore(SupabaseStatsRepository(client)),
     profiles: SupabaseProfileRepository(client),
     push: push,
+    messages: SupabaseMessagesRepository(client),
   ));
   await session.start();
 }

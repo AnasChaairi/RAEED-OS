@@ -126,7 +126,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.changePasswordCalls, 1);
     expect(auth.accounts[newPhone]!.mustChangePassword, isFalse);
-    expect(tabLabels(tester), ['جدول أطفالي', 'حسابي']);
+    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
   });
 
   testWidgets('several roles: choose one, then switch from the avatar', (tester) async {
@@ -137,7 +137,7 @@ void main() {
     await tester.tap(find.byKey(const Key('role-parent')));
     await tester.tap(find.byKey(const Key('continue')));
     await tester.pumpAndSettle();
-    expect(tabLabels(tester), ['جدول أطفالي', 'حسابي']);
+    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
 
     await tester.tap(find.byKey(const Key('account')));
     await tester.pumpAndSettle();

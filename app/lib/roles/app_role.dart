@@ -7,7 +7,7 @@ enum AppRole {
 
   /// مشرف الفئة: plans the sessions of the فئة they are in charge of and follows its
   /// instructors. Not an app_role value: someone holds it by being in group_supervisors.
-  supervisor('category_supervisor', 'مشرف الفئة', 'أنشطة فئتي ومؤطروها وملاحظاتهم'),
+  supervisor('category_supervisor', 'مشرف الفئة', 'أنشطة فئتي ومؤطروها والتواصل مع أولياء الأمور'),
   parent('parent', 'ولي أمر', 'جدول أطفالي وحسابي');
 
   const AppRole(this.dbName, this.label, this.summary);
@@ -51,11 +51,13 @@ enum AppRole {
         AppRole.supervisor => const [
             RoleTab('الأنشطة', Icons.calendar_month_outlined, Icons.calendar_month),
             RoleTab('فئتي', Icons.groups_outlined, Icons.groups),
+            RoleTab('أولياء الأمور', Icons.forum_outlined, Icons.forum),
             RoleTab('الملاحظات', Icons.rate_review_outlined, Icons.rate_review),
             RoleTab('التنبيهات', Icons.notifications_outlined, Icons.notifications),
           ],
         AppRole.parent => const [
             RoleTab('جدول أطفالي', Icons.event_note_outlined, Icons.event_note),
+            RoleTab('الملاحظات', Icons.forum_outlined, Icons.forum),
             RoleTab('حسابي', Icons.person_outline, Icons.person),
           ],
       };

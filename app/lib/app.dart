@@ -10,6 +10,7 @@ import 'auth/sign_in_screen.dart';
 import 'home/home_shell.dart';
 import 'instructor/instructor_store.dart';
 import 'instructor/widgets.dart';
+import 'messages/messages_repository.dart';
 import 'notifications/push.dart';
 import 'parent/parent_store.dart';
 import 'profile/profile_repository.dart';
@@ -29,7 +30,11 @@ class RaeedApp extends StatelessWidget {
     required this.stats,
     required this.profiles,
     required this.push,
+    this.messages,
   });
+
+  /// The category supervisor's channel with parents.
+  final MessagesRepository? messages;
 
   final AppSession session;
 
@@ -66,6 +71,8 @@ class RaeedApp extends StatelessWidget {
                 child: ProfileScope(
                   repo: profiles,
                   clock: instructor.now,
+                  child: MessagesScope(
+                  repo: messages,
                   child: MaterialApp(
             title: 'رائد',
             debugShowCheckedModeBanner: false,
@@ -74,6 +81,7 @@ class RaeedApp extends StatelessWidget {
             supportedLocales: const [Locale('ar', 'MA')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: const SessionGate(),
+                  ),
                   ),
                 ),
               ),

@@ -4,6 +4,7 @@ import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
+import 'package:raeed_os/messages/messages_repository.dart';
 import 'package:raeed_os/notifications/push.dart';
 import 'package:raeed_os/parent/parent_models.dart';
 import 'package:raeed_os/roles/app_role.dart';
@@ -12,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
 import 'fake_instructor.dart';
+import 'fake_messages.dart';
 import 'fake_setup.dart';
 import 'fake_stage4.dart';
 
@@ -121,6 +123,7 @@ Future<OpenedParent> openParent(
   FakeParentRepository? repo,
   bool fresh = true,
   PushState pushState = PushState.on,
+  FakeMessagesRepository? messages,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -146,6 +149,7 @@ Future<OpenedParent> openParent(
       stats: extra.stats,
       profiles: extra.profiles,
       push: extra.push,
+      messages: messages,
     ),
   );
   await session.start();
@@ -281,5 +285,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(o.auth.deletionRequests, {karim});
     expect(find.text('وصل طلبك إلى المشرف ✓'), findsOneWidget);
+  });
+
+  testWidgets('a parent reads what the category supervisor wrote, likes it and replies', (tester) async {
+    final messages = FakeMessagesRepository(me: karim, myName: 'كريم بنعلي')
+      ..messages.add(
+        ChildMessage(
+          id: 'm1',
+          childId: 'adam',
+          childName: 'آدم بنعلي',
+          authorId: 'nadia',
+          authorName: 'نادية',
+          body: 'آدم شارك اليوم بحماس في المسرح',
+          createdAt: DateTime(2027, 2, 9, 18),
+        ),
+      );
+    await openParent(tester, messages: messages);
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('الملاحظات')));
+    await tester.pumpAndSettle();
+    expect(find.text('آدم شارك اليوم بحماس في المسرح'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('like-m1')));
+    await tester.pumpAndSettle();
+    expect(messages.calls, ['like m1']);
+    expect(find.text('أعجبني'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('reply-m1')), 'شكراً لكم');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('send-reply-m1')));
+    await tester.pumpAndSettle();
+    expect(messages.calls, ['like m1', 'reply m1 شكراً لكم']);
+    expect(find.text('شكراً لكم'), findsOneWidget);
   });
 }

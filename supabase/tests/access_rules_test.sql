@@ -404,4 +404,65 @@ do $$ begin
 end $$;
 reset role;
 
+-- Category supervisor's channel with parents: Nadia writes about Omar; Leila, his mother,
+-- gets a notification, likes it and replies; Nadia hears about both. Nobody else reads it.
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-000000000011');
+insert into public.people (id, full_name, phone) values ('00000000-0000-0000-0000-000000000011', 'ليلى الفاسي', '+212600000008');
+insert into public.person_roles values ('00000000-0000-0000-0000-000000000011', 'parent');
+insert into public.child_parents values ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000011');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+do $$ begin
+  insert into public.child_messages (id, child_id, body)
+  values ('50000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002', 'عمر شارك اليوم بحماس في المسرح');
+  begin
+    insert into public.child_messages (child_id, body) values ('20000000-0000-0000-0000-000000000001', 'x');
+    raise exception 'FAIL: supervisor wrote about a child of another group';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000011';
+do $$ begin
+  if (select count(*) from child_messages) <> 1 then raise exception 'FAIL: parent reads the message about their child'; end if;
+  if not exists (select 1 from people where full_name = 'نادية') then raise exception 'FAIL: parent sees who wrote'; end if;
+  insert into public.child_message_likes (message_id) values ('50000000-0000-0000-0000-000000000001');
+  insert into public.child_message_replies (message_id, body) values ('50000000-0000-0000-0000-000000000001', 'شكراً لكم');
+  begin
+    insert into public.child_messages (child_id, body) values ('20000000-0000-0000-0000-000000000002', 'x');
+    raise exception 'FAIL: parent started a message';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+do $$ begin
+  if (select count(*) from child_messages) + (select count(*) from child_message_replies) <> 0 then
+    raise exception 'FAIL: another parent reads the message'; end if;
+  begin
+    insert into public.child_message_replies (message_id, body) values ('50000000-0000-0000-0000-000000000001', 'x');
+    raise exception 'FAIL: another parent replied';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+do $$ begin
+  if (select count(*) from child_messages) <> 0 then raise exception 'FAIL: instructor reads the parents channel'; end if;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+do $$ begin
+  if (select count(*) from child_message_replies) <> 1 or (select count(*) from child_message_likes) <> 1 then
+    raise exception 'FAIL: supervisor reads replies and likes'; end if;
+  if not exists (select 1 from people where full_name = 'ليلى الفاسي') then raise exception 'FAIL: supervisor sees the parent'; end if;
+end $$;
+reset role;
+do $$ begin
+  if (select count(*) from notification_outbox where kind = 'child_message' and recipient_id = '00000000-0000-0000-0000-000000000011') <> 1 then
+    raise exception 'FAIL: parent notified of the observation'; end if;
+  if (select count(*) from notification_outbox where kind in ('child_message_reply', 'child_message_like')
+      and recipient_id = '00000000-0000-0000-0000-00000000000f') <> 2 then
+    raise exception 'FAIL: supervisor notified of the like and the reply'; end if;
+  if exists (select 1 from notification_outbox where kind = 'child_message_reply' and recipient_id = '00000000-0000-0000-0000-000000000011') then
+    raise exception 'FAIL: replier notified of their own reply'; end if;
+end $$;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;
