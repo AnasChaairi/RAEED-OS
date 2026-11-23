@@ -73,7 +73,7 @@ class SupabaseMessagesRepository implements MessagesRepository {
     var q = _db
         .from('child_messages')
         .select(
-          'id, child_id, author_id, body, created_at, children(full_name), people(full_name), '
+          'id, child_id, author_id, body, created_at, children(full_name), people!child_messages_author_id_fkey(full_name), '
           'child_message_replies(id, author_id, body, created_at, people(full_name)), '
           'child_message_likes(person_id, people(full_name))',
         );
