@@ -52,6 +52,14 @@ Future<FakeSetupRepository> openAdvisor(
   return repo;
 }
 
+/// Scrolls the child form until the widget is in the middle of the screen.
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  FocusManager.instance.primaryFocus?.unfocus(); // a focused field would scroll itself back into view
+  await tester.pumpAndSettle();
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pumpAndSettle();
+}
+
 const stars = GroupDraft(name: 'فئة النجوم', logoLetter: 'ن', logoColor: 1);
 
 void main() {
@@ -126,8 +134,10 @@ void main() {
 
     // No parent phone: refused before anything is sent.
     await tester.enterText(find.byKey(const Key('child-name')), 'آدم بنعلي');
+    await _reveal(tester, find.byKey(const Key('save-child')));
     await tester.tap(find.byKey(const Key('save-child')));
     await tester.pumpAndSettle();
+    await _reveal(tester, find.byKey(const Key('child-name')));
     expect(find.text('اكتب رقم الهاتف'), findsOneWidget);
     expect(find.text('اختر الجنس'), findsOneWidget);
     expect(repo.children, isEmpty);
@@ -140,7 +150,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('parent-name-0')), 'كريم بنعلي');
     await tester.enterText(find.byKey(const Key('parent-phone-0')), '0612345678');
+    await _reveal(tester, find.byKey(const Key('consent')));
     await tester.tap(find.byKey(const Key('consent')));
+    await _reveal(tester, find.byKey(const Key('save-child')));
     await tester.tap(find.byKey(const Key('save-child')));
     await tester.pumpAndSettle();
 
@@ -156,6 +168,40 @@ void main() {
     expect(find.text('ولي الأمر: كريم بنعلي'), findsOneWidget);
   });
 
+  testWidgets('the registration form fields are saved with the child and shown again', (tester) async {
+    final repo = await openAdvisor(tester, tab: 'الأطفال');
+    await tester.tap(find.byKey(const Key('new-child')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('child-name')), 'ريم زوطان');
+    await tester.tap(find.byKey(const Key('gender-female')));
+    await tester.enterText(find.byKey(const Key('parent-name-0')), 'سامية الدراز');
+    await tester.enterText(find.byKey(const Key('parent-phone-0')), '0663427521');
+    await _reveal(tester, find.byKey(const Key('child-registration')));
+    await tester.tap(find.byKey(const Key('child-registration')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('child-latin')), 'Rim Zouttane');
+    await tester.enterText(find.byKey(const Key('child-school')), 'التمهيدي');
+    await _reveal(tester, find.byKey(const Key('child-chronic')));
+    await tester.tap(find.byKey(const Key('child-chronic')));
+    await tester.enterText(find.byKey(const Key('child-medical')), 'حساسية');
+    await tester.enterText(find.byKey(const Key('child-mother-phone')), '0663 42 75 21');
+    await tester.enterText(find.byKey(const Key('child-father-phone')), '12345');
+    await _reveal(tester, find.byKey(const Key('save-child')));
+    await tester.tap(find.byKey(const Key('save-child')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('passwords-done')));
+    await tester.pumpAndSettle();
+
+    final r = repo.children.values.single.registration;
+    expect(r.fullNameLatin, 'Rim Zouttane');
+    expect(r.schoolLevel, 'التمهيدي');
+    expect(r.hasChronicCondition, isTrue);
+    expect(r.medicalNotes, 'حساسية');
+    expect(r.motherPhone, '+212663427521');
+    expect(r.fatherPhone, '12345', reason: 'a number that is not Moroccan is kept as typed');
+    expect(r.residence, isNull);
+  });
+
   testWidgets('typing the number of someone registered links the child to them', (tester) async {
     final repo = await openAdvisor(tester, tab: 'الأطفال');
     await tester.tap(find.byKey(const Key('new-child')));
@@ -165,6 +211,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('parent-phone-0')), '0611111111');
     await tester.pump();
     expect(find.textContaining('مسجّل باسم ياسين الإدريسي'), findsOneWidget);
+    await _reveal(tester, find.byKey(const Key('save-child')));
     await tester.tap(find.byKey(const Key('save-child')));
     await tester.pumpAndSettle();
 
@@ -203,7 +250,9 @@ void main() {
     // The empty new-parent form gave way to the chosen parent.
     expect(find.byKey(const Key('parent-phone-0')), findsNothing);
     expect(find.text('كريم بنعلي'), findsOneWidget);
+    await _reveal(tester, find.byKey(const Key('consent')));
     await tester.tap(find.byKey(const Key('consent')));
+    await _reveal(tester, find.byKey(const Key('save-child')));
     await tester.tap(find.byKey(const Key('save-child')));
     await tester.pumpAndSettle();
 

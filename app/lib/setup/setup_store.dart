@@ -131,6 +131,7 @@ class SetupStore extends ChangeNotifier {
       birthDate: draft.birthDate,
       gender: draft.gender,
       recordConsent: draft.consent && before?.consentRecordedAt == null,
+      registration: draft.registration,
     );
     if (before?.groupId != draft.groupId) await _repo.moveChild(childId, draft.groupId);
     if (!listEquals(before?.parentIds, parentIds)) await _repo.setChildParents(childId, parentIds);

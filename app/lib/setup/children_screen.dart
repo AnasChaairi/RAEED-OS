@@ -144,6 +144,19 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
   late final List<String> _existingParents = [...?widget.child?.parentIds];
   final List<_NewParent> _newParents = [];
   late bool _consent = widget.child?.consentRecordedAt != null;
+  late final ChildRegistration _reg = widget.child?.registration ?? const ChildRegistration();
+  late final _latin = TextEditingController(text: _reg.fullNameLatin);
+  late final _school = TextEditingController(text: _reg.schoolLevel);
+  late final _residence = TextEditingController(text: _reg.residence);
+  late bool? _returning = _reg.returningMember;
+  late bool _chronic = _reg.hasChronicCondition;
+  late final _medical = TextEditingController(text: _reg.medicalNotes);
+  late final _motherName = TextEditingController(text: _reg.motherName);
+  late final _motherPhone = TextEditingController(text: _localPhone(_reg.motherPhone));
+  late final _fatherName = TextEditingController(text: _reg.fatherName);
+  late final _fatherPhone = TextEditingController(text: _localPhone(_reg.fatherPhone));
+  late final _email = TextEditingController(text: _reg.contactEmail);
+  late final _familyNotes = TextEditingController(text: _reg.registrationNotes);
   bool _busy = false;
   String? _error;
 
@@ -156,6 +169,9 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
   @override
   void dispose() {
     _name.dispose();
+    for (final c in [_latin, _school, _residence, _medical, _motherName, _motherPhone, _fatherName, _fatherPhone, _email, _familyNotes]) {
+      c.dispose();
+    }
     for (final p in _newParents) {
       p.dispose();
     }
@@ -188,6 +204,7 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
         groupId: _groupId,
         parents: parents,
         consent: _consent,
+        registration: _registration(),
       ));
       if (!mounted) return;
       setState(() => _busy = false);
@@ -198,6 +215,32 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  ChildRegistration _registration() {
+    String? t(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
+    String? phone(TextEditingController c) {
+      final raw = t(c);
+      if (raw == null) return null;
+      final n = normalizePhone(raw);
+      return n == null ? raw : '+$n';
+    }
+
+    return ChildRegistration(
+      fullNameLatin: t(_latin),
+      schoolLevel: t(_school),
+      residence: t(_residence),
+      returningMember: _returning,
+      hasChronicCondition: _chronic,
+      medicalNotes: t(_medical),
+      motherName: t(_motherName),
+      motherPhone: phone(_motherPhone),
+      fatherName: t(_fatherName),
+      fatherPhone: phone(_fatherPhone),
+      contactEmail: t(_email),
+      registrationNotes: t(_familyNotes),
+      registeredAt: _reg.registeredAt,
+    );
   }
 
   /// A number that already has an account links to it instead of creating another.
@@ -253,9 +296,12 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
       body: SafeArea(
         child: Form(
           key: _form,
-          child: ListView(
+          // Not a ListView: every field must stay built so the form validates all of them.
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-            children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               TextFormField(
                 key: const Key('child-name'),
                 controller: _name,
@@ -383,6 +429,123 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
               ),
               const SizedBox(height: 8),
               Card(
+                clipBehavior: Clip.antiAlias,
+                child: ExpansionTile(
+                  key: const Key('child-registration'),
+                  title: const Text('استمارة التسجيل'),
+                  subtitle: Text('الصحة، الأب والأم، المستوى الدراسي، السكن', style: text.bodySmall),
+                  childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  children: [
+                    TextFormField(
+                      key: const Key('child-latin'),
+                      controller: _latin,
+                      textDirection: TextDirection.ltr,
+                      decoration: const InputDecoration(labelText: 'الاسم بالفرنسية'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      key: const Key('child-school'),
+                      controller: _school,
+                      decoration: const InputDecoration(labelText: 'المستوى الدراسي'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      key: const Key('child-residence'),
+                      controller: _residence,
+                      decoration: const InputDecoration(labelText: 'السكن'),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<bool?>(
+                      key: const Key('child-returning'),
+                      initialValue: _returning,
+                      decoration: const InputDecoration(labelText: 'مسجل الموسم الماضي'),
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('غير محدد')),
+                        DropdownMenuItem(value: true, child: Text('نعم')),
+                        DropdownMenuItem(value: false, child: Text('لا، تسجيل جديد')),
+                      ],
+                      onChanged: (v) => setState(() => _returning = v),
+                    ),
+                    const SizedBox(height: 6),
+                    SwitchListTile(
+                      key: const Key('child-chronic'),
+                      contentPadding: EdgeInsets.zero,
+                      value: _chronic,
+                      onChanged: (v) => setState(() => _chronic = v),
+                      title: const Text('يعاني من مرض مزمن'),
+                    ),
+                    TextFormField(
+                      key: const Key('child-medical'),
+                      controller: _medical,
+                      maxLines: 3,
+                      minLines: 1,
+                      decoration: const InputDecoration(labelText: 'الاحتياطات الصحية'),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            key: const Key('child-mother-name'),
+                            controller: _motherName,
+                            decoration: const InputDecoration(labelText: 'اسم الأم'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            key: const Key('child-mother-phone'),
+                            controller: _motherPhone,
+                            keyboardType: TextInputType.phone,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(labelText: 'هاتف الأم'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            key: const Key('child-father-name'),
+                            controller: _fatherName,
+                            decoration: const InputDecoration(labelText: 'اسم الأب'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            key: const Key('child-father-phone'),
+                            controller: _fatherPhone,
+                            keyboardType: TextInputType.phone,
+                            textDirection: TextDirection.ltr,
+                            decoration: const InputDecoration(labelText: 'هاتف الأب'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      key: const Key('child-email'),
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      textDirection: TextDirection.ltr,
+                      decoration: const InputDecoration(labelText: 'البريد الإلكتروني'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      key: const Key('child-family-notes'),
+                      controller: _familyNotes,
+                      maxLines: 3,
+                      minLines: 1,
+                      decoration: const InputDecoration(labelText: 'ملاحظات الأسرة'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
                 child: CheckboxListTile(
                   key: const Key('consent'),
                   value: _consent,
@@ -406,6 +569,7 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                 child: _busy ? const ButtonSpinner() : const Text('حفظ الطفل'),
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -535,4 +699,11 @@ class _ParentPickerState extends State<_ParentPicker> {
       ),
     );
   }
+}
+
+/// 0612345678 for editing a stored +212612345678. Anything else is shown as stored.
+String _localPhone(String? stored) {
+  if (stored == null) return '';
+  final n = normalizePhone(stored);
+  return n == null ? stored : '0${n.substring(3)}';
 }
