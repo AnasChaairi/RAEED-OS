@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raeed_os/instructor/instructor_repository.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
+import 'package:raeed_os/setup/models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_instructor.dart';
@@ -111,5 +113,58 @@ void main() {
     expect(copy.sessions.map((s) => s.id), store.data.sessions.map((s) => s.id));
     expect(copy.children.first.parents.single.phone, '+212612345678');
     expect(copy.group('stars')!.instructorIds, [me, 'sara']);
+  });
+
+  test('only the instructors picked for a session take its attendance', () async {
+    final repo = seededInstructorRepo(me: me, today: today);
+    final i = repo.sessions.indexWhere((s) => s.id == 'today');
+    final t = repo.sessions[i];
+    repo.sessions[i] = Session(
+      id: t.id,
+      groupId: t.groupId,
+      title: t.title,
+      date: t.date,
+      start: t.start,
+      end: t.end,
+      floor: t.floor,
+      instructorIds: const ['sara'],
+    );
+    final store = await openStore(repo);
+    final data = store.data;
+    expect(store.canRecord(data.session('today')!), isFalse, reason: 'Sara was picked, not me');
+    expect(store.canRecord(data.session('next-week')!), isTrue, reason: 'nobody picked: the group teaches it');
+    expect(data.nextSession(now, where: store.runs)!.id, 'next-week');
+  });
+
+  test('attendance the server refuses for good does not hold back the rest', () async {
+    final repo = seededInstructorRepo(me: me, today: today);
+    final store = await openStore(repo);
+    repo.offline = true;
+    await store.saveAttendance('last-week', {'adam': AttendanceStatus.present});
+    await store.saveAttendance('today', {'adam': AttendanceStatus.absent});
+    expect(store.pending, hasLength(2));
+    repo.offline = false;
+    repo.refused.add('last-week');
+    expect(await store.sendNow(), isTrue);
+    expect(store.pending, isEmpty);
+    expect(repo.attendance['today/adam']!.status, AttendanceStatus.absent);
+    expect(repo.attendance.containsKey('last-week/adam'), isFalse);
+  });
+
+  test('a category supervisor sees the groups they supervise and plans, without taking attendance', () async {
+    final repo = seededInstructorRepo(me: me, today: today);
+    repo.groups
+      ..[0] = repo.groups[0].withInstructors(['sara'], supervisors: ['nadia'])
+      ..add(
+        const Group(id: 'knights', name: 'فئة الفرسان', logoLetter: 'ف', logoColor: 2).withInstructors([me]),
+      );
+    final store = InstructorStore(repo, await SharedPreferences.getInstance(), retryEvery: null, clock: () => now);
+    await store.start('nadia', view: StaffView.supervising);
+    expect([for (final g in store.data.groups) g.id], ['stars']);
+    expect(store.schedules, isTrue);
+    expect(store.canRecord(store.data.session('today')!), isFalse);
+
+    await store.addObservation('today', 'آدم كان متعباً');
+    expect((await store.recentObservations()).single.body, 'آدم كان متعباً');
   });
 }

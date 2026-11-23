@@ -45,6 +45,10 @@ class SetupStore extends ChangeNotifier {
   Future<void> saveGroup(GroupDraft draft) async {
     final id = await _repo.saveGroup(draft);
     await _repo.setGroupInstructors(id, draft.instructorIds);
+    final supervisorsBefore = _data.group(id)?.supervisorIds ?? const <String>[];
+    if (!setEquals(supervisorsBefore.toSet(), draft.supervisorIds.toSet())) {
+      await _repo.setGroupSupervisors(id, draft.supervisorIds);
+    }
     final before = _data.group(id)?.logoPath;
     if (draft.newLogo != null || (draft.removeLogo && before != null)) {
       await _repo.setGroupLogo(id, draft.newLogo, replaces: before);

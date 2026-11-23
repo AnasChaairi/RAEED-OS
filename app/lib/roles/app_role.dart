@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 enum AppRole {
   advisor('advisor', 'مشرف', 'الإحصائيات والحصص والفئات والإعدادات'),
   instructor('instructor', 'مؤطر', 'الحصص والحضور وفئاتي'),
+
+  /// مشرف الفئة: plans the sessions of the فئة they are in charge of and follows its
+  /// instructors. Not an app_role value: someone holds it by being in group_supervisors.
+  supervisor('category_supervisor', 'مشرف الفئة', 'أنشطة فئتي ومؤطروها وملاحظاتهم'),
   parent('parent', 'ولي أمر', 'جدول أطفالي وحسابي');
 
   const AppRole(this.dbName, this.label, this.summary);
@@ -18,6 +22,7 @@ enum AppRole {
   IconData get icon => switch (this) {
         AppRole.advisor => Icons.verified_user,
         AppRole.instructor => Icons.school,
+        AppRole.supervisor => Icons.supervisor_account,
         AppRole.parent => Icons.family_restroom,
       };
 
@@ -41,6 +46,12 @@ enum AppRole {
             RoleTab('اليوم', Icons.today_outlined, Icons.today),
             RoleTab('الحصص', Icons.calendar_month_outlined, Icons.calendar_month),
             RoleTab('فئاتي', Icons.groups_outlined, Icons.groups),
+            RoleTab('التنبيهات', Icons.notifications_outlined, Icons.notifications),
+          ],
+        AppRole.supervisor => const [
+            RoleTab('الأنشطة', Icons.calendar_month_outlined, Icons.calendar_month),
+            RoleTab('فئتي', Icons.groups_outlined, Icons.groups),
+            RoleTab('الملاحظات', Icons.rate_review_outlined, Icons.rate_review),
             RoleTab('التنبيهات', Icons.notifications_outlined, Icons.notifications),
           ],
         AppRole.parent => const [

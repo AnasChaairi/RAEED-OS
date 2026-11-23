@@ -442,6 +442,36 @@ class ChildNote {
   final DateTime createdAt;
 }
 
+/// What an instructor of a session noted about it, for the category supervisor and the
+/// advisors.
+class SessionObservation {
+  const SessionObservation({
+    required this.id,
+    required this.sessionId,
+    required this.authorId,
+    required this.authorName,
+    required this.body,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String sessionId;
+  final String authorId;
+  final String authorName;
+  final String body;
+  final DateTime createdAt;
+
+  /// Reads a session_observations row with its author's name.
+  static SessionObservation fromJson(Map<String, dynamic> j) => SessionObservation(
+    id: j['id'] as String,
+    sessionId: j['session_id'] as String,
+    authorId: j['author_id'] as String,
+    authorName: (j['people'] as Map?)?['full_name'] as String? ?? '',
+    body: j['body'] as String,
+    createdAt: DateTime.parse(j['created_at'] as String).toLocal(),
+  );
+}
+
 /// Everything the instructor's tabs show, kept on the phone so attendance works offline.
 class InstructorSnapshot {
   const InstructorSnapshot({
@@ -483,10 +513,25 @@ class InstructorSnapshot {
 
   List<AbsenceAlert> get openAlerts => alerts.where((a) => a.open).toList();
 
-  /// The next session that has not ended, today or later.
-  Session? nextSession(DateTime now, {String? groupId}) => sessions
-      .where((s) => !s.cancelled && s.endsAt.isAfter(now) && (groupId == null || s.groupId == groupId))
+  /// The next session that has not ended, today or later. With [where], the next one
+  /// that passes it.
+  Session? nextSession(DateTime now, {String? groupId, bool Function(Session)? where}) => sessions
+      .where(
+        (s) =>
+            !s.cancelled &&
+            s.endsAt.isAfter(now) &&
+            (groupId == null || s.groupId == groupId) &&
+            (where == null || where(s)),
+      )
       .firstOrNull;
+
+  /// Whether [personId] runs [s]: they were picked for it, or nobody was picked and they
+  /// teach its group. Only they take its attendance and write observations on it.
+  bool runs(Session s, String? personId) {
+    if (personId == null) return false;
+    if (s.instructorIds.isNotEmpty) return s.instructorIds.contains(personId);
+    return group(s.groupId)?.instructorIds.contains(personId) ?? false;
+  }
 
   /// Attended (present or late) over recorded sessions, since the term started.
   double? attendanceRate(String childId) {

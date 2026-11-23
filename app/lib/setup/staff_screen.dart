@@ -54,12 +54,14 @@ class _StaffRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final groups = data.groupsTaughtBy(person.id).map((g) => g.name).join('، ');
+    final supervised = data.groupsSupervisedBy(person.id).map((g) => g.name).join('، ');
     return SetupRow(
       leading: InitialAvatar(person.fullName),
       title: person.fullName,
       lines: [
         [for (final r in AppRole.values) if (person.roles.contains(r)) r.label].join(' · '),
         if (groups.isNotEmpty) groups,
+        if (supervised.isNotEmpty) 'مشرف الفئة: $supervised',
         if (person.mustChangePassword) 'لم يدخل بعد بكلمة مروره الخاصة',
       ],
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => StaffFormScreen(person: person))),

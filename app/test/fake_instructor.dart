@@ -14,6 +14,10 @@ class FakeInstructorRepository implements InstructorRepository {
   final staffNames = <String, String>{};
   final calls = <String>[];
   final notes = <String, List<ChildNote>>{};
+  final observations = <SessionObservation>[];
+
+  /// Sessions whose attendance the server refuses, as for an instructor not picked.
+  final refused = <String>{};
   bool offline = false;
   int _ids = 0;
 
@@ -22,9 +26,18 @@ class FakeInstructorRepository implements InstructorRepository {
   }
 
   @override
-  Future<InstructorSnapshot> load(String personId, {bool allGroups = false}) async {
+  Future<InstructorSnapshot> load(String personId, {StaffView view = StaffView.teaching}) async {
     _check();
-    final mine = groups.where((g) => allGroups || g.instructorIds.contains(personId)).map((g) => g.id).toSet();
+    final mine = groups
+        .where(
+          (g) => switch (view) {
+            StaffView.all => true,
+            StaffView.supervising => g.supervisorIds.contains(personId),
+            StaffView.teaching => g.instructorIds.contains(personId),
+          },
+        )
+        .map((g) => g.id)
+        .toSet();
     final list = sessions.where((s) => mine.contains(s.groupId)).toList()
       ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
     return InstructorSnapshot(
@@ -41,6 +54,7 @@ class FakeInstructorRepository implements InstructorRepository {
   Future<void> pushAttendance(List<AttendanceRecord> records) async {
     _check();
     calls.add('pushAttendance ${records.length}');
+    if (records.any((r) => refused.contains(r.sessionId))) throw const SetupError(SetupFailure.notAllowed);
     for (final r in records) {
       attendance['${r.sessionId}/${r.childId}'] = r;
       if (r.status == AttendanceStatus.absent) _maybeAlert(r);
@@ -210,6 +224,44 @@ class FakeInstructorRepository implements InstructorRepository {
     _check();
     sheets.add('$sessionId $seconds');
   }
+
+  @override
+  Future<List<SessionObservation>> observationsFor(String sessionId) async {
+    _check();
+    return observations.where((o) => o.sessionId == sessionId).toList().reversed.toList();
+  }
+
+  @override
+  Future<List<SessionObservation>> recentObservations(List<String> groupIds, DateTime since) async {
+    _check();
+    return observations
+        .where((o) => groupIds.contains(sessions.firstWhere((s) => s.id == o.sessionId).groupId))
+        .toList()
+        .reversed
+        .toList();
+  }
+
+  @override
+  Future<void> addObservation(String sessionId, String body) async {
+    _check();
+    calls.add('addObservation $sessionId $body');
+    observations.add(
+      SessionObservation(
+        id: 'o${_ids++}',
+        sessionId: sessionId,
+        authorId: 'me',
+        authorName: 'أنا',
+        body: body,
+        createdAt: DateTime(2026, 10, 1),
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteObservation(String id) async {
+    _check();
+    observations.removeWhere((o) => o.id == id);
+  }
 }
 
 /// A group of three children taught by [me], with a session today at 10:00 and one a
@@ -272,8 +324,8 @@ FakeInstructorRepository seededInstructorRepo({required String me, required Date
   return repo;
 }
 
-extension on Group {
-  Group withInstructors(List<String> ids) => Group(
+extension GroupStaff on Group {
+  Group withInstructors(List<String> ids, {List<String>? supervisors}) => Group(
     id: id,
     name: name,
     logoLetter: logoLetter,
@@ -281,5 +333,6 @@ extension on Group {
     ageMin: ageMin,
     ageMax: ageMax,
     instructorIds: ids,
+    supervisorIds: supervisors ?? supervisorIds,
   );
 }

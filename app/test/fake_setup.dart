@@ -86,6 +86,11 @@ class FakeSetupRepository implements SetupRepository {
   }
 
   @override
+  Future<void> setGroupSupervisors(String groupId, List<String> personIds) async {
+    calls.add('setGroupSupervisors $groupId ${personIds.join(',')}');
+  }
+
+  @override
   Future<void> setInstructorGroups(String personId, List<String> groupIds) async {
     calls.add('setInstructorGroups $personId ${groupIds.join(',')}');
     for (final g in groups.values.toList()) {

@@ -44,6 +44,9 @@ abstract interface class SetupRepository {
   /// Inserts or updates the group row and returns its id. Instructors are set separately.
   Future<String> saveGroup(GroupDraft draft);
   Future<void> setGroupInstructors(String groupId, List<String> personIds);
+
+  /// Puts [personIds] in charge of the group (مشرف الفئة), and no one else.
+  Future<void> setGroupSupervisors(String groupId, List<String> personIds);
   Future<void> setInstructorGroups(String personId, List<String> groupIds);
 
   /// Uploads [image] as the group's logo, or clears the logo when null, then deletes the
@@ -94,7 +97,7 @@ class SupabaseSetupRepository implements SetupRepository {
   @override
   Future<SetupSnapshot> load() => _guard(() async {
         final results = await Future.wait([
-          _db.from('groups').select('id, name, logo_letter, logo_color, logo_path, age_min, age_max, archived, group_instructors(person_id)').order('name'),
+          _db.from('groups').select('id, name, logo_letter, logo_color, logo_path, age_min, age_max, archived, group_instructors(person_id), group_supervisors(person_id)').order('name'),
           _db
               .from('people')
               .select('id, full_name, phone, gender, must_change_password, person_roles(role)')
@@ -117,6 +120,7 @@ class SupabaseSetupRepository implements SetupRepository {
                 ageMax: g['age_max'] as int?,
                 archived: g['archived'] as bool,
                 instructorIds: [for (final i in g['group_instructors'] as List) i['person_id'] as String],
+                supervisorIds: [for (final i in g['group_supervisors'] as List) i['person_id'] as String],
               ),
           ],
           people: [
@@ -199,6 +203,18 @@ class SupabaseSetupRepository implements SetupRepository {
         if (personIds.isNotEmpty) {
           await _db
               .from('group_instructors')
+              .upsert([for (final p in personIds) {'group_id': groupId, 'person_id': p}], ignoreDuplicates: true);
+        }
+      });
+
+  @override
+  Future<void> setGroupSupervisors(String groupId, List<String> personIds) => _guard(() async {
+        var remove = _db.from('group_supervisors').delete().eq('group_id', groupId);
+        if (personIds.isNotEmpty) remove = remove.not('person_id', 'in', '(${personIds.join(',')})');
+        await remove;
+        if (personIds.isNotEmpty) {
+          await _db
+              .from('group_supervisors')
               .upsert([for (final p in personIds) {'group_id': groupId, 'person_id': p}], ignoreDuplicates: true);
         }
       });

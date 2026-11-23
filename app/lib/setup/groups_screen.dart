@@ -61,6 +61,7 @@ class _GroupRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final names = [for (final id in group.instructorIds) data.person(id)?.fullName].nonNulls.join('، ');
+    final supervisors = [for (final id in group.supervisorIds) data.person(id)?.fullName].nonNulls.join('، ');
     final count = data.childrenIn(group.id).length;
     return SetupRow(
       leading: GroupLogo.of(group),
@@ -68,6 +69,7 @@ class _GroupRow extends StatelessWidget {
       lines: [
         [?group.ageLabel, countLabel(count, one: 'طفل واحد', two: 'طفلان', few: 'أطفال', many: 'طفلاً')].join(' · '),
         names.isEmpty ? 'بدون مؤطر' : 'المؤطرون: $names',
+        if (supervisors.isNotEmpty) 'مشرف الفئة: $supervisors',
       ],
       onTap: () => openGroupForm(context, group: group),
     );
@@ -116,6 +118,7 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
   late int _color = widget.group?.logoColor ?? 1;
   late bool _archived = widget.group?.archived ?? false;
   late final Set<String> _instructors = {...?widget.group?.instructorIds};
+  late final Set<String> _supervisors = {...?widget.group?.supervisorIds};
   bool _letterEdited = false;
   Uint8List? _newLogo;
   bool _removeLogo = false;
@@ -157,6 +160,7 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
         ageMax: int.tryParse(_ageMax.text),
         archived: _archived,
         instructorIds: _instructors.toList(),
+        supervisorIds: _supervisors.toList(),
       ));
       if (mounted) Navigator.pop(context);
     } on SetupError catch (e) {
@@ -331,6 +335,29 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
                         label: Text(p.fullName),
                         selected: _instructors.contains(p.id),
                         onSelected: (on) => setState(() => on ? _instructors.add(p.id) : _instructors.remove(p.id)),
+                      ),
+                  ],
+                ),
+              const SectionLabel('مشرف الفئة'),
+              Text(
+                'يخطّط أنشطة هذه الفئة ويتابع مؤطريها وملاحظاتهم، ولا يرى غيرها.',
+                style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+              ),
+              const SizedBox(height: 6),
+              if (data.staff.isEmpty)
+                Text('لا يوجد مؤطرون أو مشرفون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
+                    style: text.bodySmall?.copyWith(color: RaeedColors.grey))
+              else
+                Wrap(
+                  key: const Key('group-supervisors'),
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final p in data.staff)
+                      FilterChip(
+                        label: Text(p.fullName),
+                        selected: _supervisors.contains(p.id),
+                        onSelected: (on) => setState(() => on ? _supervisors.add(p.id) : _supervisors.remove(p.id)),
                       ),
                   ],
                 ),

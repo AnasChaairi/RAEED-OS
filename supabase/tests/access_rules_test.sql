@@ -312,6 +312,96 @@ do $$ begin
   exception when check_violation then null;
   end;
 end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+-- Category supervisor (مشرف الفئة): Nadia supervises Hamza's group only. Rachid is a second
+-- instructor of that group, not picked for the session.
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-00000000000f'), ('00000000-0000-0000-0000-000000000010');
+insert into public.people (id, full_name, phone) values
+ ('00000000-0000-0000-0000-00000000000f', 'نادية', '+212600000006'),
+ ('00000000-0000-0000-0000-000000000010', 'رشيد', '+212600000007');
+insert into public.person_roles values ('00000000-0000-0000-0000-000000000010', 'instructor');
+insert into public.group_supervisors values ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-00000000000f');
+insert into public.group_instructors values ('10000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000010');
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+do $$ declare first uuid; begin
+  if (select count(*) from groups) <> 1 then raise exception 'FAIL: supervisor sees other groups'; end if;
+  if (select count(*) from children) <> 1 or not exists (select 1 from children where full_name = 'عمر الفاسي') then
+    raise exception 'FAIL: supervisor sees their group''s children only'; end if;
+  if not exists (select 1 from people where full_name = 'حمزة') then raise exception 'FAIL: supervisor sees their instructors'; end if;
+  if exists (select 1 from people where full_name = 'ياسين') then raise exception 'FAIL: supervisor sees other instructors'; end if;
+  first := public.create_sessions('10000000-0000-0000-0000-000000000002',
+    '{"title": "نشاط مسرح", "start_time": "15:00", "end_time": "16:00", "place": "samae", "floor": 0}',
+    array['2027-05-03']::date[], null, '[]', array['00000000-0000-0000-0000-00000000000e']::uuid[]);
+  perform public.update_sessions(first, '{"title": "نشاط المسرح", "session_date": "2027-05-03", "start_time": "15:00", "end_time": "16:30", "place": "samae", "floor": 0}', false,
+    array['00000000-0000-0000-0000-00000000000e']::uuid[]);
+  insert into public.materials (session_id, kind, url, label) values (first, 'drive', 'https://drive.google.com/x', 'نص');
+  begin
+    perform public.create_sessions('10000000-0000-0000-0000-000000000001',
+      '{"title": "x", "start_time": "10:00", "end_time": "11:00", "floor": 0}', array['2027-05-03'::date], null);
+    raise exception 'FAIL: supervisor planned another group''s session';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.cancel_sessions('30000000-0000-0000-0000-000000000001', 'x', false);
+    raise exception 'FAIL: supervisor cancelled another group''s session';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.attendance (id, session_id, child_id, status, recorded_by, recorded_at)
+    values (gen_random_uuid(), first, '20000000-0000-0000-0000-000000000002', 'present', auth.uid(), now());
+    raise exception 'FAIL: supervisor recorded attendance';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+-- Rachid teaches the group but was not picked: no attendance, no observation.
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+do $$ declare s uuid := (select id from sessions where title = 'نشاط المسرح'); begin
+  begin
+    insert into public.attendance (id, session_id, child_id, status, recorded_by, recorded_at)
+    values (gen_random_uuid(), s, '20000000-0000-0000-0000-000000000002', 'present', auth.uid(), now());
+    raise exception 'FAIL: unpicked instructor recorded attendance';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.session_observations (session_id, author_id, body) values (s, auth.uid(), 'x');
+    raise exception 'FAIL: unpicked instructor wrote an observation';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+-- Hamza was picked: he records attendance and writes an observation.
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+do $$ declare s uuid := (select id from sessions where title = 'نشاط المسرح'); begin
+  insert into public.attendance (id, session_id, child_id, status, recorded_by, recorded_at)
+  values ('40000000-0000-0000-0000-000000000077', s, '20000000-0000-0000-0000-000000000002', 'present', auth.uid(), now());
+  update public.attendance set status = 'late', recorded_at = now() where id = '40000000-0000-0000-0000-000000000077';
+  if (select status from attendance where id = '40000000-0000-0000-0000-000000000077') <> 'late' then
+    raise exception 'FAIL: picked instructor corrects attendance'; end if;
+  insert into public.session_observations (session_id, body) values (s, 'عمر شارك بحماس');
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+do $$ begin
+  update public.attendance set status = 'absent' where id = '40000000-0000-0000-0000-000000000077';
+  if (select count(*) from session_observations) <> 0 then raise exception 'FAIL: unpicked instructor reads observations'; end if;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+do $$ begin
+  if (select status from attendance where id = '40000000-0000-0000-0000-000000000077') <> 'late' then
+    raise exception 'FAIL: unpicked instructor changed attendance'; end if;
+  if (select count(*) from session_observations) <> 1 then raise exception 'FAIL: supervisor reads observations'; end if;
+  delete from public.session_observations;
+  if (select count(*) from session_observations) <> 1 then raise exception 'FAIL: supervisor deleted an observation'; end if;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  if (select count(*) from session_observations) <> 0 then raise exception 'FAIL: other group reads observations'; end if;
+  if (select count(*) from group_supervisors) <> 0 then raise exception 'FAIL: other group reads supervisors'; end if;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ begin
+  if (select count(*) from session_observations) <> 1 then raise exception 'FAIL: advisor reads observations'; end if;
+end $$;
 reset role;
 
 select 'ALL ACCESS RULE TESTS PASSED' as result;

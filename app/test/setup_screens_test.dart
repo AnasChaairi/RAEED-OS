@@ -73,7 +73,8 @@ void main() {
     expect(find.widgetWithText(TextFormField, 'ن'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('age-min')), '8');
     await tester.enterText(find.byKey(const Key('age-max')), '10');
-    await tester.tap(find.widgetWithText(FilterChip, 'ياسين الإدريسي'));
+    await tester.tap(find.widgetWithText(FilterChip, 'ياسين الإدريسي').first);
+    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
 
@@ -90,6 +91,7 @@ void main() {
     await tester.tap(find.byKey(const Key('new-group')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('group-name')), 'فئة النجوم');
+    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
     expect(find.textContaining('يوجد اسم مطابق'), findsOneWidget);
@@ -224,6 +226,7 @@ void main() {
     await tester.tap(find.byKey(const Key('pick-logo')));
     await tester.pumpAndSettle();
     expect(find.text('تغيير الصورة'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
 
@@ -236,6 +239,7 @@ void main() {
     await tester.tap(find.byKey(const Key('remove-logo')));
     await tester.pump();
     expect(find.text('رفع صورة الشعار'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
     expect(repo.groups.values.single.logoPath, isNull);

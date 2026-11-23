@@ -13,8 +13,9 @@ import 'models.dart';
 /// Attendance is the one thing written offline: it is saved on the phone first, then
 /// sent by a waiting list as soon as there is a connection.
 ///
-/// An advisor opens the same store over every group to plan sessions: only advisors
-/// create, edit and cancel sessions, and instructors take attendance.
+/// An advisor opens the same store over every group, and a category supervisor (مشرف
+/// الفئة) over theirs, to plan sessions. Only the instructors picked for a session take
+/// its attendance and write observations on it.
 class InstructorStore extends ChangeNotifier {
   InstructorStore(this._repo, this._prefs, {this.retryEvery = const Duration(seconds: 30), DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
@@ -28,7 +29,7 @@ class InstructorStore extends ChangeNotifier {
   final Duration? retryEvery;
 
   String? _personId;
-  bool _allGroups = false;
+  StaffView _view = StaffView.teaching;
   InstructorSnapshot _data = const InstructorSnapshot();
   bool _loaded = false;
   bool _loading = false;
@@ -41,9 +42,18 @@ class InstructorStore extends ChangeNotifier {
   InstructorSnapshot get data => _data;
   String? get personId => _personId;
 
-  /// Opened by an advisor over every group: sessions can be planned, attendance is
-  /// left to the instructors.
-  bool get schedules => _allGroups;
+  StaffView get view => _view;
+
+  /// Opened by an advisor or a category supervisor: sessions can be planned, attendance
+  /// is left to the instructors.
+  bool get schedules => _view != StaffView.teaching;
+
+  /// Whether the signed-in person runs [s]: picked for it, or nobody was picked and they
+  /// teach its group.
+  bool runs(Session s) => _data.runs(s, _personId);
+
+  /// Whether the signed-in person takes [s]'s attendance and writes observations on it.
+  bool canRecord(Session s) => _view == StaffView.teaching && runs(s);
 
   /// True once there is something to show, from the server or from the phone.
   bool get loaded => _loaded;
@@ -63,16 +73,20 @@ class InstructorStore extends ChangeNotifier {
   /// When each session's attendance last reached the server, for this week.
   Map<String, DateTime> get sent => Map.unmodifiable(_sent);
 
-  String get _cacheKey => _allGroups ? 'advisor_sessions_cache_$_personId' : 'instructor_cache_$_personId';
+  String get _cacheKey => switch (_view) {
+    StaffView.all => 'advisor_sessions_cache_$_personId',
+    StaffView.supervising => 'supervisor_cache_$_personId',
+    StaffView.teaching => 'instructor_cache_$_personId',
+  };
   String get _pendingKey => 'attendance_pending_$_personId';
   String get _sentKey => 'attendance_sent_$_personId';
 
-  /// Opens [personId]'s data: the copy on the phone at once, then the server's. With
-  /// [allGroups], every group, for an advisor.
-  Future<void> start(String personId, {bool allGroups = false}) async {
-    if (_personId != personId || _allGroups != allGroups) {
+  /// Opens [personId]'s data: the copy on the phone at once, then the server's. [view]
+  /// picks the groups: taught, supervised, or every one for an advisor.
+  Future<void> start(String personId, {StaffView view = StaffView.teaching}) async {
+    if (_personId != personId || _view != view) {
       _personId = personId;
-      _allGroups = allGroups;
+      _view = view;
       _data = const InstructorSnapshot();
       _loaded = false;
       _loadFailure = null;
@@ -89,7 +103,7 @@ class InstructorStore extends ChangeNotifier {
     notifyListeners();
     try {
       await _send();
-      final fresh = await _repo.load(_personId!, allGroups: _allGroups);
+      final fresh = await _repo.load(_personId!, view: _view);
       _data = _withPending(fresh);
       _loaded = true;
       _offline = false;
@@ -153,7 +167,17 @@ class InstructorStore extends ChangeNotifier {
         _scheduleRetry();
         return false;
       }
-      rethrow;
+      if (e.failure != SetupFailure.notAllowed) rethrow;
+      // Something in the batch was refused for good (the person does not run that
+      // session): send the records one by one and drop the refused ones, so they do not
+      // hold back the rest.
+      for (final r in batch) {
+        try {
+          await _repo.pushAttendance([r]);
+        } on SetupError catch (e) {
+          if (e.failure != SetupFailure.notAllowed) rethrow;
+        }
+      }
     }
     _offline = false;
     _pending = _pending.where((p) => !batch.contains(p)).toList();
@@ -198,6 +222,21 @@ class InstructorStore extends ChangeNotifier {
   Future<void> addNote(String childId, String body) => _repo.addNote(childId, body);
 
   /// Throws [SetupError].
+  Future<List<SessionObservation>> observationsFor(String sessionId) => _repo.observationsFor(sessionId);
+
+  /// The last two months' observations on this view's groups. Throws [SetupError].
+  Future<List<SessionObservation>> recentObservations() => _repo.recentObservations(
+    [for (final g in _data.groups) g.id],
+    _clock().subtract(const Duration(days: 60)),
+  );
+
+  /// Throws [SetupError].
+  Future<void> addObservation(String sessionId, String body) => _repo.addObservation(sessionId, body);
+
+  /// Throws [SetupError].
+  Future<void> deleteObservation(String id) => _repo.deleteObservation(id);
+
+  /// Throws [SetupError].
   Future<void> logAttempt(AbsenceAlert a) async {
     await _repo.logAttempt(a.id);
     await refresh();
@@ -214,7 +253,7 @@ class InstructorStore extends ChangeNotifier {
   void clear() {
     _retry?.cancel();
     _personId = null;
-    _allGroups = false;
+    _view = StaffView.teaching;
     _data = const InstructorSnapshot();
     _loaded = false;
     _pending = [];

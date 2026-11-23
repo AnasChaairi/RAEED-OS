@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../profile/child_profile_screen.dart';
 import '../setup/models.dart';
 import '../setup/widgets.dart';
@@ -31,7 +32,7 @@ class MyGroupsTab extends StatelessWidget {
                 ),
               ),
             for (final g in data.groups) ...[
-              _GroupRow(group: g, data: data, now: store.now(), me: store.personId),
+              _GroupRow(group: g, data: data, now: store.now(), me: store.personId, supervising: store.schedules),
               const SizedBox(height: 8),
             ],
           ],
@@ -42,12 +43,19 @@ class MyGroupsTab extends StatelessWidget {
 }
 
 class _GroupRow extends StatelessWidget {
-  const _GroupRow({required this.group, required this.data, required this.now, required this.me});
+  const _GroupRow({
+    required this.group,
+    required this.data,
+    required this.now,
+    required this.me,
+    this.supervising = false,
+  });
 
   final Group group;
   final InstructorSnapshot data;
   final DateTime now;
   final String? me;
+  final bool supervising;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +73,7 @@ class _GroupRow extends StatelessWidget {
         [
           ?group.ageLabel,
           countLabel(count, one: 'طفل واحد', two: 'طفلان', few: 'أطفال', many: 'طفلاً'),
-          if (others.isNotEmpty) 'معك: $others',
+          if (others.isNotEmpty) supervising ? 'المؤطرون: $others' : 'معك: $others',
         ].join(' · '),
         next == null ? 'لا حصة قادمة' : 'الحصة القادمة: ${dayLabel(next.date, now)} ${formatTime(next.start)}',
       ],
@@ -86,7 +94,7 @@ class GroupDetailScreen extends StatefulWidget {
 }
 
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
-  bool _sessions = false;
+  int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -132,17 +140,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
-          SegmentedButton<bool>(
+          SegmentedButton<int>(
             key: const Key('group-tabs'),
             segments: [
-              ButtonSegment(value: false, label: Text('الأطفال ${kids.length}')),
-              const ButtonSegment(value: true, label: Text('الحصص')),
+              ButtonSegment(value: 0, label: Text('الأطفال ${kids.length}')),
+              const ButtonSegment(value: 1, label: Text('الحصص')),
+              if (store.schedules) const ButtonSegment(value: 2, label: Text('المؤطرون')),
             ],
-            selected: {_sessions},
-            onSelectionChanged: (v) => setState(() => _sessions = v.first),
+            selected: {_tab},
+            onSelectionChanged: (v) => setState(() => _tab = v.first),
           ),
           const SizedBox(height: 10),
-          if (!_sessions) ...[
+          if (_tab == 0) ...[
             if (kids.isEmpty)
               const Text(
                 'لا يوجد أطفال في هذه الفئة بعد. يضيفهم المشرف من الإعدادات.',
@@ -159,6 +168,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               data.termStart == null
                   ? 'نسبة الحضور في آخر 30 يوماً. اضغط على اسم لفتح ملف الطفل.'
                   : 'نسبة الحضور هذا الفصل. اضغط على اسم لفتح ملف الطفل.',
+              style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+            ),
+          ] else if (_tab == 2) ...[
+            if (group.instructorIds.isEmpty)
+              const Text('لا مؤطرين في هذه الفئة بعد.', style: TextStyle(color: RaeedColors.grey))
+            else
+              for (final id in group.instructorIds) ...[
+                _InstructorWork(personId: id, group: group, data: data, now: now),
+                const SizedBox(height: 8),
+              ],
+            Text(
+              'الحصص المنتهية في آخر 30 يوماً التي كُلّف بها كل مؤطر، وهل سُجّل حضورها.',
               style: text.bodySmall?.copyWith(color: RaeedColors.grey),
             ),
           ] else ...[
@@ -184,6 +205,54 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// One instructor of the فئة, for its supervisor: the sessions they ran in the last
+/// 30 days, how many have their attendance, and what is coming.
+class _InstructorWork extends StatelessWidget {
+  const _InstructorWork({required this.personId, required this.group, required this.data, required this.now});
+
+  final String personId;
+  final Group group;
+  final InstructorSnapshot data;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final monthAgo = dayOnly(now).subtract(const Duration(days: 30));
+    final theirs = [
+      for (final s in data.sessionsOf(group.id))
+        if (!s.cancelled && data.runs(s, personId)) s,
+    ];
+    final done = [
+      for (final s in theirs)
+        if (!s.endsAt.isAfter(now) && !s.date.isBefore(monthAgo)) s,
+    ];
+    final missing = done.where((s) => data.attendanceFor(s.id).isEmpty).length;
+    final upcoming = theirs.where((s) => s.endsAt.isAfter(now)).length;
+    final name = data.staffNames[personId] ?? 'مؤطر';
+    return Card(
+      key: Key('instructor-work-$personId'),
+      child: ListTile(
+        leading: InitialAvatar(name, size: 36),
+        title: Text(name),
+        subtitle: Text(
+          [
+            countLabel(
+              done.length,
+              one: 'حصة منتهية واحدة',
+              two: 'حصتان منتهيتان',
+              few: 'حصص منتهية',
+              many: 'حصة منتهية',
+            ),
+            if (done.isNotEmpty) missing == 0 ? 'الحضور مسجّل في كلها' : 'بلا حضور: $missing',
+            countLabel(upcoming, one: 'حصة قادمة واحدة', two: 'حصتان قادمتان', few: 'حصص قادمة', many: 'حصة قادمة'),
+          ].join(' · '),
+          style: TextStyle(color: missing > 0 ? RaeedColors.error : null),
+        ),
       ),
     );
   }

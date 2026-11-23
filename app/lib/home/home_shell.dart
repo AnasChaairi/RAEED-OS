@@ -10,6 +10,8 @@ import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
 import '../instructor/alerts_screen.dart';
 import '../instructor/groups_screen.dart';
+import '../instructor/instructor_repository.dart';
+import '../instructor/observations.dart';
 import '../instructor/sessions_screen.dart';
 import '../instructor/today_screen.dart';
 import '../instructor/widgets.dart';
@@ -61,6 +63,7 @@ class _HomeShellState extends State<HomeShell> {
   void _refreshRole() {
     switch (widget.role) {
       case AppRole.instructor:
+      case AppRole.supervisor:
         InstructorScope.read(context).refresh();
       case AppRole.parent:
         ParentScope.read(context).refresh();
@@ -99,7 +102,7 @@ class _HomeShellState extends State<HomeShell> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         store.load();
         stats.load();
-        sessions.start(id, allGroups: true);
+        sessions.start(id, view: StaffView.all);
       });
     }
     if (widget.role == AppRole.parent) {
@@ -107,10 +110,11 @@ class _HomeShellState extends State<HomeShell> {
       final id = SessionScope.read(context).profile!.id;
       WidgetsBinding.instance.addPostFrameCallback((_) => store.start(id));
     }
-    if (widget.role == AppRole.instructor) {
+    if (widget.role == AppRole.instructor || widget.role == AppRole.supervisor) {
       final store = InstructorScope.read(context);
       final id = SessionScope.read(context).profile!.id;
-      WidgetsBinding.instance.addPostFrameCallback((_) => store.start(id));
+      final view = widget.role == AppRole.supervisor ? StaffView.supervising : StaffView.teaching;
+      WidgetsBinding.instance.addPostFrameCallback((_) => store.start(id, view: view));
     }
   }
 
@@ -124,6 +128,10 @@ class _HomeShellState extends State<HomeShell> {
         (AppRole.instructor, 1) => const SessionsTab(),
         (AppRole.instructor, 2) => const MyGroupsTab(),
         (AppRole.instructor, 3) => const AlertsTab(),
+        (AppRole.supervisor, 0) => const SessionsTab(),
+        (AppRole.supervisor, 1) => const MyGroupsTab(),
+        (AppRole.supervisor, 2) => const ObservationsTab(),
+        (AppRole.supervisor, 3) => const AlertsTab(),
         (AppRole.parent, 0) => const ParentScheduleTab(),
         (AppRole.parent, 1) => const ParentAccountTab(),
         _ => EmptyTab(tab: widget.role.tabs[i]),

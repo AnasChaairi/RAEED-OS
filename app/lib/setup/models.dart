@@ -27,6 +27,7 @@ class Group {
     this.ageMax,
     this.archived = false,
     this.instructorIds = const [],
+    this.supervisorIds = const [],
   });
 
   final String id;
@@ -42,6 +43,9 @@ class Group {
   final int? ageMax;
   final bool archived;
   final List<String> instructorIds;
+
+  /// مشرفو الفئة: they plan its sessions and follow its instructors.
+  final List<String> supervisorIds;
 
   /// من 8 إلى 10 سنوات, or null when no range is set.
   String? get ageLabel {
@@ -143,6 +147,8 @@ class SetupSnapshot {
 
   List<Person> get staff => people.where((p) => p.isStaff).toList();
   List<Person> get instructors => people.where((p) => p.roles.contains(AppRole.instructor)).toList();
+
+  List<Group> groupsSupervisedBy(String personId) => groups.where((g) => g.supervisorIds.contains(personId)).toList();
   List<Person> get parents => people.where((p) => p.roles.contains(AppRole.parent)).toList();
   List<Group> get activeGroups => groups.where((g) => !g.archived).toList();
   List<Child> childrenIn(String groupId) => children.where((c) => c.groupId == groupId).toList();
@@ -168,6 +174,7 @@ class GroupDraft {
     this.ageMax,
     this.archived = false,
     this.instructorIds = const [],
+    this.supervisorIds = const [],
   });
 
   final String? id;
@@ -184,6 +191,7 @@ class GroupDraft {
   final int? ageMax;
   final bool archived;
   final List<String> instructorIds;
+  final List<String> supervisorIds;
 }
 
 /// A parent on the child form: someone already registered, or a new account.
