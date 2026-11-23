@@ -284,4 +284,77 @@ void main() {
     expect(find.text('ملف الطفل'), findsNothing);
     expect(find.text('الملاحظات مرئية لمؤطري الطفل والمشرفين فقط'), findsOneWidget);
   });
+
+  testWidgets('an instructor not picked for a session sees it but does not take its attendance', (tester) async {
+    final repo = seededInstructorRepo(me: me, today: today);
+    final i = repo.sessions.indexWhere((s) => s.id == 'today');
+    final t = repo.sessions[i];
+    repo.sessions[i] = Session(
+      id: t.id,
+      groupId: t.groupId,
+      title: t.title,
+      date: t.date,
+      start: t.start,
+      end: t.end,
+      floor: t.floor,
+      instructorIds: const ['sara'],
+    );
+    await openInstructor(tester, repo: repo);
+    expect(find.byKey(const Key('today-hero')), findsNothing);
+    await tab(tester, 'الحصص');
+    await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('take-attendance')), findsNothing);
+    expect(find.byKey(const Key('not-your-session')), findsOneWidget);
+    expect(find.byKey(const Key('add-observation')), findsNothing);
+  });
+
+  testWidgets('the instructor of a session writes an observation on it', (tester) async {
+    final o = await openInstructor(tester);
+    await tab(tester, 'الحصص');
+    await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('add-observation')), 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('add-observation')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('observation-body')), 'الأطفال حفظوا نصف السورة');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('save-observation')));
+    await tester.pumpAndSettle();
+    expect(o.repo.calls, contains('addObservation today الأطفال حفظوا نصف السورة'));
+    expect(find.text('الأطفال حفظوا نصف السورة'), findsOneWidget);
+  });
+
+  testWidgets('a category supervisor plans their group\'s sessions and reads the observations', (tester) async {
+    final repo = seededInstructorRepo(me: 'someone-else', today: today);
+    repo.groups[0] = repo.groups[0].withInstructors(['sara'], supervisors: [me]);
+    repo.observations.add(
+      SessionObservation(
+        id: 'o1',
+        sessionId: 'last-week',
+        authorId: 'sara',
+        authorName: 'سارة الإدريسي',
+        body: 'يوسف يحتاج متابعة في الحفظ',
+        createdAt: today.subtract(const Duration(days: 6)),
+      ),
+    );
+    await openInstructor(tester, repo: repo, role: AppRole.supervisor);
+    expect(find.byKey(const Key('new-session')), findsOneWidget);
+    await tab(tester, 'الملاحظات');
+    expect(find.text('يوسف يحتاج متابعة في الحفظ'), findsOneWidget);
+    await tester.tap(find.text('يوسف يحتاج متابعة في الحفظ'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit-session')), findsOneWidget);
+    expect(find.byKey(const Key('take-attendance')), findsNothing);
+    expect(find.byKey(const Key('add-observation')), findsNothing);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tab(tester, 'فئتي');
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المؤطرون'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('instructor-work-sara')), findsOneWidget);
+  });
 }

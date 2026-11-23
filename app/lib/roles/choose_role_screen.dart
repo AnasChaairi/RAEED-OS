@@ -126,6 +126,7 @@ class RoleBadge extends StatelessWidget {
         gradient: switch (role) {
           AppRole.advisor => const LinearGradient(colors: [RaeedColors.blue, RaeedColors.skyStart]),
           AppRole.instructor => RaeedColors.sky,
+          AppRole.supervisor => const LinearGradient(colors: [RaeedColors.skyStart, RaeedColors.blue]),
           AppRole.parent => RaeedColors.star,
         },
         borderRadius: BorderRadius.circular(size * 0.3),

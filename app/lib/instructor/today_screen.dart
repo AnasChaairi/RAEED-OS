@@ -19,7 +19,8 @@ class TodayTab extends StatelessWidget {
         final store = InstructorScope.of(context);
         final now = store.now();
         final today = data.sessionsOn(now);
-        final next = data.nextSession(now);
+        // The hero is the next session this instructor runs: only they take its attendance.
+        final next = data.nextSession(now, where: store.runs);
         final hero = next != null && next.date == dayOnly(now) ? next : null;
         final text = Theme.of(context).textTheme;
         final waiting = store.waitingSessions;

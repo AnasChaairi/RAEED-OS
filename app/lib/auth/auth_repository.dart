@@ -116,6 +116,13 @@ class SupabaseAuthRepository implements AuthRepository {
         if (person == null) throw const AuthError(AuthFailure.noProfile);
         final roleRows = await _client.from('person_roles').select('role').eq('person_id', id);
         final held = {for (final row in roleRows) AppRole.fromDb(row['role'] as String)};
+        // مشرف الفئة comes from being put in charge of a فئة, not from person_roles.
+        try {
+          final supervised = await _client.from('group_supervisors').select('group_id').eq('person_id', id).limit(1);
+          if (supervised.isNotEmpty) held.add(AppRole.supervisor);
+        } on PostgrestException {
+          // The database does not know category supervisors yet.
+        }
         return Profile(
           id: id,
           fullName: person['full_name'] as String,

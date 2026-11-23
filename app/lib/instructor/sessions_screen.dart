@@ -5,7 +5,9 @@ import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
 import 'attendance_screen.dart';
+import 'instructor_repository.dart';
 import 'models.dart';
+import 'observations.dart';
 import 'session_form_screen.dart';
 import 'widgets.dart';
 
@@ -78,7 +80,7 @@ class _SessionsTabState extends State<SessionsTab> {
                 ],
               ),
               if (data.groups.isEmpty)
-                _Hint(store.schedules
+                _Hint(store.view == StaffView.all
                     ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
                     : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف.')
               else if (days.isEmpty)
@@ -209,12 +211,19 @@ class SessionDetailScreen extends StatelessWidget {
             for (final m in s.materials) MaterialRow(material: m),
           ],
           const SizedBox(height: 16),
-          if (!store.schedules && !s.cancelled && started)
+          if (store.canRecord(s) && !s.cancelled && started)
             FilledButton.icon(
               key: const Key('take-attendance'),
               onPressed: () => openAttendance(context, s.id),
               icon: const Icon(Icons.fact_check_outlined),
               label: Text(taken > 0 ? 'تعديل الحضور' : 'تسجيل الحضور'),
+            ),
+          if (!store.schedules && !store.runs(s) && !s.cancelled)
+            Text(
+              'يسجّل الحضور المؤطرون المكلّفون بهذه الحصة.',
+              key: const Key('not-your-session'),
+              textAlign: TextAlign.center,
+              style: text.bodySmall?.copyWith(color: RaeedColors.grey),
             ),
           if (store.schedules && !s.cancelled) ...[
             const SizedBox(height: 8),
@@ -233,6 +242,7 @@ class SessionDetailScreen extends StatelessWidget {
               label: const Text('إلغاء الحصة'),
             ),
           ],
+          if (store.runs(s) || store.schedules) SessionObservations(session: s),
         ],
       ),
     );

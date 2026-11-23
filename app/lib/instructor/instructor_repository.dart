@@ -4,13 +4,25 @@ import '../setup/models.dart';
 import '../setup/setup_repository.dart';
 import 'models.dart';
 
+/// Whose groups the sessions tabs show.
+enum StaffView {
+  /// The groups the person teaches: they take attendance.
+  teaching,
+
+  /// The groups the person supervises (مشرف الفئة): they plan sessions.
+  supervising,
+
+  /// Every active group: the advisor plans sessions.
+  all,
+}
+
 /// The instructor's reads and writes. Every call throws [SetupError]; offline shows as
 /// [SetupFailure.offline].
 abstract interface class InstructorRepository {
   /// The groups [personId] teaches, their children and parents, this term's sessions
-  /// and attendance, and the alerts still open or closed in the last month. With
-  /// [allGroups], every active group instead: the advisor's view for planning sessions.
-  Future<InstructorSnapshot> load(String personId, {bool allGroups = false});
+  /// and attendance, and the alerts still open or closed in the last month. [view] picks
+  /// the groups: taught, supervised, or every active one (the advisor's).
+  Future<InstructorSnapshot> load(String personId, {StaffView view = StaffView.teaching});
 
   /// Sends attendance saved on the phone. Sending a record twice is harmless.
   Future<void> pushAttendance(List<AttendanceRecord> records);
@@ -25,6 +37,14 @@ abstract interface class InstructorRepository {
 
   Future<List<ChildNote>> notesFor(String childId);
   Future<void> addNote(String childId, String body);
+
+  /// Observations written on [sessionId], newest first.
+  Future<List<SessionObservation>> observationsFor(String sessionId);
+
+  /// Observations written since [since] on the sessions of [groupIds], newest first.
+  Future<List<SessionObservation>> recentObservations(List<String> groupIds, DateTime since);
+  Future<void> addObservation(String sessionId, String body);
+  Future<void> deleteObservation(String id);
 
   /// A call that got no answer: the alert stays open and shows who tried and when.
   Future<void> logAttempt(String alertId);
@@ -44,7 +64,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
   String get _me => _db.auth.currentUser!.id;
 
   @override
-  Future<InstructorSnapshot> load(String personId, {bool allGroups = false}) => guardSupabase(() async {
+  Future<InstructorSnapshot> load(String personId, {StaffView view = StaffView.teaching}) => guardSupabase(() async {
     final today = dayOnly(DateTime.now());
     final terms = await _db
         .from('terms')
@@ -53,9 +73,11 @@ class SupabaseInstructorRepository implements InstructorRepository {
         .gte('ends_on', dbDay(today))
         .limit(1);
     final termStart = terms.isEmpty ? null : DateTime.parse(terms.first['starts_on'] as String);
-    final mine = allGroups
-        ? await _db.from('groups').select('id').eq('archived', false)
-        : await _db.from('group_instructors').select('group_id').eq('person_id', personId);
+    final mine = switch (view) {
+      StaffView.all => await _db.from('groups').select('id').eq('archived', false),
+      StaffView.supervising => await _db.from('group_supervisors').select('group_id').eq('person_id', personId),
+      StaffView.teaching => await _db.from('group_instructors').select('group_id').eq('person_id', personId),
+    };
     final ids = [for (final r in mine) (r['group_id'] ?? r['id']) as String];
     if (ids.isEmpty) return InstructorSnapshot(termStart: termStart);
 
@@ -222,6 +244,41 @@ class SupabaseInstructorRepository implements InstructorRepository {
   @override
   Future<void> addNote(String childId, String body) =>
       guardSupabase(() => _db.from('notes').insert({'child_id': childId, 'author_id': _me, 'body': body}));
+
+  static const _observationColumns = 'id, session_id, author_id, body, created_at, people(full_name)';
+
+  @override
+  Future<List<SessionObservation>> observationsFor(String sessionId) => guardSupabase(() async {
+    final rows = await _db
+        .from('session_observations')
+        .select(_observationColumns)
+        .eq('session_id', sessionId)
+        .order('created_at', ascending: false);
+    return [for (final r in rows) SessionObservation.fromJson(r)];
+  });
+
+  @override
+  Future<List<SessionObservation>> recentObservations(List<String> groupIds, DateTime since) =>
+      guardSupabase(() async {
+        if (groupIds.isEmpty) return const [];
+        final rows = await _db
+            .from('session_observations')
+            .select('$_observationColumns, sessions!inner(group_id)')
+            .inFilter('sessions.group_id', groupIds)
+            .gte('created_at', since.toUtc().toIso8601String())
+            .order('created_at', ascending: false)
+            .limit(200);
+        return [for (final r in rows) SessionObservation.fromJson(r)];
+      });
+
+  @override
+  Future<void> addObservation(String sessionId, String body) => guardSupabase(
+    () => _db.from('session_observations').insert({'session_id': sessionId, 'author_id': _me, 'body': body}),
+  );
+
+  @override
+  Future<void> deleteObservation(String id) =>
+      guardSupabase(() => _db.from('session_observations').delete().eq('id', id));
 
   @override
   Future<void> logAttempt(String alertId) => guardSupabase(
