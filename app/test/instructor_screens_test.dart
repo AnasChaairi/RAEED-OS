@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
 import 'fake_instructor.dart';
+import 'fake_messages.dart';
 import 'fake_setup.dart';
 import 'fake_stage4.dart';
 
@@ -36,6 +37,7 @@ Future<Opened> openInstructor(
   bool fresh = true,
   bool offline = false,
   AppRole role = AppRole.instructor,
+  FakeMessagesRepository? messages,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -62,6 +64,7 @@ Future<Opened> openInstructor(
       stats: extra.stats,
       profiles: extra.profiles,
       push: extra.push,
+      messages: messages,
     ),
   );
   await session.start();
@@ -356,5 +359,22 @@ void main() {
     await tester.tap(find.text('المؤطرون'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('instructor-work-sara')), findsOneWidget);
+  });
+
+  testWidgets('a category supervisor picks a child and writes to the parents', (tester) async {
+    final repo = seededInstructorRepo(me: 'someone-else', today: today);
+    repo.groups[0] = repo.groups[0].withInstructors(['sara'], supervisors: [me]);
+    final messages = FakeMessagesRepository(me: me, myName: 'ياسين');
+    await openInstructor(tester, repo: repo, role: AppRole.supervisor, messages: messages);
+    await tab(tester, 'أولياء الأمور');
+    await tester.tap(find.byKey(const Key('channel-child-adam')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('channel-body')), 'آدم حفظ السورة كاملة');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('channel-send')));
+    await tester.pumpAndSettle();
+    expect(messages.calls, ['post adam آدم حفظ السورة كاملة']);
+    expect(find.text('آدم حفظ السورة كاملة'), findsOneWidget);
+    expect(find.byKey(const Key('like-m0')), findsNothing, reason: 'the supervisor does not like their own');
   });
 }

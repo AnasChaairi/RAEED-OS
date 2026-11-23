@@ -15,6 +15,7 @@ import '../instructor/observations.dart';
 import '../instructor/sessions_screen.dart';
 import '../instructor/today_screen.dart';
 import '../instructor/widgets.dart';
+import '../messages/messages_screens.dart';
 import '../notifications/push.dart';
 import '../parent/account_screen.dart';
 import '../parent/parent_store.dart';
@@ -130,10 +131,12 @@ class _HomeShellState extends State<HomeShell> {
         (AppRole.instructor, 3) => const AlertsTab(),
         (AppRole.supervisor, 0) => const SessionsTab(),
         (AppRole.supervisor, 1) => const MyGroupsTab(),
-        (AppRole.supervisor, 2) => const ObservationsTab(),
-        (AppRole.supervisor, 3) => const AlertsTab(),
+        (AppRole.supervisor, 2) => const SupervisorChannelTab(),
+        (AppRole.supervisor, 3) => const ObservationsTab(),
+        (AppRole.supervisor, 4) => const AlertsTab(),
         (AppRole.parent, 0) => const ParentScheduleTab(),
-        (AppRole.parent, 1) => const ParentAccountTab(),
+        (AppRole.parent, 1) => const ParentMessagesTab(),
+        (AppRole.parent, 2) => const ParentAccountTab(),
         _ => EmptyTab(tab: widget.role.tabs[i]),
       };
 
