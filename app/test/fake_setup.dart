@@ -88,6 +88,19 @@ class FakeSetupRepository implements SetupRepository {
   @override
   Future<void> setGroupSupervisors(String groupId, List<String> personIds) async {
     calls.add('setGroupSupervisors $groupId ${personIds.join(',')}');
+    final g = groups[groupId]!;
+    groups[groupId] = Group(
+      id: g.id,
+      name: g.name,
+      logoLetter: g.logoLetter,
+      logoColor: g.logoColor,
+      logoPath: g.logoPath,
+      ageMin: g.ageMin,
+      ageMax: g.ageMax,
+      archived: g.archived,
+      instructorIds: g.instructorIds,
+      supervisorIds: personIds,
+    );
   }
 
   @override
@@ -110,6 +123,7 @@ class FakeSetupRepository implements SetupRepository {
         ageMax: g.ageMax,
         archived: g.archived,
         instructorIds: ids,
+        supervisorIds: g.supervisorIds,
       );
 
   /// Uploaded logos by path.

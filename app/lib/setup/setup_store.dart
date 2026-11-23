@@ -64,13 +64,18 @@ class SetupStore extends ChangeNotifier {
     required String phone,
     required Set<AppRole> roles,
     required List<String> groupIds,
+    List<String> supervisedGroupIds = const [],
     Gender? gender,
   }) async {
-    final account = await _repo.createAccount(fullName: fullName, phone: phone, roles: roles);
+    final account = await _repo.createAccount(fullName: fullName, phone: phone, roles: _accountRoles(roles));
     if (gender != null) await _repo.setGender(account.personId, gender);
     if (roles.contains(AppRole.instructor) && groupIds.isNotEmpty) {
       final existing = _data.groupsTaughtBy(account.personId).map((g) => g.id);
       await _repo.setInstructorGroups(account.personId, {...existing, ...groupIds}.toList());
+    }
+    if (roles.contains(AppRole.supervisor)) {
+      final existing = _data.groupsSupervisedBy(account.personId).map((g) => g.id);
+      await _setSupervised(account.personId, {...existing, ...supervisedGroupIds});
     }
     await load();
     return _issued(account, fullName, phone);
@@ -82,15 +87,40 @@ class SetupStore extends ChangeNotifier {
     required String fullName,
     required Set<AppRole> roles,
     required List<String> groupIds,
+    List<String> supervisedGroupIds = const [],
     Gender? gender,
   }) async {
     if (fullName != person.fullName) await _repo.renamePerson(person.id, fullName);
     if (gender != null && gender != person.gender) await _repo.setGender(person.id, gender);
     // Keep the parent role: it comes from the children's records, not from this form.
-    final allRoles = {...roles, if (person.roles.contains(AppRole.parent)) AppRole.parent};
+    final allRoles = {..._accountRoles(roles), if (person.roles.contains(AppRole.parent)) AppRole.parent};
     if (!setEquals(allRoles, person.roles)) await _repo.setRoles(person.id, allRoles);
-    await _repo.setInstructorGroups(person.id, roles.contains(AppRole.instructor) ? groupIds : const []);
+    await _repo.setInstructorGroups(person.id, allRoles.contains(AppRole.instructor) ? groupIds : const []);
+    await _setSupervised(person.id, roles.contains(AppRole.supervisor) ? supervisedGroupIds.toSet() : const {});
     await load();
+  }
+
+  /// The roles kept in person_roles. مشرف الفئة is not one of them (it comes from
+  /// group_supervisors), and an account needs at least one: a supervisor alone is also
+  /// an instructor.
+  static Set<AppRole> _accountRoles(Set<AppRole> roles) {
+    final kept = roles.where((r) => r != AppRole.supervisor).toSet();
+    return kept.isEmpty ? {AppRole.instructor} : kept;
+  }
+
+  /// Makes [personId] the supervisor of exactly [groupIds], leaving each group's other
+  /// supervisors as they are.
+  Future<void> _setSupervised(String personId, Set<String> groupIds) async {
+    for (final g in _data.groups) {
+      final has = g.supervisorIds.contains(personId);
+      final wants = groupIds.contains(g.id);
+      if (has == wants) continue;
+      await _repo.setGroupSupervisors(g.id, [
+        for (final id in g.supervisorIds)
+          if (id != personId) id,
+        if (wants) personId,
+      ]);
+    }
   }
 
   /// Throws [SetupError].

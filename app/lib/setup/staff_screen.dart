@@ -88,6 +88,9 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
       : widget.person!.roles.where((r) => r != AppRole.parent).toSet();
   late Gender? _gender = widget.person?.gender;
   Set<String>? _groups;
+
+  /// The groups this person is مشرف الفئة of.
+  Set<String>? _supervised;
   bool _busy = false;
   String? _error;
 
@@ -101,6 +104,9 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
   Future<void> _save() async {
     if (_busy || !_form.currentState!.validate()) return;
     if (_roles.isEmpty) return setState(() => _error = 'اختر دوراً واحداً على الأقل');
+    if (_roles.contains(AppRole.supervisor) && (_supervised?.isEmpty ?? true)) {
+      return setState(() => _error = 'اختر الفئة التي يشرف عليها');
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -113,6 +119,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
           phone: _phone.text,
           roles: _roles,
           groupIds: _groups?.toList() ?? const [],
+          supervisedGroupIds: _supervised?.toList() ?? const [],
           gender: _gender,
         );
         if (!mounted) return;
@@ -130,6 +137,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
           fullName: _name.text.trim(),
           roles: _roles,
           groupIds: _groups?.toList() ?? store.data.groupsTaughtBy(widget.person!.id).map((g) => g.id).toList(),
+          supervisedGroupIds: _supervised?.toList() ?? const [],
           gender: _gender,
         );
       }
@@ -174,6 +182,10 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
     final data = store.data;
     final person = widget.person;
     _groups ??= person == null ? <String>{} : data.groupsTaughtBy(person.id).map((g) => g.id).toSet();
+    if (_supervised == null) {
+      _supervised = person == null ? <String>{} : data.groupsSupervisedBy(person.id).map((g) => g.id).toSet();
+      if (_supervised!.isNotEmpty) _roles.add(AppRole.supervisor);
+    }
     final isSelf = person != null && person.id == SessionScope.read(context).profile?.id;
     final text = Theme.of(context).textTheme;
     return Scaffold(
@@ -208,7 +220,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
               Wrap(
                 spacing: 6,
                 children: [
-                  for (final r in const [AppRole.instructor, AppRole.advisor])
+                  for (final r in const [AppRole.instructor, AppRole.supervisor, AppRole.advisor])
                     FilterChip(
                       key: Key('staff-role-${r.dbName}'),
                       label: Text(r.label),
@@ -239,6 +251,32 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                           label: Text(g.name),
                           selected: _groups!.contains(g.id),
                           onSelected: (on) => setState(() => on ? _groups!.add(g.id) : _groups!.remove(g.id)),
+                        ),
+                    ],
+                  ),
+              ],
+              if (_roles.contains(AppRole.supervisor)) ...[
+                const SectionLabel('مشرف على الفئة'),
+                Text(
+                  'يخطّط أنشطة هذه الفئة ويتابع مؤطريها وملاحظاتهم، ولا يرى غيرها. يظهر له الدور بعد إعادة فتح التطبيق.',
+                  style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+                ),
+                const SizedBox(height: 6),
+                if (data.activeGroups.isEmpty)
+                  Text('لا توجد فئات بعد.', style: text.bodySmall?.copyWith(color: RaeedColors.grey))
+                else
+                  Wrap(
+                    key: const Key('staff-supervised-groups'),
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final g in data.activeGroups)
+                        FilterChip(
+                          avatar: GroupLogo.of(g, size: 22),
+                          label: Text(g.name),
+                          selected: _supervised!.contains(g.id),
+                          onSelected: (on) =>
+                              setState(() => on ? _supervised!.add(g.id) : _supervised!.remove(g.id)),
                         ),
                     ],
                   ),

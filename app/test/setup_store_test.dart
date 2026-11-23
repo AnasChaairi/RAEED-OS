@@ -121,4 +121,22 @@ void main() {
     expect(fresh.loaded, isFalse);
     expect(fresh.loadFailure, SetupFailure.offline);
   });
+
+  test('a staff member is made مشرف الفئة of a group from the staff form, and taken off it', () async {
+    await store.saveGroup(const GroupDraft(name: 'أ', logoLetter: 'أ', logoColor: 1, instructorIds: ['yassine']));
+    final group = store.data.groups.single;
+    await store.createStaff(
+      fullName: 'نادية',
+      phone: '0644444444',
+      roles: {AppRole.supervisor},
+      groupIds: const [],
+      supervisedGroupIds: [group.id],
+    );
+    final nadia = store.data.people.firstWhere((p) => p.fullName == 'نادية');
+    expect(nadia.roles, {AppRole.instructor}, reason: 'an account needs a role the server knows');
+    expect(store.data.groups.single.supervisorIds, [nadia.id]);
+
+    await store.updateStaff(person: nadia, fullName: 'نادية', roles: {AppRole.instructor}, groupIds: const []);
+    expect(store.data.groups.single.supervisorIds, isEmpty);
+  });
 }
