@@ -257,4 +257,54 @@ void main() {
     expect(find.text('موسم 2026–2027'), findsOneWidget);
     expect(find.text('لا توجد فصول بعد.'), findsOneWidget);
   });
+
+  testWidgets('deleting a child asks about the parents, and keeps a sibling\'s parent', (tester) async {
+    final repo = await openAdvisor(
+      tester,
+      seed: (r) async {
+        r.addPerson('karim', 'كريم بنعلي', '0612345678', {AppRole.parent});
+        r.addPerson('nadia', 'نادية العلوي', '0698765432', {AppRole.parent});
+        final salma = await r.saveChild(fullName: 'سلمى بنعلي', gender: Gender.female, recordConsent: true);
+        await r.setChildParents(salma, ['karim', 'nadia']);
+        final adam = await r.saveChild(fullName: 'آدم بنعلي', gender: Gender.male, recordConsent: true);
+        await r.setChildParents(adam, ['karim']);
+      },
+    );
+    await tester.tap(find.byKey(const Key('setup-children')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('سلمى بنعلي'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('delete-child')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.tap(find.byKey(const Key('delete-child')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حذف حسابات أولياء الأمور أيضاً'), findsOneWidget);
+    expect(find.textContaining('يبقى حساب كريم بنعلي'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete-child-parents')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+
+    expect(repo.children.values.map((c) => c.fullName), ['آدم بنعلي']);
+    expect(repo.people.containsKey('nadia'), isFalse);
+    expect(repo.people.containsKey('karim'), isTrue);
+    expect(find.text('سلمى بنعلي'), findsNothing);
+  });
+
+  testWidgets('deleting a group says what goes with it', (tester) async {
+    final repo = await openAdvisor(tester, tab: 'الفئات', seed: (r) async {
+      await r.saveGroup(stars);
+      r.groupCounts[r.groups.keys.single] = (sessions: 12, attendance: 140, children: 9);
+    });
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('delete-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.tap(find.byKey(const Key('delete-group')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('12 من الأنشطة و140 من سجلات الحضور'), findsOneWidget);
+    expect(find.textContaining('أطفالها (9)'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-delete')));
+    await tester.pumpAndSettle();
+    expect(repo.groups, isEmpty);
+  });
 }

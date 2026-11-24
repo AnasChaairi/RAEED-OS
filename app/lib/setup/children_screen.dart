@@ -200,6 +200,31 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
     }
   }
 
+  Future<void> _delete() async {
+    final child = widget.child!;
+    final store = SetupScope.read(context);
+    final parents = store.parentsOnDelete(child);
+    final answer = await showDialog<bool?>(
+      context: context,
+      builder: (_) => _DeleteChildDialog(child: child, removable: parents.removable, kept: parents.kept),
+    );
+    if (answer == null || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await store.deleteChild(child, deleteParents: answer);
+      messenger.showSnackBar(SnackBar(content: Text('حُذف ${child.fullName} ✓')));
+      if (mounted) Navigator.pop(context);
+    } on SetupError catch (e) {
+      if (mounted) setState(() => _error = setupFailureMessage(e.failure));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// A number that already has an account links to it instead of creating another.
   ParentDraft _parentDraft(SetupSnapshot data, _NewParent p) {
     final n = normalizePhone(p.phone.text);
@@ -405,6 +430,8 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                 onPressed: _busy ? null : _save,
                 child: _busy ? const ButtonSpinner() : const Text('حفظ الطفل'),
               ),
+              if (widget.child != null && canDelete(context))
+                DeleteButton(key: const Key('delete-child'), label: 'حذف الطفل', onPressed: _busy ? null : _delete),
             ],
           ),
         ),
@@ -533,6 +560,68 @@ class _ParentPickerState extends State<_ParentPicker> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Confirms a child's deletion and asks whether their parents' accounts go too. Pops
+/// null to cancel, or whether to delete the parents.
+class _DeleteChildDialog extends StatefulWidget {
+  const _DeleteChildDialog({required this.child, required this.removable, required this.kept});
+
+  final Child child;
+  final List<Person> removable;
+  final List<Person> kept;
+
+  @override
+  State<_DeleteChildDialog> createState() => _DeleteChildDialogState();
+}
+
+class _DeleteChildDialogState extends State<_DeleteChildDialog> {
+  bool _parents = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return AlertDialog(
+      title: Text('حذف ${widget.child.fullName}؟'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('يُحذف ملف الطفل مع حضوره وملاحظاته وتنبيهاته ورسائل أوليائه. لا يمكن التراجع.'),
+            if (widget.removable.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              CheckboxListTile(
+                key: const Key('delete-child-parents'),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _parents,
+                onChanged: (v) => setState(() => _parents = v ?? false),
+                title: const Text('حذف حسابات أولياء الأمور أيضاً'),
+                subtitle: Text(widget.removable.map((p) => p.fullName).join('، ')),
+              ),
+            ],
+            if (widget.kept.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'يبقى حساب ${widget.kept.map((p) => p.fullName).join('، ')}: له أطفال آخرون أو دور في الجمعية.',
+                style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        FilledButton(
+          key: const Key('confirm-delete'),
+          style: FilledButton.styleFrom(backgroundColor: RaeedColors.error),
+          onPressed: () => Navigator.pop(context, _parents),
+          child: const Text('حذف نهائياً'),
+        ),
+      ],
     );
   }
 }

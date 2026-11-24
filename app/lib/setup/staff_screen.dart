@@ -176,6 +176,32 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
     }
   }
 
+  Future<void> _delete() async {
+    final person = widget.person!;
+    final ok = await confirmDeletion(
+      context,
+      title: 'حذف حساب ${person.fullName}؟',
+      message: 'يُزال من فئاته وأنشطته القادمة، ويُحذف حسابه ورقم هاتفه. '
+          'إن كان اسمه على سجلات الحضور أو الملاحظات، تبقى السجلات باسم "حساب محذوف".'
+          '${person.roles.contains(AppRole.parent) ? ' وهو ولي أمر أيضاً: يُفصل عن أطفاله.' : ''}',
+    );
+    if (!ok || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await SetupScope.read(context).deleteStaff(person);
+      messenger.showSnackBar(SnackBar(content: Text('حُذف حساب ${person.fullName} ✓')));
+      if (mounted) Navigator.pop(context);
+    } on SetupError catch (e) {
+      if (mounted) setState(() => _error = setupFailureMessage(e.failure));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = SetupScope.of(context);
@@ -296,6 +322,8 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                   icon: const Icon(Icons.lock_reset),
                   label: const Text('إعادة تعيين كلمة المرور'),
                 ),
+                if (!isSelf && canDelete(context))
+                  DeleteButton(key: const Key('delete-staff'), label: 'حذف الحساب', onPressed: _busy ? null : _delete),
               ] else
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

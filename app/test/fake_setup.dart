@@ -264,4 +264,62 @@ class FakeSetupRepository implements SetupRepository {
     seasons[seasonId] = Season(id: s.id, name: s.name, startsOn: s.startsOn, endsOn: s.endsOn, terms: terms);
     return tid;
   }
+
+  /// Activities, attendance rows and current children per group, for the delete warning.
+  final groupCounts = <String, GroupDeletionCounts>{};
+
+  @override
+  Future<void> deleteChild(String childId) async {
+    _check();
+    calls.add('deleteChild $childId');
+    children.remove(childId);
+  }
+
+  @override
+  Future<void> deleteGroup(String groupId) async {
+    _check();
+    calls.add('deleteGroup $groupId');
+    final logo = groups.remove(groupId)?.logoPath;
+    if (logo != null) logos.remove(logo);
+    for (final c in children.values.toList()) {
+      if (c.groupId == groupId) {
+        children[c.id] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt);
+      }
+    }
+  }
+
+  @override
+  Future<GroupDeletionCounts> groupDeletionCounts(String groupId) async {
+    _check();
+    return groupCounts[groupId] ??
+        (sessions: 0, attendance: 0, children: children.values.where((c) => c.groupId == groupId).length);
+  }
+
+  @override
+  Future<void> deleteSeason(String seasonId) async {
+    _check();
+    calls.add('deleteSeason $seasonId');
+    seasons.remove(seasonId);
+  }
+
+  @override
+  Future<void> deleteTerm(String termId) async {
+    _check();
+    calls.add('deleteTerm $termId');
+    for (final s in seasons.values.toList()) {
+      seasons[s.id] = Season(id: s.id, name: s.name, startsOn: s.startsOn, endsOn: s.endsOn, terms: s.terms.where((t) => t.id != termId).toList());
+    }
+  }
+
+  @override
+  Future<void> releaseStaff(String personId) async {
+    _check();
+    calls.add('releaseStaff $personId');
+    await setInstructorGroups(personId, const []);
+    for (final g in groups.values.toList()) {
+      if (g.supervisorIds.contains(personId)) {
+        await setGroupSupervisors(g.id, g.supervisorIds.where((p) => p != personId).toList());
+      }
+    }
+  }
 }
