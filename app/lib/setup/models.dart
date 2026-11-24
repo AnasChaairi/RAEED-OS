@@ -78,6 +78,86 @@ class Person {
   bool get isStaff => roles.contains(AppRole.advisor) || roles.contains(AppRole.instructor);
 }
 
+/// What the family wrote on the yearly registration form (الاستمارة), kept on the child.
+/// Parent accounts are separate: these are the names and phones as registered.
+class ChildRegistration {
+  const ChildRegistration({
+    this.fullNameLatin,
+    this.schoolLevel,
+    this.residence,
+    this.returningMember,
+    this.hasChronicCondition = false,
+    this.medicalNotes,
+    this.motherName,
+    this.motherPhone,
+    this.fatherName,
+    this.fatherPhone,
+    this.contactEmail,
+    this.registrationNotes,
+    this.registeredAt,
+  });
+
+  final String? fullNameLatin;
+  final String? schoolLevel;
+  final String? residence;
+
+  /// Registered at the academy last season. Null when unknown.
+  final bool? returningMember;
+  final bool hasChronicCondition;
+  final String? medicalNotes;
+  final String? motherName;
+  final String? motherPhone;
+  final String? fatherName;
+  final String? fatherPhone;
+  final String? contactEmail;
+  final String? registrationNotes;
+  final DateTime? registeredAt;
+
+  /// The columns to select, in a Supabase select list.
+  static const columns =
+      'full_name_latin, school_level, residence, returning_member, has_chronic_condition, medical_notes, '
+      'mother_name, mother_phone, father_name, father_phone, contact_email, registration_notes, registered_at';
+
+  bool get hasHealthInfo => hasChronicCondition || (medicalNotes?.trim().isNotEmpty ?? false);
+
+  static String? _text(Object? v) {
+    final t = (v as String?)?.trim();
+    return t == null || t.isEmpty ? null : t;
+  }
+
+  static ChildRegistration fromJson(Map<String, dynamic> j) => ChildRegistration(
+    fullNameLatin: _text(j['full_name_latin']),
+    schoolLevel: _text(j['school_level']),
+    residence: _text(j['residence']),
+    returningMember: j['returning_member'] as bool?,
+    hasChronicCondition: j['has_chronic_condition'] as bool? ?? false,
+    medicalNotes: _text(j['medical_notes']),
+    motherName: _text(j['mother_name']),
+    motherPhone: _text(j['mother_phone']),
+    fatherName: _text(j['father_name']),
+    fatherPhone: _text(j['father_phone']),
+    contactEmail: _text(j['contact_email']),
+    registrationNotes: _text(j['registration_notes']),
+    registeredAt: j['registered_at'] == null ? null : DateTime.parse(j['registered_at'] as String).toLocal(),
+  );
+
+  /// The editable fields, for an insert or update. [registeredAt] is set by the import only.
+  Map<String, dynamic> toJson() => {
+    'full_name_latin': fullNameLatin,
+    'school_level': schoolLevel,
+    'residence': residence,
+    'returning_member': returningMember,
+    'has_chronic_condition': hasChronicCondition,
+    'medical_notes': medicalNotes,
+    'mother_name': motherName,
+    'mother_phone': motherPhone,
+    'father_name': fatherName,
+    'father_phone': fatherPhone,
+    'contact_email': contactEmail,
+    'registration_notes': registrationNotes,
+  };
+}
+
 class Child {
   const Child({
     required this.id,
@@ -87,6 +167,7 @@ class Child {
     this.groupId,
     this.parentIds = const [],
     this.consentRecordedAt,
+    this.registration = const ChildRegistration(),
   });
 
   final String id;
@@ -100,6 +181,7 @@ class Child {
   final String? groupId;
   final List<String> parentIds;
   final DateTime? consentRecordedAt;
+  final ChildRegistration registration;
 }
 
 class Season {
@@ -213,6 +295,7 @@ class ChildDraft {
     this.groupId,
     this.parents = const [],
     this.consent = false,
+    this.registration = const ChildRegistration(),
   });
 
   final String? id;
@@ -226,6 +309,7 @@ class ChildDraft {
 
   /// The paper consent under Law 09-08 has been received.
   final bool consent;
+  final ChildRegistration registration;
 }
 
 /// An account the advisor just created or reset, to hand over.

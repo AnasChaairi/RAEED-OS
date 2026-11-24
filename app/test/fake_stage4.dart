@@ -66,6 +66,7 @@ class FakeProfileRepository implements ProfileRepository {
       ],
       alerts: p.alerts,
       termStart: p.termStart,
+      registration: p.registration,
     );
   }
 

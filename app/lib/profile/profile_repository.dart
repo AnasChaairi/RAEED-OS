@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../instructor/models.dart';
+import '../setup/models.dart' show ChildRegistration;
 import '../setup/setup_repository.dart';
 
 /// A stay in one فئة.
@@ -53,6 +54,7 @@ class ChildProfile {
     this.notes = const [],
     this.alerts = const [],
     this.termStart,
+    this.registration = const ChildRegistration(),
   });
 
   final String id;
@@ -68,6 +70,7 @@ class ChildProfile {
   final List<ChildNote> notes;
   final List<ProfileAlert> alerts;
   final DateTime? termStart;
+  final ChildRegistration registration;
 
   GroupStay? get currentStay => stays.where((s) => s.to == null).lastOrNull;
 
@@ -111,7 +114,7 @@ class SupabaseProfileRepository implements ProfileRepository {
       _db
           .from('children')
           .select(
-            'id, full_name, birth_date, child_groups(from_date, to_date, groups(name)), child_parents(people(id, full_name, phone))',
+            'id, full_name, birth_date, ${ChildRegistration.columns}, child_groups(from_date, to_date, groups(name)), child_parents(people(id, full_name, phone))',
           )
           .eq('id', childId)
           .single(),
@@ -131,6 +134,7 @@ class SupabaseProfileRepository implements ProfileRepository {
       id: c['id'] as String,
       fullName: c['full_name'] as String,
       birthDate: c['birth_date'] == null ? null : DateTime.parse(c['birth_date'] as String),
+      registration: ChildRegistration.fromJson(c),
       stays: [
         for (final s in c['child_groups'] as List)
           GroupStay(

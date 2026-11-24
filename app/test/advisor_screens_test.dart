@@ -75,6 +75,16 @@ ChildProfile adamProfile() => ChildProfile(
     ),
   ],
   termStart: DateTime(2027, 1, 5),
+  registration: ChildRegistration(
+    fullNameLatin: 'Adam Benali',
+    schoolLevel: 'الرابع ابتدائي',
+    returningMember: true,
+    hasChronicCondition: true,
+    medicalNotes: 'الربو، يحمل الفنتولين',
+    motherName: 'سلمى العلوي',
+    motherPhone: '+212661234567',
+    registeredAt: DateTime(2026, 9, 9, 12),
+  ),
 );
 
 Future<FakeProfileRepository> openAdvisor(
@@ -147,6 +157,15 @@ void main() {
     expect(find.text('متميز في التلاوة'), findsOneWidget);
     expect(find.text('الانتقال إلى فئة النجوم'), findsOneWidget);
     expect(find.text('من فئة البراعم'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('profile-health')), matching: find.text('الربو، يحمل الفنتولين')),
+        findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('profile-registration')), 200,
+        scrollable: find.byType(Scrollable).first);
+    final reg = find.byKey(const Key('profile-registration'));
+    expect(find.descendant(of: reg, matching: find.text('Adam Benali')), findsOneWidget);
+    expect(find.descendant(of: reg, matching: find.text('الرابع ابتدائي')), findsOneWidget);
+    expect(find.descendant(of: reg, matching: find.text('نعم')), findsOneWidget);
+    expect(find.descendant(of: reg, matching: find.byIcon(Icons.call)), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('profile-add-note')));
     await tester.pumpAndSettle();

@@ -72,6 +72,7 @@ abstract interface class SetupRepository {
     DateTime? birthDate,
     Gender? gender,
     required bool recordConsent,
+    ChildRegistration registration = const ChildRegistration(),
   });
 
   /// Ends the current group membership today and starts the new one. Null removes the
@@ -103,7 +104,7 @@ class SupabaseSetupRepository implements SetupRepository {
               .select('id, full_name, phone, gender, must_change_password, person_roles(role)')
               .not('phone', 'like', 'deleted-%')
               .order('full_name'),
-          _db.from('children').select('id, full_name, birth_date, gender, consent_recorded_at, child_groups(group_id, to_date), child_parents(parent_id)').order('full_name'),
+          _db.from('children').select('id, full_name, birth_date, gender, consent_recorded_at, ${ChildRegistration.columns}, child_groups(group_id, to_date), child_parents(parent_id)').order('full_name'),
           _db.from('seasons').select('id, name, starts_on, ends_on, terms(id, name, starts_on, ends_on)').order('starts_on', ascending: false),
           _db.from('account_deletion_requests').select('person_id, requested_at').order('requested_at'),
         ]);
@@ -150,6 +151,7 @@ class SupabaseSetupRepository implements SetupRepository {
                     if (m['to_date'] == null) m['group_id'] as String,
                 ].firstOrNull,
                 parentIds: [for (final p in c['child_parents'] as List) p['parent_id'] as String],
+                registration: ChildRegistration.fromJson(c),
               ),
           ],
           seasons: [
@@ -298,12 +300,14 @@ class SupabaseSetupRepository implements SetupRepository {
     DateTime? birthDate,
     Gender? gender,
     required bool recordConsent,
+    ChildRegistration registration = const ChildRegistration(),
   }) =>
       _guard(() async {
         final row = <String, dynamic>{
           'full_name': fullName,
           'birth_date': birthDate == null ? null : _day(birthDate),
           'gender': ?gender?.dbName,
+          ...registration.toJson(),
         };
         if (recordConsent) {
           row['consent_recorded_at'] = DateTime.now().toUtc().toIso8601String();

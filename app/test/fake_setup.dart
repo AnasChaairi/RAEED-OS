@@ -216,6 +216,7 @@ class FakeSetupRepository implements SetupRepository {
     DateTime? birthDate,
     Gender? gender,
     required bool recordConsent,
+    ChildRegistration registration = const ChildRegistration(),
   }) async {
     _check();
     calls.add('saveChild $fullName consent=$recordConsent');
@@ -229,6 +230,7 @@ class FakeSetupRepository implements SetupRepository {
       groupId: before?.groupId,
       parentIds: before?.parentIds ?? const [],
       consentRecordedAt: recordConsent ? DateTime(2026, 10, 12) : before?.consentRecordedAt,
+      registration: registration,
     );
     return childId;
   }
@@ -237,7 +239,7 @@ class FakeSetupRepository implements SetupRepository {
   Future<void> moveChild(String childId, String? groupId) async {
     calls.add('moveChild $childId $groupId');
     final c = children[childId]!;
-    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: groupId, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt);
+    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: groupId, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt, registration: c.registration);
   }
 
   @override
@@ -245,7 +247,7 @@ class FakeSetupRepository implements SetupRepository {
     calls.add('setChildParents $childId ${parentIds.join(',')}');
     if (parentIds.length > 2) throw const SetupError(SetupFailure.tooManyParents);
     final c = children[childId]!;
-    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: c.groupId, parentIds: parentIds, consentRecordedAt: c.consentRecordedAt);
+    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: c.groupId, parentIds: parentIds, consentRecordedAt: c.consentRecordedAt, registration: c.registration);
   }
 
   @override

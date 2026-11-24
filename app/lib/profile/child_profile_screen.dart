@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../auth/phone.dart';
 import '../instructor/models.dart';
 import '../instructor/widgets.dart' show statusColors;
+import '../setup/models.dart' show ChildRegistration;
 import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
@@ -120,6 +121,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
           children: [
+            if (p.registration.hasHealthInfo) ...[_HealthCard(p.registration), const SizedBox(height: 8)],
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -231,6 +233,16 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                   ],
                 ),
               ),
+            if (_registrationRows(p.registration) case final rows when rows.isNotEmpty) ...[
+              const SectionLabel('استمارة التسجيل'),
+              Card(
+                key: const Key('profile-registration'),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(children: rows),
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             Row(
               children: [
@@ -250,6 +262,96 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     );
   }
 }
+
+/// Shown at the top of the profile, so staff see it before a session or a camp.
+class _HealthCard extends StatelessWidget {
+  const _HealthCard(this.r);
+
+  final ChildRegistration r;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      key: const Key('profile-health'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: RaeedColors.starSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: RaeedColors.starStart),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.health_and_safety_outlined, color: RaeedColors.starEnd),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.hasChronicCondition ? 'مرض مزمن · احتياطات' : 'احتياطات صحية',
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: RaeedColors.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(r.medicalNotes ?? 'لم تُذكر تفاصيل. تواصل مع ولي الأمر.', style: text.bodyMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One line of the registration card: a label, its value, and a call button for phones.
+class _InfoRow extends StatelessWidget {
+  const _InfoRow(this.label, this.value, {this.phone});
+
+  final String label;
+  final String value;
+  final String? phone;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return ListTile(
+      dense: true,
+      title: Text(label, style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
+      subtitle: phone == null
+          ? Text(value, style: text.bodyMedium)
+          : Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: value),
+                  const TextSpan(text: ' · '),
+                  TextSpan(text: '\u2066${formatPhone(phone!)}\u2069'),
+                ],
+              ),
+              style: text.bodyMedium,
+            ),
+      trailing: phone == null
+          ? null
+          : IconButton(
+              tooltip: 'اتصال',
+              onPressed: () => launchUrl(Uri.parse('tel:$phone')),
+              icon: const Icon(Icons.call, color: RaeedColors.blue),
+            ),
+    );
+  }
+}
+
+List<Widget> _registrationRows(ChildRegistration r) => [
+  if (r.fullNameLatin != null) _InfoRow('الاسم بالفرنسية', r.fullNameLatin!),
+  if (r.schoolLevel != null) _InfoRow('المستوى الدراسي', r.schoolLevel!),
+  if (r.residence != null) _InfoRow('السكن', r.residence!),
+  if (r.returningMember != null) _InfoRow('مسجل الموسم الماضي', r.returningMember! ? 'نعم' : 'لا، تسجيل جديد'),
+  if (r.motherName != null || r.motherPhone != null) _InfoRow('الأم', r.motherName ?? '—', phone: r.motherPhone),
+  if (r.fatherName != null || r.fatherPhone != null) _InfoRow('الأب', r.fatherName ?? '—', phone: r.fatherPhone),
+  if (r.contactEmail != null) _InfoRow('البريد الإلكتروني', r.contactEmail!),
+  if (r.registrationNotes != null) _InfoRow('ملاحظات الأسرة', r.registrationNotes!),
+  if (r.registeredAt != null) _InfoRow('تاريخ التسجيل', _shortDay(r.registeredAt!)),
+];
 
 class _Event {
   const _Event(this.at, this.title, this.body, this.meta);
