@@ -116,6 +116,7 @@ class FakeInstructorRepository implements InstructorRepository {
           pickupTime: d.away ? d.pickupTime : null,
           materials: id == first ? d.materials : const [],
           instructorIds: d.instructorIds,
+          remind: d.remind,
         ),
       );
     }
@@ -144,6 +145,7 @@ class FakeInstructorRepository implements InstructorRepository {
         status: SessionStatus.changed,
         materials: t.materials,
         instructorIds: d.instructorIds,
+        remind: d.remind,
       );
     }
   }
