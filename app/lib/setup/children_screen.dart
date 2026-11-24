@@ -4,6 +4,7 @@ import '../auth/phone.dart';
 import '../profile/child_profile_screen.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
+import '../widgets/select_field.dart';
 import 'models.dart';
 import 'setup_repository.dart';
 import 'staff_screen.dart' show PhoneField;
@@ -304,18 +305,16 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                 onChanged: (g) => setState(() => _gender = g),
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<String?>(
+              SelectField<String>(
                 key: const Key('child-group'),
-                initialValue: _groupId,
-                decoration: const InputDecoration(labelText: 'الفئة'),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('بدون فئة')),
+                label: 'الفئة',
+                noneLabel: 'بدون فئة',
+                searchHint: 'ابحث باسم الفئة',
+                options: [
                   for (final g in data.groups.where((g) => !g.archived || g.id == _groupId))
-                    DropdownMenuItem(
-                      value: g.id,
-                      child: Row(children: [GroupLogo.of(g, size: 24), const SizedBox(width: 8), Text(g.name)]),
-                    ),
+                    SelectOption(g.id, g.name, leading: GroupLogo.of(g, size: 24)),
                 ],
+                value: _groupId,
                 onChanged: (v) => setState(() => _groupId = v),
               ),
               const SectionLabel('أولياء الأمور'),
