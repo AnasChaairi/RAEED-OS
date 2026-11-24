@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../auth/phone.dart';
+import '../auth/session_scope.dart';
 import '../config.dart';
 import '../theme/raeed_theme.dart';
+import '../roles/app_role.dart';
 import '../widgets/pickers.dart';
 import 'models.dart';
 import 'setup_repository.dart';
@@ -400,3 +402,47 @@ class GenderField extends StatelessWidget {
         ),
       );
 }
+
+/// Asks before a deletion that cannot be undone. Returns true when confirmed.
+Future<bool> confirmDeletion(BuildContext context, {required String title, required String message}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (d) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('إلغاء')),
+        FilledButton(
+          key: const Key('confirm-delete'),
+          style: FilledButton.styleFrom(backgroundColor: RaeedColors.error),
+          onPressed: () => Navigator.pop(d, true),
+          child: const Text('حذف نهائياً'),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// A red text button at the bottom of an edit form, shown to the مشرف عام only.
+class DeleteButton extends StatelessWidget {
+  const DeleteButton({super.key, required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: TextButton.icon(
+          style: TextButton.styleFrom(foregroundColor: RaeedColors.error),
+          onPressed: onPressed,
+          icon: const Icon(Icons.delete_outline),
+          label: Text(label),
+        ),
+      );
+}
+
+/// Only the مشرف عام (advisor role) deletes children, categories, staff, seasons and terms.
+bool canDelete(BuildContext context) =>
+    context.getInheritedWidgetOfExactType<SessionScope>()?.notifier?.role == AppRole.advisor;

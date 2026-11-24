@@ -139,4 +139,69 @@ void main() {
     await store.updateStaff(person: nadia, fullName: 'نادية', roles: {AppRole.instructor}, groupIds: const []);
     expect(store.data.groups.single.supervisorIds, isEmpty);
   });
+
+  group('deleting', () {
+    Future<(String, String)> siblings() async {
+      repo
+        ..addPerson('karim', 'كريم', '0612345678', {AppRole.parent})
+        ..addPerson('nadia', 'نادية', '0698765432', {AppRole.parent})
+        ..addPerson('omar', 'عمر', '0655555555', {AppRole.parent, AppRole.instructor});
+      final salma = await repo.saveChild(fullName: 'سلمى', recordConsent: true);
+      await repo.setChildParents(salma, ['karim', 'nadia']);
+      final adam = await repo.saveChild(fullName: 'آدم', recordConsent: true);
+      await repo.setChildParents(adam, ['karim', 'omar']);
+      await store.load();
+      return (salma, adam);
+    }
+
+    test('a child goes alone when the parents are kept', () async {
+      final (salma, _) = await siblings();
+      await store.deleteChild(store.data.children.firstWhere((c) => c.id == salma), deleteParents: false);
+      expect(repo.children.containsKey(salma), isFalse);
+      expect(repo.calls.where((c) => c.startsWith('deleteAccount')), isEmpty);
+    });
+
+    test('only parents with no other child and no staff role go with the child', () async {
+      final (salma, adam) = await siblings();
+      final s = store.data.children.firstWhere((c) => c.id == salma);
+      final plan = store.parentsOnDelete(s);
+      expect(plan.removable.map((p) => p.id), ['nadia']);
+      expect(plan.kept.map((p) => p.id), ['karim']);
+
+      await store.deleteChild(s, deleteParents: true);
+      expect(repo.people.containsKey('nadia'), isFalse);
+      expect(repo.people.containsKey('karim'), isTrue);
+
+      // Adam's father is also an instructor: his account stays.
+      final a = store.data.children.firstWhere((c) => c.id == adam);
+      expect(store.parentsOnDelete(a).removable.map((p) => p.id), ['karim']);
+      await store.deleteChild(a, deleteParents: true);
+      expect(repo.people.keys, containsAll(['omar', 'yassine']));
+      expect(repo.people.containsKey('karim'), isFalse);
+    });
+
+    test('a staff member is taken off their groups before the account goes', () async {
+      await store.saveGroup(const GroupDraft(name: 'النجوم', logoLetter: 'ن', logoColor: 1, instructorIds: ['yassine'], supervisorIds: ['yassine']));
+      await store.deleteStaff(store.data.person('yassine')!);
+      expect(repo.calls.indexWhere((c) => c == 'releaseStaff yassine'),
+          lessThan(repo.calls.indexWhere((c) => c == 'deleteAccount yassine')));
+      expect(store.data.groups.single.instructorIds, isEmpty);
+      expect(store.data.groups.single.supervisorIds, isEmpty);
+      expect(store.data.person('yassine'), isNull);
+    });
+
+    test('a group, a season and a term can be deleted', () async {
+      await store.saveGroup(const GroupDraft(name: 'النجوم', logoLetter: 'ن', logoColor: 1));
+      await store.deleteGroup(store.data.groups.single);
+      expect(store.data.groups, isEmpty);
+
+      await store.saveSeason(name: '2026–2027', startsOn: DateTime(2026, 9, 1), endsOn: DateTime(2027, 7, 1));
+      final season = store.data.seasons.single;
+      await store.saveTerm(seasonId: season.id, name: 'الفصل الأول', startsOn: DateTime(2026, 9, 1), endsOn: DateTime(2027, 1, 31));
+      await store.deleteTerm(store.data.seasons.single.terms.single);
+      expect(store.data.seasons.single.terms, isEmpty);
+      await store.deleteSeason(store.data.seasons.single);
+      expect(store.data.seasons, isEmpty);
+    });
+  });
 }

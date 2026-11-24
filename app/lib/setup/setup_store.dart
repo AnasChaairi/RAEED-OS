@@ -135,6 +135,64 @@ class SetupStore extends ChangeNotifier {
     await load();
   }
 
+  /// Deletes a staff account after taking them off their categories and upcoming
+  /// activities. Throws [SetupError].
+  Future<void> deleteStaff(Person person) async {
+    await _repo.releaseStaff(person.id);
+    await _repo.deleteAccount(person.id);
+    await load();
+  }
+
+  /// The child's parents whose accounts can go with the child: they have no other child
+  /// and no staff role. Brothers' and sisters' parents always stay.
+  ({List<Person> removable, List<Person> kept}) parentsOnDelete(Child child) {
+    final removable = <Person>[];
+    final kept = <Person>[];
+    for (final id in child.parentIds) {
+      final p = _data.person(id);
+      if (p == null) continue;
+      final otherChildren = _data.children.any((c) => c.id != child.id && c.parentIds.contains(id));
+      final staff = p.roles.any((r) => r != AppRole.parent);
+      (otherChildren || staff ? kept : removable).add(p);
+    }
+    return (removable: removable, kept: kept);
+  }
+
+  /// Deletes the child, and with [deleteParents] the parents that [parentsOnDelete] marks
+  /// removable. Throws [SetupError].
+  Future<void> deleteChild(Child child, {required bool deleteParents}) async {
+    final parents = deleteParents ? parentsOnDelete(child).removable : const <Person>[];
+    await _repo.deleteChild(child.id);
+    try {
+      for (final p in parents) {
+        await _repo.deleteAccount(p.id);
+      }
+    } finally {
+      await load();
+    }
+  }
+
+  /// Throws [SetupError].
+  Future<GroupDeletionCounts> groupDeletionCounts(Group group) => _repo.groupDeletionCounts(group.id);
+
+  /// Throws [SetupError].
+  Future<void> deleteGroup(Group group) async {
+    await _repo.deleteGroup(group.id);
+    await load();
+  }
+
+  /// Throws [SetupError].
+  Future<void> deleteSeason(Season season) async {
+    await _repo.deleteSeason(season.id);
+    await load();
+  }
+
+  /// Throws [SetupError].
+  Future<void> deleteTerm(Term term) async {
+    await _repo.deleteTerm(term.id);
+    await load();
+  }
+
   /// Throws [SetupError].
   Future<IssuedPassword> resetPassword(Person person) async {
     final password = await _repo.resetPassword(person.id);

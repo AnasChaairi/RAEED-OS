@@ -27,6 +27,8 @@ enum SetupFailure {
   unknown,
 }
 
+typedef GroupDeletionCounts = ({int sessions, int attendance, int children});
+
 class SetupError implements Exception {
   const SetupError(this.failure);
 
@@ -87,6 +89,23 @@ abstract interface class SetupRepository {
     required DateTime startsOn,
     required DateTime endsOn,
   });
+
+  /// Deletes the child with their attendance, notes, alerts and messages.
+  Future<void> deleteChild(String childId);
+
+  /// Deletes the category with its activities, schedules and attendance; its children
+  /// stay without a category.
+  Future<void> deleteGroup(String groupId);
+
+  /// What deleting the category takes with it.
+  Future<GroupDeletionCounts> groupDeletionCounts(String groupId);
+
+  /// Deletes the season and its terms. Activities and attendance stay.
+  Future<void> deleteSeason(String seasonId);
+  Future<void> deleteTerm(String termId);
+
+  /// Takes the staff member off their categories and upcoming activities.
+  Future<void> releaseStaff(String personId);
 }
 
 class SupabaseSetupRepository implements SetupRepository {
@@ -362,6 +381,50 @@ class SupabaseSetupRepository implements SetupRepository {
         if (id == null) return (await _db.from('terms').insert(row).select('id').single())['id'] as String;
         await _db.from('terms').update(row).eq('id', id);
         return id;
+      });
+
+  @override
+  Future<void> deleteChild(String childId) => _guard(() async {
+        await _db.from('children').delete().eq('id', childId);
+      });
+
+  @override
+  Future<void> deleteGroup(String groupId) => _guard(() async {
+        final logo = await _db.rpc('delete_group', params: {'g': groupId}) as String?;
+        if (logo != null) {
+          try {
+            await _db.storage.from(groupLogoBucket).remove([logo]);
+          } catch (_) {
+            // A leftover image costs a few kilobytes.
+          }
+        }
+      });
+
+  @override
+  Future<GroupDeletionCounts> groupDeletionCounts(String groupId) => _guard(() async {
+        final rows = await _db.rpc('group_deletion_counts', params: {'g': groupId}) as List;
+        if (rows.isEmpty) throw const SetupError(SetupFailure.notAllowed);
+        final r = rows.first as Map;
+        return (
+          sessions: (r['sessions'] as num).toInt(),
+          attendance: (r['attendance'] as num).toInt(),
+          children: (r['children'] as num).toInt(),
+        );
+      });
+
+  @override
+  Future<void> deleteSeason(String seasonId) => _guard(() async {
+        await _db.from('seasons').delete().eq('id', seasonId);
+      });
+
+  @override
+  Future<void> deleteTerm(String termId) => _guard(() async {
+        await _db.from('terms').delete().eq('id', termId);
+      });
+
+  @override
+  Future<void> releaseStaff(String personId) => _guard(() async {
+        await _db.rpc('release_staff', params: {'p': personId});
       });
 
   Future<Map<String, dynamic>> _call(Map<String, dynamic> body) async {

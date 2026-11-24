@@ -199,6 +199,35 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
     return null;
   }
 
+  Future<void> _delete() async {
+    final group = widget.group!;
+    final store = SetupScope.read(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final n = await store.groupDeletionCounts(group);
+      if (!mounted) return;
+      setState(() => _busy = false);
+      final ok = await confirmDeletion(
+        context,
+        title: 'حذف فئة ${group.name}؟',
+        message: 'تُحذف معها ${n.sessions} من الأنشطة و${n.attendance} من سجلات الحضور وكل مواعيدها. '
+            '${n.children == 0 ? '' : 'يبقى أطفالها (${n.children}) بدون فئة. '}'
+            'لا يمكن التراجع. لإخفائها مع إبقاء السجلات، استعمل «أرشفة الفئة».',
+      );
+      if (!ok || !mounted) return;
+      setState(() => _busy = true);
+      await store.deleteGroup(group);
+      if (mounted) Navigator.pop(context);
+    } on SetupError catch (e) {
+      if (mounted) setState(() => _error = setupFailureMessage(e.failure));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = SetupScope.of(context).data;
@@ -378,6 +407,8 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
                 onPressed: _busy ? null : _save,
                 child: _busy ? const ButtonSpinner() : const Text('حفظ الفئة'),
               ),
+              if (widget.group != null && canDelete(context))
+                DeleteButton(key: const Key('delete-group'), label: 'حذف الفئة', onPressed: _busy ? null : _delete),
             ],
           ),
         ),

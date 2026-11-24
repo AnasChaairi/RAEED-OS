@@ -96,6 +96,19 @@ class SeasonsScreen extends StatelessWidget {
         startsOn: isTerm ? term?.startsOn : season?.startsOn,
         endsOn: isTerm ? term?.endsOn : season?.endsOn,
         bounds: isTerm ? (season!.startsOn, season.endsOn) : null,
+        deleteLabel: !canDelete(context)
+            ? null
+            : term != null
+                ? 'حذف الفصل'
+                : (season != null && !newTerm ? 'حذف الموسم' : null),
+        deleteTitle: term != null ? 'حذف ${term.name}؟' : 'حذف ${season?.name}؟',
+        deleteMessage: term != null
+            ? 'يُحذف الفصل فقط. تبقى الأنشطة وسجلات الحضور، ولا تُحسب نسب الحضور لهذه الفترة إلا بعد إضافة فصل يغطيها.'
+            : 'يُحذف الموسم مع فصوله (${season?.terms.length ?? 0}). تبقى الأنشطة وسجلات الحضور. لا يمكن التراجع.',
+        onDelete: () {
+          final store = SetupScope.read(context);
+          return term != null ? store.deleteTerm(term) : store.deleteSeason(season!);
+        },
         onSave: (name, start, end) {
           final store = SetupScope.read(context);
           return isTerm
@@ -116,7 +129,17 @@ class _DatesSheet extends StatefulWidget {
     this.startsOn,
     this.endsOn,
     this.bounds,
+    this.deleteLabel,
+    this.deleteTitle = '',
+    this.deleteMessage = '',
+    this.onDelete,
   });
+
+  /// Null hides the delete button.
+  final String? deleteLabel;
+  final String deleteTitle;
+  final String deleteMessage;
+  final Future<void> Function()? onDelete;
 
   final String title;
   final String nameHint;
@@ -167,6 +190,23 @@ class _DatesSheetState extends State<_DatesSheet> {
     }
   }
 
+  Future<void> _delete() async {
+    final ok = await confirmDeletion(context, title: widget.deleteTitle, message: widget.deleteMessage);
+    if (!ok || !mounted) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.onDelete!();
+      if (mounted) Navigator.pop(context);
+    } on SetupError catch (e) {
+      if (mounted) setState(() => _error = setupFailureMessage(e.failure));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -200,6 +240,8 @@ class _DatesSheetState extends State<_DatesSheet> {
                   onPressed: _busy ? null : _save,
                   child: _busy ? const ButtonSpinner() : const Text('حفظ'),
                 ),
+                if (widget.deleteLabel != null && widget.onDelete != null)
+                  DeleteButton(key: const Key('delete-dates'), label: widget.deleteLabel!, onPressed: _busy ? null : _delete),
               ],
             ),
           ),
