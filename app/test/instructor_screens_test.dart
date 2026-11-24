@@ -389,6 +389,48 @@ void main() {
     expect(find.textContaining('موعد طبي'), findsOneWidget);
   });
 
+  testWidgets('a category supervisor deletes a session, or it and the coming ones', (tester) async {
+    final repo = seededInstructorRepo(me: 'someone-else', today: today);
+    repo.groups[0] = repo.groups[0].withInstructors(['sara'], supervisors: [me]);
+    await openInstructor(tester, repo: repo, role: AppRole.supervisor);
+    await tab(tester, 'فئتي');
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الحصص'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('مراجعة الحفظ').first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('delete-session')), 200);
+    await tester.tap(find.byKey(const Key('delete-session')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-session')));
+    await tester.pumpAndSettle();
+    expect(repo.calls, contains('deleteSessions last-week one'));
+    expect(repo.sessions.map((s) => s.id), isNot(contains('last-week')));
+    expect(find.byKey(const Key('delete-session')), findsNothing, reason: 'back on the group');
+
+    final today0 = repo.sessions.firstWhere((s) => s.id == 'today');
+    await tester.tap(find.textContaining(today0.title).first);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('delete-session')), 200);
+    await tester.tap(find.byKey(const Key('delete-session')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('وكل القادمة'));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-delete-session')));
+    await tester.pumpAndSettle();
+    expect(repo.calls, contains('deleteSessions today upcoming'));
+    expect(repo.sessions.where((s) => s.seriesId == 'weekly'), isEmpty);
+  });
+
+  testWidgets('an instructor cannot delete a session', (tester) async {
+    await openInstructor(tester);
+    await tab(tester, 'الحصص');
+    await tester.tap(find.textContaining('حفظ سورة الملك').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delete-session')), findsNothing);
+  });
+
   testWidgets('an instructor reports an absence on a coming session, and takes it back', (tester) async {
     final o = await openInstructor(tester);
     await tab(tester, 'الحصص');

@@ -33,6 +33,10 @@ abstract interface class InstructorRepository {
   /// Edits one session, or it and the later ones of its series.
   Future<void> updateSessions(String sessionId, SessionDraft draft, {required bool upcoming});
   Future<void> cancelSessions(String sessionId, String reason, {required bool upcoming});
+
+  /// Deletes [s] with its attendance, materials and observations, or, with [upcoming],
+  /// it and the later sessions of its series. Parents are not notified.
+  Future<void> deleteSessions(Session s, {required bool upcoming});
   Future<void> setMaterials(String sessionId, List<SessionMaterial> materials);
 
   Future<List<ChildNote>> notesFor(String childId);
@@ -250,6 +254,15 @@ class SupabaseInstructorRepository implements InstructorRepository {
   Future<void> cancelSessions(String sessionId, String reason, {required bool upcoming}) => guardSupabase(
     () => _db.rpc('cancel_sessions', params: {'p_session': sessionId, 'p_reason': reason, 'p_upcoming': upcoming}),
   );
+
+  @override
+  Future<void> deleteSessions(Session s, {required bool upcoming}) => guardSupabase(() async {
+    if (upcoming && s.seriesId != null) {
+      await _db.from('sessions').delete().eq('series_id', s.seriesId!).gte('session_date', dbDay(s.date));
+    } else {
+      await _db.from('sessions').delete().eq('id', s.id);
+    }
+  });
 
   @override
   Future<void> setMaterials(String sessionId, List<SessionMaterial> materials) => guardSupabase(() async {

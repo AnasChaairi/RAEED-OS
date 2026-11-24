@@ -216,6 +216,12 @@ class InstructorStore extends ChangeNotifier {
   }
 
   /// Throws [SetupError].
+  Future<void> deleteSessions(Session s, {required bool upcoming}) async {
+    await _repo.deleteSessions(s, upcoming: upcoming);
+    await refresh();
+  }
+
+  /// Throws [SetupError].
   Future<List<ChildNote>> notesFor(String childId) => _repo.notesFor(childId);
 
   /// Throws [SetupError].

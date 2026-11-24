@@ -524,4 +524,28 @@ do $$ begin
   if exists (select 1 from instructor_absences) then raise exception 'FAIL: instructor takes the absence back'; end if;
 end $$;
 
+-- Deleting sessions: Nadia deletes one of her group's sessions, not another group's; an
+-- instructor deletes none.
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+delete from public.sessions where id = '30000000-0000-0000-0000-0000000000a2';
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+delete from public.sessions where id = '30000000-0000-0000-0000-0000000000a2';
+delete from public.sessions where group_id = '10000000-0000-0000-0000-000000000001';
+reset role;
+do $$ begin
+  if exists (select 1 from sessions where id = '30000000-0000-0000-0000-0000000000a2') then
+    raise exception 'FAIL: supervisor deletes their group''s session'; end if;
+  if not exists (select 1 from sessions where group_id = '10000000-0000-0000-0000-000000000001') then
+    raise exception 'FAIL: supervisor deleted another group''s sessions'; end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+delete from public.sessions where id = '30000000-0000-0000-0000-0000000000a1';
+reset role;
+do $$ begin
+  if not exists (select 1 from sessions where id = '30000000-0000-0000-0000-0000000000a1') then
+    raise exception 'FAIL: instructor deleted a session'; end if;
+end $$;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;
