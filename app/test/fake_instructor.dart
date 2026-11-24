@@ -169,6 +169,15 @@ class FakeInstructorRepository implements InstructorRepository {
   }
 
   @override
+  Future<void> deleteSessions(Session s, {required bool upcoming}) async {
+    _check();
+    calls.add('deleteSessions ${s.id} ${upcoming ? 'upcoming' : 'one'}');
+    sessions.removeWhere(
+      (x) => x.id == s.id || (upcoming && s.seriesId != null && x.seriesId == s.seriesId && !x.date.isBefore(s.date)),
+    );
+  }
+
+  @override
   Future<void> setMaterials(String sessionId, List<SessionMaterial> materials) async {
     _check();
     calls.add('setMaterials $sessionId ${materials.length}');

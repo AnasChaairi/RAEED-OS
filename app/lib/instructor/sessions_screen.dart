@@ -286,10 +286,38 @@ class SessionDetailScreen extends StatelessWidget {
               label: const Text('إلغاء الحصة'),
             ),
           ],
+          if (store.schedules) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              key: const Key('delete-session'),
+              style: TextButton.styleFrom(foregroundColor: RaeedColors.error),
+              onPressed: () => _delete(context, s),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('حذف الحصة'),
+            ),
+          ],
           if (store.runs(s) || store.schedules) SessionObservations(session: s),
         ],
       ),
     );
+  }
+
+  Future<void> _delete(BuildContext context, Session s) async {
+    final store = InstructorScope.read(context);
+    final upcoming = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DeleteDialog(session: s, attendance: store.data.attendanceFor(s.id).length),
+    );
+    if (upcoming == null || !context.mounted) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await store.deleteSessions(s, upcoming: upcoming);
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(upcoming ? 'حُذفت الحصص.' : 'حُذفت الحصة.')));
+    } on SetupError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
+    }
   }
 
   Future<void> _reportAbsence(BuildContext context, Session s) async {
@@ -487,6 +515,62 @@ class _AbsenceDialogState extends State<_AbsenceDialog> {
           key: const Key('confirm-absence'),
           onPressed: ok ? () => Navigator.pop(context, _reason.text.trim()) : null,
           child: const Text('إرسال'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Confirms deleting a session. Pops whether the series' later sessions go too, or null.
+class _DeleteDialog extends StatefulWidget {
+  const _DeleteDialog({required this.session, required this.attendance});
+
+  final Session session;
+  final int attendance;
+
+  @override
+  State<_DeleteDialog> createState() => _DeleteDialogState();
+}
+
+class _DeleteDialogState extends State<_DeleteDialog> {
+  bool _upcoming = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('حذف الحصة؟'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            [
+              'تُحذف نهائياً مع موادها وملاحظاتها',
+              if (widget.attendance > 0) ' وحضورها المسجّل (${widget.attendance})',
+              '. لا يصل إشعار لأولياء الأمور، فإن كانوا ينتظرونها فالأفضل إلغاؤها.',
+            ].join(),
+          ),
+          if (widget.session.seriesId != null) ...[
+            const SizedBox(height: 10),
+            SegmentedButton<bool>(
+              key: const Key('delete-scope'),
+              segments: const [
+                ButtonSegment(value: false, label: Text('هذه الحصة فقط')),
+                ButtonSegment(value: true, label: Text('وكل القادمة')),
+              ],
+              selected: {_upcoming},
+              onSelectionChanged: (v) => setState(() => _upcoming = v.first),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('رجوع')),
+        FilledButton(
+          key: const Key('confirm-delete-session'),
+          style: FilledButton.styleFrom(backgroundColor: RaeedColors.error),
+          onPressed: () => Navigator.pop(context, _upcoming),
+          child: const Text('حذف'),
         ),
       ],
     );
