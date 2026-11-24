@@ -33,7 +33,8 @@ class _SessionsTabState extends State<SessionsTab> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: !store.schedules || store.data.groups.isEmpty
+      // A category supervisor plans from فئتي, under the group's الحصص.
+      floatingActionButton: store.view != StaffView.all || store.data.groups.isEmpty
           ? null
           : FloatingActionButton.extended(
               key: const Key('new-session'),
@@ -145,6 +146,9 @@ class SessionDetailScreen extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final started = !s.startsAt.isAfter(store.now().add(const Duration(minutes: 30)));
     final taken = data.attendanceFor(s.id).length;
+    final mine = data.absenceOf(s.id, store.personId);
+    final absences = data.absencesFor(s.id);
+    final over = !s.endsAt.isAfter(store.now());
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 68,
@@ -210,6 +214,37 @@ class SessionDetailScreen extends StatelessWidget {
             const SectionLabel('المواد'),
             for (final m in s.materials) MaterialRow(material: m),
           ],
+          if (absences.isNotEmpty && (store.schedules || mine == null)) ...[
+            const SectionLabel('غياب المؤطرين'),
+            for (final a in absences)
+              Card(
+                key: Key('absence-${a.personId}'),
+                child: ListTile(
+                  leading: const Icon(Icons.person_off_outlined, color: RaeedColors.error),
+                  title: Text(data.staffNames[a.personId] ?? 'مؤطر'),
+                  subtitle: Text(a.reason),
+                ),
+              ),
+          ],
+          if (store.canRecord(s) && !s.cancelled && mine != null) ...[
+            const SizedBox(height: 12),
+            Card(
+              key: const Key('my-absence'),
+              color: RaeedColors.starSoft,
+              child: ListTile(
+                leading: const Icon(Icons.person_off_outlined, color: RaeedColors.starEnd),
+                title: const Text('أبلغت بغيابك عن هذه الحصة'),
+                subtitle: Text(mine.reason),
+                trailing: over
+                    ? null
+                    : TextButton(
+                        key: const Key('withdraw-absence'),
+                        onPressed: () => _withdraw(context, mine),
+                        child: const Text('سأحضر'),
+                      ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           if (store.canRecord(s) && !s.cancelled && started)
             FilledButton.icon(
@@ -218,6 +253,15 @@ class SessionDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.fact_check_outlined),
               label: Text(taken > 0 ? 'تعديل الحضور' : 'تسجيل الحضور'),
             ),
+          if (store.canRecord(s) && !s.cancelled && !over && mine == null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('report-absence'),
+              onPressed: () => _reportAbsence(context, s),
+              icon: const Icon(Icons.person_off_outlined),
+              label: const Text('سأتغيب عن هذه الحصة'),
+            ),
+          ],
           if (!store.schedules && !store.runs(s) && !s.cancelled)
             Text(
               'يسجّل الحضور المؤطرون المكلّفون بهذه الحصة.',
@@ -246,6 +290,27 @@ class SessionDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _reportAbsence(BuildContext context, Session s) async {
+    final reason = await showDialog<String>(context: context, builder: (_) => const _AbsenceDialog());
+    if (reason == null || !context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await InstructorScope.read(context).reportAbsence(s, reason);
+      messenger.showSnackBar(const SnackBar(content: Text('وصل إشعار بغيابك إلى مشرف الفئة.')));
+    } on SetupError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
+    }
+  }
+
+  Future<void> _withdraw(BuildContext context, InstructorAbsence a) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await InstructorScope.read(context).withdrawAbsence(a);
+    } on SetupError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
+    }
   }
 
   Future<void> _cancel(BuildContext context, Session s) async {
@@ -372,6 +437,56 @@ class _CancelDialogState extends State<_CancelDialog> {
           style: FilledButton.styleFrom(backgroundColor: RaeedColors.error),
           onPressed: () => Navigator.pop(context, (_reason.text.trim(), _upcoming)),
           child: const Text('إلغاء الحصة'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Asks why the instructor will miss the session. Pops the reason.
+class _AbsenceDialog extends StatefulWidget {
+  const _AbsenceDialog();
+
+  @override
+  State<_AbsenceDialog> createState() => _AbsenceDialogState();
+}
+
+class _AbsenceDialogState extends State<_AbsenceDialog> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = _reason.text.trim().isNotEmpty;
+    return AlertDialog(
+      title: const Text('الإبلاغ بالغياب'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('يصل إشعار إلى مشرف الفئة ليرتّب من يعوّضك.'),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key('absence-reason'),
+            controller: _reason,
+            autofocus: true,
+            maxLines: 2,
+            decoration: const InputDecoration(labelText: 'السبب', hintText: 'مثلاً: موعد طبي'),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('رجوع')),
+        FilledButton(
+          key: const Key('confirm-absence'),
+          onPressed: ok ? () => Navigator.pop(context, _reason.text.trim()) : null,
+          child: const Text('إرسال'),
         ),
       ],
     );

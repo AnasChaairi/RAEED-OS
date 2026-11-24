@@ -342,8 +342,18 @@ void main() {
         createdAt: today.subtract(const Duration(days: 6)),
       ),
     );
+    repo.staffPhones['sara'] = '+212611223344';
+    repo.absences.add(
+      InstructorAbsence(
+        id: 'ab1',
+        sessionId: 'next-week',
+        personId: 'sara',
+        reason: 'موعد طبي',
+        createdAt: today,
+      ),
+    );
     await openInstructor(tester, repo: repo, role: AppRole.supervisor);
-    expect(find.byKey(const Key('new-session')), findsOneWidget);
+    expect(find.byKey(const Key('new-session')), findsNothing, reason: 'planned from فئتي, under الحصص');
     await tab(tester, 'الملاحظات');
     expect(find.text('يوسف يحتاج متابعة في الحفظ'), findsOneWidget);
     await tester.tap(find.text('يوسف يحتاج متابعة في الحفظ'));
@@ -356,9 +366,50 @@ void main() {
     await tab(tester, 'فئتي');
     await tester.tap(find.text('فئة النجوم'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('new-session-for-group')), findsNothing, reason: 'not under الأطفال');
+    await tester.tap(find.text('الحصص'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('new-session-for-group')), findsOneWidget);
     await tester.tap(find.text('المؤطرون'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('new-session-for-group')), findsNothing, reason: 'not under المؤطرون');
     expect(find.byKey(const Key('instructor-work-sara')), findsOneWidget);
+    expect(find.textContaining('غياب: 1'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('instructor-work-sara')));
+    await tester.pumpAndSettle();
+    expect(find.text('سارة الإدريسي'), findsOneWidget);
+    expect(find.byKey(const Key('instructor-phone')), findsOneWidget);
+    expect(find.byKey(const Key('call-instructor')), findsOneWidget);
+    // Last week's session had no attendance taken; next week's has her notice of absence.
+    expect(find.descendant(of: find.byKey(const Key('presence-last-week')), matching: find.text('بلا حضور مسجّل')),
+        findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('presence-next-week')), matching: find.text('غائب')),
+        findsOneWidget);
+    expect(find.textContaining('موعد طبي'), findsOneWidget);
+  });
+
+  testWidgets('an instructor reports an absence on a coming session, and takes it back', (tester) async {
+    final o = await openInstructor(tester);
+    await tab(tester, 'الحصص');
+    await tester.tap(find.textContaining('حفظ سورة الملك').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('report-absence')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(find.byKey(const Key('confirm-absence'))).onPressed, isNull,
+        reason: 'a reason is needed');
+    await tester.enterText(find.byKey(const Key('absence-reason')), 'موعد طبي');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-absence')));
+    await tester.pumpAndSettle();
+    expect(o.repo.calls, contains('reportAbsence today موعد طبي'));
+    expect(find.byKey(const Key('my-absence')), findsOneWidget);
+    expect(find.byKey(const Key('report-absence')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('withdraw-absence')));
+    await tester.pumpAndSettle();
+    expect(o.repo.absences, isEmpty);
+    expect(find.byKey(const Key('report-absence')), findsOneWidget);
   });
 
   testWidgets('a category supervisor picks a child and writes to the parents', (tester) async {

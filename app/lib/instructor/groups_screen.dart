@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../auth/phone.dart';
 import '../profile/child_profile_screen.dart';
 import '../setup/models.dart';
 import '../setup/widgets.dart';
@@ -195,7 +197,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               const SizedBox(height: 8),
             ],
           ],
-          if (store.schedules) ...[
+          if (store.schedules && _tab == 1) ...[
             const SizedBox(height: 12),
             FilledButton.icon(
               key: const Key('new-session-for-group'),
@@ -233,6 +235,7 @@ class _InstructorWork extends StatelessWidget {
     ];
     final missing = done.where((s) => data.attendanceFor(s.id).isEmpty).length;
     final upcoming = theirs.where((s) => s.endsAt.isAfter(now)).length;
+    final absent = theirs.where((s) => data.absenceOf(s.id, personId) != null).length;
     final name = data.staffNames[personId] ?? 'مؤطر';
     return Card(
       key: Key('instructor-work-$personId'),
@@ -250,8 +253,14 @@ class _InstructorWork extends StatelessWidget {
             ),
             if (done.isNotEmpty) missing == 0 ? 'الحضور مسجّل في كلها' : 'بلا حضور: $missing',
             countLabel(upcoming, one: 'حصة قادمة واحدة', two: 'حصتان قادمتان', few: 'حصص قادمة', many: 'حصة قادمة'),
+            if (absent > 0) 'غياب: $absent',
           ].join(' · '),
-          style: TextStyle(color: missing > 0 ? RaeedColors.error : null),
+          style: TextStyle(color: missing > 0 || absent > 0 ? RaeedColors.error : null),
+        ),
+        trailing: const Icon(Icons.chevron_left),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute<void>(builder: (_) => InstructorDetailScreen(personId: personId, groupId: group.id)),
         ),
       ),
     );
@@ -279,6 +288,178 @@ class _KidRate extends StatelessWidget {
         ),
       ),
       onTap: () => openChildProfile(context, child.id),
+    );
+  }
+}
+
+/// One instructor of a فئة, for its supervisor: how to reach them, and their presence on
+/// each session they were given this term (or the last 30 days), with their absences.
+class InstructorDetailScreen extends StatelessWidget {
+  const InstructorDetailScreen({super.key, required this.personId, required this.groupId});
+
+  final String personId;
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = InstructorScope.of(context);
+    final data = store.data;
+    final now = store.now();
+    final text = Theme.of(context).textTheme;
+    final name = data.staffNames[personId] ?? 'مؤطر';
+    final phone = data.staffPhones[personId];
+    final since = data.termStart ?? dayOnly(now).subtract(const Duration(days: 30));
+    final theirs = [
+      for (final s in data.sessionsOf(groupId))
+        if (!s.cancelled && data.runs(s, personId) && !s.date.isBefore(since)) s,
+    ];
+    final presence = {for (final s in theirs) s.id: data.presence(s, personId, now)};
+    int count(InstructorPresence p) => presence.values.where((v) => v == p).length;
+    final past = theirs.where((s) => !s.endsAt.isAfter(now)).toList().reversed.toList();
+    final coming = theirs.where((s) => s.endsAt.isAfter(now)).take(10).toList();
+    final held = count(InstructorPresence.present) + count(InstructorPresence.unrecorded);
+    final pastAbsent = past.where((s) => presence[s.id] == InstructorPresence.absent).length;
+    final rate = past.isEmpty ? null : held / past.length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('المؤطر')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  InitialAvatar(name, size: 52),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, key: const Key('instructor-name'), style: text.titleMedium),
+                        if (phone != null)
+                          Text(
+                            '\u2066${formatPhone(phone)}\u2069',
+                            key: const Key('instructor-phone'),
+                            style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (phone != null)
+                    IconButton.filledTonal(
+                      key: const Key('call-instructor'),
+                      tooltip: 'اتصال',
+                      onPressed: () => launchUrl(Uri.parse('tel:$phone')),
+                      icon: const Icon(Icons.call),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _Stat(
+                key: const Key('instructor-rate'),
+                value: rate == null ? '—' : '${(rate * 100).round()}%',
+                label: 'نسبة الحضور',
+              ),
+              const SizedBox(width: 8),
+              _Stat(key: const Key('instructor-held'), value: '$held', label: 'حضر'),
+              const SizedBox(width: 8),
+              _Stat(key: const Key('instructor-absent'), value: '$pastAbsent', label: 'غاب', alert: pastAbsent > 0),
+              const SizedBox(width: 8),
+              _Stat(
+                key: const Key('instructor-unrecorded'),
+                value: '${count(InstructorPresence.unrecorded)}',
+                label: 'بلا حضور',
+                alert: count(InstructorPresence.unrecorded) > 0,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            data.termStart == null ? 'منذ 30 يوماً.' : 'منذ بداية الفصل.',
+            style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+          ),
+          if (coming.isNotEmpty) const SectionLabel('القادمة'),
+          for (final s in coming) _PresenceRow(session: s, personId: personId, presence: presence[s.id]!, now: now),
+          if (past.isNotEmpty) const SectionLabel('السابقة'),
+          for (final s in past) _PresenceRow(session: s, personId: personId, presence: presence[s.id]!, now: now),
+          if (theirs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text('لم يُكلَّف بحصص في هذه الفترة.', style: TextStyle(color: RaeedColors.grey)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({super.key, required this.value, required this.label, this.alert = false});
+
+  final String value;
+  final String label;
+  final bool alert;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Expanded(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          child: Column(
+            children: [
+              Text(
+                value,
+                style: text.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: alert ? RaeedColors.error : RaeedColors.blue,
+                ),
+              ),
+              Text(label, style: text.bodySmall?.copyWith(color: RaeedColors.grey), textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PresenceRow extends StatelessWidget {
+  const _PresenceRow({required this.session, required this.personId, required this.presence, required this.now});
+
+  final Session session;
+  final String personId;
+  final InstructorPresence presence;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = InstructorScope.of(context).data;
+    final absence = data.absenceOf(session.id, personId);
+    final color = switch (presence) {
+      InstructorPresence.present => const Color(0xFF1C7A55),
+      InstructorPresence.absent || InstructorPresence.unrecorded => RaeedColors.error,
+      InstructorPresence.upcoming => RaeedColors.grey,
+    };
+    return Card(
+      key: Key('presence-${session.id}'),
+      child: ListTile(
+        title: Text(session.title),
+        subtitle: Text(
+          [
+            '${dayLabel(session.date, now)} · ${session.timeLabel}',
+            if (absence != null) 'السبب: ${absence.reason}',
+          ].join('\n'),
+        ),
+        trailing: Text(presence.label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        onTap: () => openSession(context, session.id),
+      ),
     );
   }
 }

@@ -15,6 +15,11 @@ class FakeInstructorRepository implements InstructorRepository {
   final calls = <String>[];
   final notes = <String, List<ChildNote>>{};
   final observations = <SessionObservation>[];
+  final staffPhones = <String, String>{};
+  final absences = <InstructorAbsence>[];
+
+  /// Who is signed in, for writes that take it from the session.
+  String me = 'me';
 
   /// Sessions whose attendance the server refuses, as for an instructor not picked.
   final refused = <String>{};
@@ -47,6 +52,8 @@ class FakeInstructorRepository implements InstructorRepository {
       attendance: attendance.values.toList(),
       alerts: alerts.where((a) => mine.contains(a.groupId)).toList(),
       staffNames: staffNames,
+      staffPhones: staffPhones,
+      absences: absences.where((a) => list.any((s) => s.id == a.sessionId)).toList(),
     );
   }
 
@@ -262,12 +269,32 @@ class FakeInstructorRepository implements InstructorRepository {
     _check();
     observations.removeWhere((o) => o.id == id);
   }
+
+  @override
+  Future<void> reportAbsence(String sessionId, String reason) async {
+    _check();
+    calls.add('reportAbsence $sessionId $reason');
+    absences.add(InstructorAbsence(
+      id: 'a${_ids++}',
+      sessionId: sessionId,
+      personId: me,
+      reason: reason,
+      createdAt: DateTime(2026, 10, 1),
+    ));
+  }
+
+  @override
+  Future<void> withdrawAbsence(String absenceId) async {
+    _check();
+    calls.add('withdrawAbsence $absenceId');
+    absences.removeWhere((a) => a.id == absenceId);
+  }
 }
 
 /// A group of three children taught by [me], with a session today at 10:00 and one a
 /// week before.
 FakeInstructorRepository seededInstructorRepo({required String me, required DateTime today}) {
-  final repo = FakeInstructorRepository();
+  final repo = FakeInstructorRepository()..me = me;
   repo.groups.add(
     const Group(
       id: 'stars',

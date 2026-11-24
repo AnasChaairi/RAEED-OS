@@ -54,6 +54,12 @@ abstract interface class InstructorRepository {
 
   /// How long the attendance sheet took, for the pilot metrics.
   Future<void> logSheet(String sessionId, int seconds);
+
+  /// The signed-in instructor will miss [sessionId]. The category supervisor is notified.
+  Future<void> reportAbsence(String sessionId, String reason);
+
+  /// Takes back a notice of absence.
+  Future<void> withdrawAbsence(String absenceId);
 }
 
 class SupabaseInstructorRepository implements InstructorRepository {
@@ -88,7 +94,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
       _db
           .from('groups')
           .select(
-            'id, name, logo_letter, logo_color, logo_path, age_min, age_max, group_instructors(person_id, people(full_name))',
+            'id, name, logo_letter, logo_color, logo_path, age_min, age_max, group_instructors(person_id, people(full_name, phone))',
           )
           .inFilter('id', ids)
           .eq('archived', false)
@@ -115,11 +121,14 @@ class SupabaseInstructorRepository implements InstructorRepository {
     ]);
 
     final staffNames = <String, String>{};
+    final staffPhones = <String, String>{};
     final groups = <Group>[];
     for (final g in results[0]) {
       final staff = g['group_instructors'] as List;
       for (final i in staff) {
-        staffNames[i['person_id'] as String] = (i['people'] as Map?)?['full_name'] as String? ?? '';
+        final person = i['people'] as Map?;
+        staffNames[i['person_id'] as String] = person?['full_name'] as String? ?? '';
+        if (person?['phone'] case final String phone) staffPhones[i['person_id'] as String] = phone;
       }
       groups.add(
         Group(
@@ -163,6 +172,22 @@ class SupabaseInstructorRepository implements InstructorRepository {
       attendance.addAll(rows.map(AttendanceRecord.fromJson));
     }
 
+    // Instructors' notices of absence. Read apart, so the app still opens before the
+    // table is added on the server.
+    final absences = <InstructorAbsence>[];
+    try {
+      final ids = [for (final s in sessions) s.id];
+      for (var i = 0; i < ids.length; i += 100) {
+        final rows = await _db
+            .from('instructor_absences')
+            .select('id, session_id, person_id, reason, created_at')
+            .inFilter('session_id', ids.sublist(i, i + 100 > ids.length ? ids.length : i + 100));
+        absences.addAll(rows.map(InstructorAbsence.fromJson));
+      }
+    } on PostgrestException {
+      absences.clear();
+    }
+
     return InstructorSnapshot(
       groups: groups,
       children: children,
@@ -170,9 +195,20 @@ class SupabaseInstructorRepository implements InstructorRepository {
       attendance: attendance,
       alerts: [for (final a in results[3]) AbsenceAlert.fromJson(a)],
       staffNames: staffNames,
+      staffPhones: staffPhones,
+      absences: absences,
       termStart: termStart,
     );
   });
+
+  @override
+  Future<void> reportAbsence(String sessionId, String reason) => guardSupabase(
+    () => _db.from('instructor_absences').insert({'session_id': sessionId, 'person_id': _me, 'reason': reason}),
+  );
+
+  @override
+  Future<void> withdrawAbsence(String absenceId) =>
+      guardSupabase(() => _db.from('instructor_absences').delete().eq('id', absenceId));
 
   @override
   Future<void> pushAttendance(List<AttendanceRecord> records) => guardSupabase(() async {

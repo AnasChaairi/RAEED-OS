@@ -107,6 +107,7 @@ class SessionCard extends StatelessWidget {
       if (s.instructorIds.isNotEmpty) [for (final id in s.instructorIds) data.staffNames[id] ?? 'مؤطر'].join('، '),
       if (taken && !s.cancelled) 'الحضور مسجّل',
     ];
+    final away = [for (final a in data.absencesFor(s.id)) data.staffNames[a.personId] ?? 'مؤطر'];
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -156,6 +157,12 @@ class SessionCard extends StatelessWidget {
                           style: text.bodySmall?.copyWith(color: RaeedColors.grey),
                         ),
                       Text(extras.join(' · '), style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
+                      if (away.isNotEmpty)
+                        Text(
+                          'غياب: ${away.join('، ')}',
+                          key: Key('session-absences-${s.id}'),
+                          style: text.bodySmall?.copyWith(color: RaeedColors.error, fontWeight: FontWeight.w600),
+                        ),
                     ],
                   ],
                 ),
