@@ -472,6 +472,58 @@ class SessionObservation {
   );
 }
 
+/// An instructor's notice that they will miss a session, with the reason. The category
+/// supervisor hears of it.
+class InstructorAbsence {
+  const InstructorAbsence({
+    required this.id,
+    required this.sessionId,
+    required this.personId,
+    required this.reason,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String sessionId;
+  final String personId;
+  final String reason;
+  final DateTime createdAt;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'session_id': sessionId,
+    'person_id': personId,
+    'reason': reason,
+    'created_at': createdAt.toUtc().toIso8601String(),
+  };
+
+  static InstructorAbsence fromJson(Map<String, dynamic> j) => InstructorAbsence(
+    id: j['id'] as String,
+    sessionId: j['session_id'] as String,
+    personId: j['person_id'] as String,
+    reason: j['reason'] as String,
+    createdAt: DateTime.parse(j['created_at'] as String).toLocal(),
+  );
+}
+
+/// How one instructor stands on one session they were given.
+enum InstructorPresence {
+  /// Still to come.
+  upcoming('قادمة'),
+
+  /// They said they would miss it.
+  absent('غائب'),
+
+  /// Over, with its attendance taken.
+  present('حاضر'),
+
+  /// Over, with no notice of absence but no attendance taken either.
+  unrecorded('بلا حضور مسجّل');
+
+  const InstructorPresence(this.label);
+  final String label;
+}
+
 /// Everything the instructor's tabs show, kept on the phone so attendance works offline.
 class InstructorSnapshot {
   const InstructorSnapshot({
@@ -481,6 +533,8 @@ class InstructorSnapshot {
     this.attendance = const [],
     this.alerts = const [],
     this.staffNames = const {},
+    this.staffPhones = const {},
+    this.absences = const [],
     this.termStart,
   });
 
@@ -494,7 +548,27 @@ class InstructorSnapshot {
 
   /// The instructors of these groups, by id.
   final Map<String, String> staffNames;
+
+  /// Their phone numbers, by id, where the reader may see them.
+  final Map<String, String> staffPhones;
+
+  /// Instructors' notices of absence on these sessions.
+  final List<InstructorAbsence> absences;
   final DateTime? termStart;
+
+  /// [personId]'s notice of absence for [sessionId], if they gave one.
+  InstructorAbsence? absenceOf(String sessionId, String? personId) =>
+      absences.where((a) => a.sessionId == sessionId && a.personId == personId).firstOrNull;
+
+  List<InstructorAbsence> absencesFor(String sessionId) => absences.where((a) => a.sessionId == sessionId).toList();
+
+  /// [personId]'s presence on [s], which they were given. Two instructors may share a
+  /// session and one takes the attendance, so any attendance counts for both.
+  InstructorPresence presence(Session s, String personId, DateTime now) {
+    if (absenceOf(s.id, personId) != null) return InstructorPresence.absent;
+    if (s.endsAt.isAfter(now)) return InstructorPresence.upcoming;
+    return attendanceFor(s.id).isEmpty ? InstructorPresence.unrecorded : InstructorPresence.present;
+  }
 
   Group? group(String id) => groups.where((g) => g.id == id).firstOrNull;
   RosterChild? child(String id) => children.where((c) => c.id == id).firstOrNull;
@@ -556,6 +630,8 @@ class InstructorSnapshot {
     attendance: attendance ?? this.attendance,
     alerts: alerts,
     staffNames: staffNames,
+    staffPhones: staffPhones,
+    absences: absences,
     termStart: termStart,
   );
 
@@ -578,6 +654,8 @@ class InstructorSnapshot {
     'attendance': [for (final a in attendance) a.toJson()],
     'alerts': [for (final a in alerts) a.toJson()],
     'staff_names': staffNames,
+    'staff_phones': staffPhones,
+    'absences': [for (final a in absences) a.toJson()],
     'term_start': termStart == null ? null : dbDay(termStart!),
   };
 
@@ -600,6 +678,10 @@ class InstructorSnapshot {
     attendance: [for (final a in j['attendance'] as List) AttendanceRecord.fromJson(a as Map<String, dynamic>)],
     alerts: [for (final a in j['alerts'] as List) AbsenceAlert.fromJson(a as Map<String, dynamic>)],
     staffNames: {for (final e in (j['staff_names'] as Map).entries) e.key as String: e.value as String},
+    staffPhones: {for (final e in ((j['staff_phones'] as Map?) ?? {}).entries) e.key as String: e.value as String},
+    absences: [
+      for (final a in (j['absences'] as List?) ?? const []) InstructorAbsence.fromJson(a as Map<String, dynamic>),
+    ],
     termStart: j['term_start'] == null ? null : DateTime.parse(j['term_start'] as String),
   );
 }

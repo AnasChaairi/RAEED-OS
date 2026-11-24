@@ -465,4 +465,63 @@ do $$ begin
     raise exception 'FAIL: replier notified of their own reply'; end if;
 end $$;
 
+-- Instructor absences: Rachid (group 2) reports that he will miss a coming session, and
+-- Nadia, its supervisor, is notified. Past sessions and other groups' sessions are refused.
+reset role;
+insert into public.sessions (id, group_id, title, session_date, start_time, end_time, floor) values
+ ('30000000-0000-0000-0000-0000000000a1', '10000000-0000-0000-0000-000000000002', 'حصة قادمة',
+  (now() at time zone 'Africa/Casablanca')::date + 3, '10:00', '11:30', 1),
+ ('30000000-0000-0000-0000-0000000000a2', '10000000-0000-0000-0000-000000000002', 'حصة مضت',
+  (now() at time zone 'Africa/Casablanca')::date - 3, '10:00', '11:30', 1);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+do $$ begin
+  insert into public.instructor_absences (session_id, person_id, reason)
+    values ('30000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000010', 'موعد طبي');
+  begin
+    insert into public.instructor_absences (session_id, person_id, reason)
+      values ('30000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000010', 'x');
+    raise exception 'FAIL: absence reported for a past session';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.instructor_absences (session_id, person_id, reason)
+      values ('30000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000000e', 'x');
+    raise exception 'FAIL: absence reported for someone else';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+do $$ begin
+  begin
+    insert into public.instructor_absences (session_id, person_id, reason)
+      values ('30000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000000b', 'x');
+    raise exception 'FAIL: absence reported on another group''s session';
+  exception when insufficient_privilege then null;
+  end;
+  if (select count(*) from instructor_absences) <> 0 then raise exception 'FAIL: other group reads the absence'; end if;
+end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+do $$ begin
+  if (select count(*) from instructor_absences) <> 1 then raise exception 'FAIL: supervisor reads the absence'; end if;
+  if (select phone from people where id = '00000000-0000-0000-0000-000000000010') is null then
+    raise exception 'FAIL: supervisor reads the instructor''s phone'; end if;
+end $$;
+reset role;
+do $$ begin
+  if (select count(*) from notification_outbox where kind = 'instructor_absence'
+      and recipient_id = '00000000-0000-0000-0000-00000000000f') <> 1 then
+    raise exception 'FAIL: supervisor notified of the absence'; end if;
+  if exists (select 1 from notification_outbox where kind = 'instructor_absence'
+      and recipient_id <> '00000000-0000-0000-0000-00000000000f') then
+    raise exception 'FAIL: only the supervisor is notified of the absence'; end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000010';
+delete from public.instructor_absences where session_id = '30000000-0000-0000-0000-0000000000a1';
+reset role;
+do $$ begin
+  if exists (select 1 from instructor_absences) then raise exception 'FAIL: instructor takes the absence back'; end if;
+end $$;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;

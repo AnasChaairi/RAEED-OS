@@ -236,6 +236,19 @@ class InstructorStore extends ChangeNotifier {
   /// Throws [SetupError].
   Future<void> deleteObservation(String id) => _repo.deleteObservation(id);
 
+  /// Tells the category supervisor that the signed-in instructor will miss [s]. Throws
+  /// [SetupError].
+  Future<void> reportAbsence(Session s, String reason) async {
+    await _repo.reportAbsence(s.id, reason);
+    await refresh();
+  }
+
+  /// Throws [SetupError].
+  Future<void> withdrawAbsence(InstructorAbsence a) async {
+    await _repo.withdrawAbsence(a.id);
+    await refresh();
+  }
+
   /// Throws [SetupError].
   Future<void> logAttempt(AbsenceAlert a) async {
     await _repo.logAttempt(a.id);
