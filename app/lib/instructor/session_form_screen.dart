@@ -5,6 +5,7 @@ import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
+import '../widgets/select_field.dart';
 import '../widgets/pickers.dart';
 import 'models.dart';
 import 'sessions_screen.dart';
@@ -181,11 +182,12 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
                 const SizedBox(height: 10),
               ],
               if (!_editing && groups.length > 1) ...[
-                DropdownButtonFormField<String>(
+                SelectField<String>(
                   key: const Key('session-group'),
-                  initialValue: _groupId,
-                  decoration: const InputDecoration(labelText: 'الفئة'),
-                  items: [for (final g in groups) DropdownMenuItem(value: g.id, child: Text(g.name))],
+                  label: 'الفئة',
+                  searchHint: 'ابحث باسم الفئة',
+                  options: [for (final g in groups) SelectOption(g.id, g.name)],
+                  value: _groupId,
                   onChanged: (v) => setState(() {
                     _groupId = v;
                     _fitInstructors(v == null ? null : data.group(v));
@@ -488,21 +490,17 @@ class _InstructorPicker extends StatelessWidget {
           if (group.instructorIds.isEmpty)
             Text('لم يُسند أي مؤطر لهذه الفئة بعد.', style: text.bodySmall?.copyWith(color: RaeedColors.grey))
           else
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final id in group.instructorIds)
-                  FilterChip(
-                    key: Key('instructor-$id'),
-                    label: Text(names[id] ?? 'مؤطر'),
-                    selected: selected.contains(id),
-                    onSelected: (on) {
-                      onChanged(id, on);
-                      state.didChange(null);
-                    },
-                  ),
+            MultiSelectField<String>(
+              title: 'المؤطرون',
+              searchHint: 'ابحث باسم المؤطر',
+              options: [
+                for (final id in group.instructorIds) SelectOption(id, names[id] ?? 'مؤطر', key: Key('instructor-$id')),
               ],
+              selected: selected,
+              onChanged: (id, on) {
+                onChanged(id, on);
+                state.didChange(null);
+              },
             ),
           if (state.errorText != null)
             Padding(

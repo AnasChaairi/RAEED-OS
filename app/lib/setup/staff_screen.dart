@@ -5,6 +5,7 @@ import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
+import '../widgets/select_field.dart';
 import 'models.dart';
 import 'setup_repository.dart';
 import 'widgets.dart';
@@ -267,18 +268,14 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                 if (data.activeGroups.isEmpty)
                   Text('لا توجد فئات بعد.', style: text.bodySmall?.copyWith(color: RaeedColors.grey))
                 else
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final g in data.activeGroups)
-                        FilterChip(
-                          avatar: GroupLogo.of(g, size: 22),
-                          label: Text(g.name),
-                          selected: _groups!.contains(g.id),
-                          onSelected: (on) => setState(() => on ? _groups!.add(g.id) : _groups!.remove(g.id)),
-                        ),
+                  MultiSelectField<String>(
+                    title: 'الفئات',
+                    searchHint: 'ابحث باسم الفئة',
+                    options: [
+                      for (final g in data.activeGroups) SelectOption(g.id, g.name, leading: GroupLogo.of(g, size: 22)),
                     ],
+                    selected: _groups!,
+                    onChanged: (id, on) => setState(() => on ? _groups!.add(id) : _groups!.remove(id)),
                   ),
               ],
               if (_roles.contains(AppRole.supervisor)) ...[
@@ -291,20 +288,15 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                 if (data.activeGroups.isEmpty)
                   Text('لا توجد فئات بعد.', style: text.bodySmall?.copyWith(color: RaeedColors.grey))
                 else
-                  Wrap(
+                  MultiSelectField<String>(
                     key: const Key('staff-supervised-groups'),
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final g in data.activeGroups)
-                        FilterChip(
-                          avatar: GroupLogo.of(g, size: 22),
-                          label: Text(g.name),
-                          selected: _supervised!.contains(g.id),
-                          onSelected: (on) =>
-                              setState(() => on ? _supervised!.add(g.id) : _supervised!.remove(g.id)),
-                        ),
+                    title: 'مشرف على الفئة',
+                    searchHint: 'ابحث باسم الفئة',
+                    options: [
+                      for (final g in data.activeGroups) SelectOption(g.id, g.name, leading: GroupLogo.of(g, size: 22)),
                     ],
+                    selected: _supervised!,
+                    onChanged: (id, on) => setState(() => on ? _supervised!.add(id) : _supervised!.remove(id)),
                   ),
               ],
               if (_error != null) ...[const SizedBox(height: 12), FormError(_error!)],

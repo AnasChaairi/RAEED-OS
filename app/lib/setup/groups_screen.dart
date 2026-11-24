@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
+import '../widgets/select_field.dart';
 import 'models.dart';
 import 'setup_repository.dart';
 import 'widgets.dart';
@@ -355,17 +356,12 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
                 Text('لا يوجد مؤطرون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
                     style: text.bodySmall?.copyWith(color: RaeedColors.grey))
               else
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final p in data.instructors)
-                      FilterChip(
-                        label: Text(p.fullName),
-                        selected: _instructors.contains(p.id),
-                        onSelected: (on) => setState(() => on ? _instructors.add(p.id) : _instructors.remove(p.id)),
-                      ),
-                  ],
+                MultiSelectField<String>(
+                  title: 'المؤطرون',
+                  searchHint: 'ابحث باسم المؤطر',
+                  options: [for (final p in data.instructors) SelectOption(p.id, p.fullName)],
+                  selected: _instructors,
+                  onChanged: (id, on) => setState(() => on ? _instructors.add(id) : _instructors.remove(id)),
                 ),
               const SectionLabel('مشرف الفئة'),
               Text(
@@ -377,18 +373,13 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
                 Text('لا يوجد مؤطرون أو مشرفون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
                     style: text.bodySmall?.copyWith(color: RaeedColors.grey))
               else
-                Wrap(
+                MultiSelectField<String>(
                   key: const Key('group-supervisors'),
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final p in data.staff)
-                      FilterChip(
-                        label: Text(p.fullName),
-                        selected: _supervisors.contains(p.id),
-                        onSelected: (on) => setState(() => on ? _supervisors.add(p.id) : _supervisors.remove(p.id)),
-                      ),
-                  ],
+                  title: 'مشرف الفئة',
+                  searchHint: 'ابحث بالاسم',
+                  options: [for (final p in data.staff) SelectOption(p.id, p.fullName)],
+                  selected: _supervisors,
+                  onChanged: (id, on) => setState(() => on ? _supervisors.add(id) : _supervisors.remove(id)),
                 ),
               if (widget.group != null) ...[
                 const SizedBox(height: 12),
