@@ -107,6 +107,7 @@ class SessionDraft {
     this.pickupTime,
     this.materials = const [],
     this.instructorIds = const [],
+    this.remind = false,
   });
 
   final String groupId;
@@ -127,6 +128,9 @@ class SessionDraft {
   /// Who runs the session: one or more of the group's instructors.
   final List<String> instructorIds;
 
+  /// Remind its instructors and the children's parents 5 hours before it starts.
+  final bool remind;
+
   bool get away => place == SessionPlace.away;
 
   /// The session columns, in the shape the server functions read.
@@ -143,6 +147,7 @@ class SessionDraft {
     'dropoff_time': away && dropoffTime != null ? formatTime(dropoffTime!) : null,
     'pickup_place': away ? pickupPlace : null,
     'pickup_time': away && pickupTime != null ? formatTime(pickupTime!) : null,
+    'remind': remind,
   };
 }
 
@@ -170,6 +175,7 @@ class Session {
     this.originalDate,
     this.originalStart,
     this.originalEnd,
+    this.remind = false,
   });
 
   final String id;
@@ -198,6 +204,9 @@ class Session {
   final DateTime? originalDate;
   final int? originalStart;
   final int? originalEnd;
+
+  /// A reminder goes to its instructors and parents 5 hours before it starts.
+  final bool remind;
 
   bool get cancelled => status == SessionStatus.cancelled;
   bool get away => place == SessionPlace.away;
@@ -234,6 +243,7 @@ class Session {
     pickupTime: pickupTime,
     materials: materials,
     instructorIds: instructorIds,
+    remind: remind,
   );
 
   Map<String, Object?> toJson() => {
@@ -259,6 +269,7 @@ class Session {
     'original_date': originalDate == null ? null : dbDay(originalDate!),
     'original_start': originalStart == null ? null : formatTime(originalStart!),
     'original_end': originalEnd == null ? null : formatTime(originalEnd!),
+    'remind': remind,
   };
 
   /// Reads a sessions row (with its materials and session_instructors) or [toJson]'s output.
@@ -290,6 +301,7 @@ class Session {
     originalDate: j['original_date'] == null ? null : DateTime.parse(j['original_date'] as String),
     originalStart: _timeOrNull(j['original_start']),
     originalEnd: _timeOrNull(j['original_end']),
+    remind: j['remind'] as bool? ?? false,
   );
 }
 

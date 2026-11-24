@@ -225,6 +225,7 @@ void main() {
     final form = find.descendant(of: find.byType(SessionFormScreen), matching: find.byType(Scrollable)).first;
     await tester.enterText(find.byKey(const Key('session-title')), 'حفظ سورة النبأ');
     await tester.pump();
+    await tester.scrollUntilVisible(find.textContaining('تغيير موعد · آدم'), 300, scrollable: form);
     expect(find.textContaining('تغيير موعد · آدم'), findsOneWidget, reason: 'the parent notification preview');
     await tester.scrollUntilVisible(find.byKey(const Key('save-session')), 300, scrollable: form);
     await tester.ensureVisible(find.byKey(const Key('save-session')));
@@ -234,6 +235,9 @@ void main() {
     expect(o.repo.calls, isNot(contains('updateSessions today upcoming')));
     await tester.scrollUntilVisible(find.byKey(const Key('instructor-sara')), -300, scrollable: form);
     await tester.tap(find.byKey(const Key('instructor-sara')));
+    await tester.pump();
+    await tester.scrollUntilVisible(find.byKey(const Key('session-remind')), 300, scrollable: form);
+    await tester.tap(find.byKey(const Key('session-remind')));
     await tester.pump();
     await tester.scrollUntilVisible(find.byKey(const Key('save-session')), 300, scrollable: form);
     await tester.ensureVisible(find.byKey(const Key('save-session')));
@@ -248,6 +252,7 @@ void main() {
       ['sara'],
       ['sara'],
     ]);
+    expect(edited.map((s) => s.remind), [true, true], reason: 'the 5-hour reminder is on');
     await tester.pumpAndSettle();
     expect(find.text('المؤطرون: سارة الإدريسي'), findsOneWidget);
   });

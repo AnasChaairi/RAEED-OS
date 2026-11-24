@@ -548,4 +548,59 @@ do $$ begin
     raise exception 'FAIL: instructor deleted a session'; end if;
 end $$;
 
+-- More notifications (20261127000000): instructors hear about planning, the 5-hour reminder
+-- reaches instructors and parents, and absence alerts reach the group's staff.
+reset role;
+delete from notification_outbox;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select public.create_sessions('10000000-0000-0000-0000-000000000001',
+  '{"title": "تجويد", "start_time": "15:00", "end_time": "16:00", "place": "samae", "floor": 1, "remind": true}',
+  array[((now() at time zone 'Africa/Casablanca')::date + 20)], null);
+reset role;
+do $$ begin
+  if (select count(*) from notification_outbox where kind = 'session_created'
+      and recipient_id = '00000000-0000-0000-0000-00000000000b') <> 1 then
+    raise exception 'FAIL: instructor notified of a new session'; end if;
+  if exists (select 1 from notification_outbox where recipient_id = '00000000-0000-0000-0000-00000000000a') then
+    raise exception 'FAIL: the planner is not notified of their own session'; end if;
+  if not (select remind from sessions where title = 'تجويد') then raise exception 'FAIL: reminder switch saved'; end if;
+end $$;
+
+delete from notification_outbox;
+do $$
+declare
+  local timestamp := date_trunc('minute', (now() at time zone 'Africa/Casablanca') + interval '2 hours');
+  later timestamp := date_trunc('minute', (now() at time zone 'Africa/Casablanca') + interval '8 hours');
+begin
+  insert into public.sessions (id, group_id, title, session_date, start_time, end_time, floor, remind) values
+   ('30000000-0000-0000-0000-0000000000b1', '10000000-0000-0000-0000-000000000001', 'قريبة', local::date, local::time,
+    case when local::time < '22:00' then local::time + interval '1 hour' else '23:59' end, 1, true),
+   ('30000000-0000-0000-0000-0000000000b2', '10000000-0000-0000-0000-000000000001', 'بعيدة', later::date, later::time,
+    case when later::time < '22:00' then later::time + interval '1 hour' else '23:59' end, 1, true),
+   ('30000000-0000-0000-0000-0000000000b3', '10000000-0000-0000-0000-000000000001', 'بلا تذكير', local::date, local::time,
+    case when local::time < '22:00' then local::time + interval '1 hour' else '23:59' end, 1, false);
+end $$;
+delete from notification_outbox;
+do $$ begin
+  if public.queue_session_reminders() <> 1 then raise exception 'FAIL: one session to remind'; end if;
+  if (select count(*) from notification_outbox where kind = 'session_reminder'
+      and recipient_id = '00000000-0000-0000-0000-00000000000b') <> 1 then
+    raise exception 'FAIL: instructor reminded'; end if;
+  if (select count(*) from notification_outbox where kind = 'session_reminder'
+      and recipient_id in ('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000d')) <> 2 then
+    raise exception 'FAIL: both parents reminded'; end if;
+  if public.queue_session_reminders() <> 0 then raise exception 'FAIL: reminded only once'; end if;
+end $$;
+
+delete from notification_outbox;
+insert into public.absence_alerts (child_id, group_id, session_ids)
+  select cg.child_id, cg.group_id, array[]::uuid[] from child_groups cg
+  where cg.group_id = '10000000-0000-0000-0000-000000000002' and cg.to_date is null limit 1;
+do $$ begin
+  if (select count(*) from notification_outbox where kind = 'absence_alert') <> 3 then
+    raise exception 'FAIL: absence alert to the two instructors and the supervisor, got %',
+      (select count(*) from notification_outbox where kind = 'absence_alert'); end if;
+end $$;
+
 select 'ALL ACCESS RULE TESTS PASSED' as result;

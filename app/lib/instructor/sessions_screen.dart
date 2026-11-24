@@ -198,6 +198,7 @@ class SessionDetailScreen extends StatelessWidget {
                     [
                       s.seriesId == null ? 'مرة واحدة' : 'أسبوعي',
                       if (s.status == SessionStatus.changed) 'تغيّر الموعد',
+                      if (s.remind && store.schedules) 'تذكير قبل 5 ساعات',
                     ].join(' · '),
                     style: text.bodySmall?.copyWith(color: RaeedColors.grey),
                   ),

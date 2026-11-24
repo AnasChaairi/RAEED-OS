@@ -50,6 +50,7 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
   late int _floor = _initial?.floor ?? 0;
   late int? _dropoffTime = _initial?.dropoffTime;
   late int? _pickupTime = _initial?.pickupTime;
+  late bool _remind = _initial?.remind ?? false;
   bool _weekly = false;
   final Set<int> _days = {};
   DateTime? _until;
@@ -84,6 +85,7 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
     pickupTime: _pickupTime,
     materials: _materials,
     instructorIds: _instructors.toList(),
+    remind: _remind,
   );
 
   /// Keeps the chosen instructors who teach [group]; a group with one instructor picks them.
@@ -389,6 +391,16 @@ class _SessionFormScreenState extends State<SessionFormScreen> {
                   ),
                 ],
               ],
+              const SizedBox(height: 8),
+              SwitchListTile(
+                key: const Key('session-remind'),
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.notifications_active_outlined),
+                title: const Text('تذكير قبل الحصة بـ5 ساعات'),
+                subtitle: const Text('يصل للمؤطرين ولأولياء أمور أطفال الفئة'),
+                value: _remind,
+                onChanged: (v) => setState(() => _remind = v),
+              ),
               const SectionLabel('المواد'),
               for (var i = 0; i < _materials.length; i++)
                 MaterialRow(material: _materials[i], onRemove: () => setState(() => _materials.removeAt(i))),
