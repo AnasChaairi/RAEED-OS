@@ -284,7 +284,7 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-deletion')));
     await tester.pumpAndSettle();
     expect(o.auth.deletionRequests, {karim});
-    expect(find.text('وصل طلبك إلى المشرف ✓'), findsOneWidget);
+    expect(find.text('وصل طلبك إلى المشرف العام ✓'), findsOneWidget);
   });
 
   testWidgets('a parent reads what the category supervisor wrote, likes it and replies', (tester) async {

@@ -82,7 +82,7 @@ class ParentAccountTab extends StatelessWidget {
           ),
         Padding(
           padding: const EdgeInsets.only(top: 6),
-          child: Text('لإضافة أو تغيير ولي أمر، تواصل مع المشرف.', style: muted),
+          child: Text('لإضافة أو تغيير ولي أمر، تواصل مع المشرف العام.', style: muted),
         ),
         const SectionLabel('بيانات أطفالك'),
         Card(

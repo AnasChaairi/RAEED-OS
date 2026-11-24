@@ -64,7 +64,7 @@ class ParentScheduleTab extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Text(
-                'لا يوجد طفل مرتبط بحسابك بعد. تواصل مع المشرف.',
+                'لا يوجد طفل مرتبط بحسابك بعد. تواصل مع المشرف العام.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: RaeedColors.grey),
               ),
@@ -89,7 +89,7 @@ class ParentScheduleTab extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'لم يُسجَّل طفلك في فئة بعد. تواصل مع المشرف.',
+                'لم يُسجَّل طفلك في فئة بعد. تواصل مع المشرف العام.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: RaeedColors.grey),
               ),

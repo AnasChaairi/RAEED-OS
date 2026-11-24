@@ -26,7 +26,7 @@ Future<void> requestAccountDeletion(BuildContext context) async {
     builder: (dialogContext) => AlertDialog(
       title: const Text('حذف الحساب'),
       content: const Text(
-        'سيصل طلبك إلى المشرف، فيحذف حسابك ورقم هاتفك من التطبيق. '
+        'سيصل طلبك إلى المشرف العام، فيحذف حسابك ورقم هاتفك من التطبيق. '
         'سجلّ حضور الأطفال يبقى لدى الأكاديمية ما دام الطفل مسجّلاً.',
       ),
       actions: [
@@ -43,7 +43,7 @@ Future<void> requestAccountDeletion(BuildContext context) async {
   if (ok != true) return;
   try {
     await session.requestDeletion();
-    messenger.showSnackBar(const SnackBar(content: Text('وصل طلبك إلى المشرف ✓')));
+    messenger.showSnackBar(const SnackBar(content: Text('وصل طلبك إلى المشرف العام ✓')));
   } on AuthError catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(failureMessage(e.failure))));
   }

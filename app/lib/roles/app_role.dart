@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// A role from person_roles. One account can hold several.
 enum AppRole {
-  advisor('advisor', 'مشرف', 'الإحصائيات والحصص والفئات والإعدادات'),
+  advisor('advisor', 'مشرف عام', 'الإحصائيات والحصص والفئات والإعدادات'),
   instructor('instructor', 'مؤطر', 'الحصص والحضور وفئاتي'),
 
   /// مشرف الفئة: plans the sessions of the فئة they are in charge of and follows its

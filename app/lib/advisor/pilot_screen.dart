@@ -99,7 +99,7 @@ class _PilotScreenState extends State<PilotScreen> {
                         ? 'لا أولياء أمور بعد'
                         : '${m.familiesSignedIn} من ${m.families} · ولي أمر واحد على الأقل غيّر كلمة المرور',
                   ),
-                  const SectionLabel('المشرفون · فتح الإحصائيات كل أسبوع'),
+                  const SectionLabel('المشرفون العامون · فتح الإحصائيات كل أسبوع'),
                   Card(
                     child: Column(
                       children: [

@@ -35,7 +35,7 @@ class StaffScreen extends StatelessWidget {
               if (instructors.isEmpty)
                 const Text('لا يوجد مؤطرون بعد.', style: TextStyle(color: RaeedColors.grey)),
               for (final p in instructors) ...[_StaffRow(person: p, data: data), const SizedBox(height: 8)],
-              SectionLabel('المشرفون (${advisors.length})'),
+              SectionLabel('المشرفون العامون (${advisors.length})'),
               for (final p in advisors) ...[_StaffRow(person: p, data: data), const SizedBox(height: 8)],
             ],
           );
