@@ -73,7 +73,7 @@ void main() {
     await signIn(tester, '06 91 01 54 02', 'secret-pass');
 
     expect(tabLabels(tester), ['الإحصائيات', 'الحصص', 'الفئات', 'الأطفال', 'الإعدادات']);
-    expect(find.text('مشرف · أنس'), findsOneWidget);
+    expect(find.text('مشرف عام · أنس'), findsOneWidget);
 
     await tester.tap(find.text('الأطفال'));
     await tester.pumpAndSettle();

@@ -26,7 +26,7 @@ class MyGroupsTab extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Text(
-                  'لم تُسند إليك أي فئة بعد. تواصل مع المشرف.',
+                  'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: RaeedColors.grey),
                 ),
@@ -154,7 +154,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           if (_tab == 0) ...[
             if (kids.isEmpty)
               const Text(
-                'لا يوجد أطفال في هذه الفئة بعد. يضيفهم المشرف من الإعدادات.',
+                'لا يوجد أطفال في هذه الفئة بعد. يضيفهم المشرف العام من الإعدادات.',
                 style: TextStyle(color: RaeedColors.grey),
               )
             else

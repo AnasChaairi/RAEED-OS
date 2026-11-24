@@ -109,7 +109,7 @@ class SessionGate extends StatelessWidget {
         SessionStage.choosingRole => const ChooseRoleScreen(),
         SessionStage.noRole => const _Notice(
             key: ValueKey('no-role'),
-            message: 'حسابك موجود لكن لم يُحدَّد له دور بعد. تواصل مع المشرف.',
+            message: 'حسابك موجود لكن لم يُحدَّد له دور بعد. تواصل مع المشرف العام.',
           ),
         SessionStage.profileError => _Notice(
             key: const ValueKey('profile-error'),

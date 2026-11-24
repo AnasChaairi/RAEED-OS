@@ -33,7 +33,7 @@ class TodayTab extends StatelessWidget {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Text(
-                  'لم تُسند إليك أي فئة بعد. تواصل مع المشرف.',
+                  'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: RaeedColors.grey),
                 ),

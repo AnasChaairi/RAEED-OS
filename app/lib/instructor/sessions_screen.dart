@@ -82,11 +82,11 @@ class _SessionsTabState extends State<SessionsTab> {
               if (data.groups.isEmpty)
                 _Hint(store.view == StaffView.all
                     ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
-                    : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف.')
+                    : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.')
               else if (days.isEmpty)
                 _Hint(store.schedules
                     ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
-                    : 'لا حصص هذا الأسبوع. يخطّط المشرف الحصص وتظهر هنا.'),
+                    : 'لا حصص هذا الأسبوع. يخطّط المشرف العام الحصص وتظهر هنا.'),
               for (final e in days.entries) ...[
                 SectionLabel(dayLabel(e.key, now)),
                 for (final s in e.value) ...[

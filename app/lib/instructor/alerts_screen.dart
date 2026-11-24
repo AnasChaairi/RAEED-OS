@@ -225,7 +225,7 @@ class _FollowUpScreenState extends State<FollowUpScreen> {
             ),
             const SizedBox(height: 8),
             if (child == null || child.parents.isEmpty)
-              const WarningCard(title: 'لا يوجد ولي أمر مسجّل', lines: ['تواصل مع المشرف لإضافة رقم ولي الأمر.'])
+              const WarningCard(title: 'لا يوجد ولي أمر مسجّل', lines: ['تواصل مع المشرف العام لإضافة رقم ولي الأمر.'])
             else
               for (final p in child.parents) ...[_ParentCard(parent: p), const SizedBox(height: 8)],
             const SectionLabel('نتيجة الاتصال'),
