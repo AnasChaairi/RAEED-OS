@@ -81,13 +81,17 @@ class _SessionsTabState extends State<SessionsTab> {
                 ],
               ),
               if (data.groups.isEmpty)
-                _Hint(store.view == StaffView.all
-                    ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
-                    : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.')
+                _Hint(
+                  store.view == StaffView.all
+                      ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
+                      : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.',
+                )
               else if (days.isEmpty)
-                _Hint(store.schedules
-                    ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
-                    : 'لا حصص هذا الأسبوع. يخطّط المشرف العام الحصص وتظهر هنا.'),
+                _Hint(
+                  store.schedules
+                      ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
+                      : 'لا حصص هذا الأسبوع. يخطّط المشرف العام الحصص وتظهر هنا.',
+                ),
               for (final e in days.entries) ...[
                 SectionLabel(dayLabel(e.key, now)),
                 for (final s in e.value) ...[
@@ -321,17 +325,7 @@ class SessionDetailScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _reportAbsence(BuildContext context, Session s) async {
-    final reason = await showDialog<String>(context: context, builder: (_) => const _AbsenceDialog());
-    if (reason == null || !context.mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await InstructorScope.read(context).reportAbsence(s, reason);
-      messenger.showSnackBar(const SnackBar(content: Text('وصل إشعار بغيابك إلى مشرف الفئة.')));
-    } on SetupError catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
-    }
-  }
+  Future<void> _reportAbsence(BuildContext context, Session s) => askAbsence(context, s);
 
   Future<void> _withdraw(BuildContext context, InstructorAbsence a) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -575,5 +569,18 @@ class _DeleteDialogState extends State<_DeleteDialog> {
         ),
       ],
     );
+  }
+}
+
+/// Asks the instructor for the reason they will miss [s], and tells the مشرف الفئة.
+Future<void> askAbsence(BuildContext context, Session s) async {
+  final reason = await showDialog<String>(context: context, builder: (_) => const _AbsenceDialog());
+  if (reason == null || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await InstructorScope.read(context).reportAbsence(s, reason);
+    messenger.showSnackBar(const SnackBar(content: Text('وصل إشعار بغيابك إلى مشرف الفئة.')));
+  } on SetupError catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
   }
 }

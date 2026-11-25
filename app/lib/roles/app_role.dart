@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// A role from person_roles. One account can hold several.
 enum AppRole {
   advisor('advisor', 'مشرف عام', 'الإحصائيات والحصص والفئات والإعدادات'),
-  instructor('instructor', 'مؤطر', 'الحصص والحضور وفئاتي'),
+  instructor('instructor', 'مؤطر', 'مواعدي والحضور وفئاتي'),
 
   /// مشرف الفئة: plans the sessions of the فئة they are in charge of and follows its
   /// instructors. Not an app_role value: someone holds it by being in group_supervisors.
@@ -43,7 +43,7 @@ enum AppRole {
             RoleTab('الإعدادات', Icons.settings_outlined, Icons.settings),
           ],
         AppRole.instructor => const [
-            RoleTab('اليوم', Icons.today_outlined, Icons.today),
+            RoleTab('مواعدي', Icons.event_available_outlined, Icons.event_available),
             RoleTab('الحصص', Icons.calendar_month_outlined, Icons.calendar_month),
             RoleTab('فئاتي', Icons.groups_outlined, Icons.groups),
             RoleTab('التنبيهات', Icons.notifications_outlined, Icons.notifications),

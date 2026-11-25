@@ -16,6 +16,7 @@ import '../instructor/sessions_screen.dart';
 import '../instructor/today_screen.dart';
 import '../instructor/widgets.dart';
 import '../messages/messages_screens.dart';
+import '../notifications/inbox.dart';
 import '../notifications/push.dart';
 import '../parent/account_screen.dart';
 import '../parent/parent_store.dart';
@@ -42,6 +43,7 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<PushMessage>? _pushes;
+  Timer? _inboxTimer;
 
   @override
   void initState() {
@@ -51,17 +53,26 @@ class _HomeShellState extends State<HomeShell> {
     _lifecycle = AppLifecycleListener(onResume: _refreshRole);
     final push = PushScope.read(context);
     _pushes = push.messages.listen(_showPush);
-    WidgetsBinding.instance.addPostFrameCallback((_) => push.register());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      push.register();
+      InboxScope.read(context)?.load();
+    });
+    // The bell's count stays fresh while the app is open, even without push.
+    _inboxTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (mounted) InboxScope.read(context)?.load();
+    });
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
     _pushes?.cancel();
+    _inboxTimer?.cancel();
     super.dispose();
   }
 
   void _refreshRole() {
+    InboxScope.read(context)?.load();
     switch (widget.role) {
       case AppRole.instructor:
       case AppRole.supervisor:
@@ -80,6 +91,43 @@ class _HomeShellState extends State<HomeShell> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(m.body.isEmpty ? m.title : '${m.title}\n${m.body}')),
     );
+    _refreshRole();
+  }
+
+  /// The tab with the notes and replies: أولياء الأمور for the مشرف الفئة, الملاحظات for parents.
+  int? get _messagesTab => switch (widget.role) {
+        AppRole.supervisor => 2,
+        AppRole.parent => 1,
+        _ => null,
+      };
+
+  void _select(int i) {
+    setState(() => _index = i);
+    // Parents read everything on the tab; the supervisor reads one child at a time.
+    if (widget.role == AppRole.parent && i == _messagesTab) InboxScope.read(context)?.markMessagesRead();
+  }
+
+  /// The unread notes and replies on the messages tab.
+  Widget _withCount(int i, Widget icon) {
+    if (i != _messagesTab) return icon;
+    final n = InboxScope.of(context)?.unreadMessages() ?? 0;
+    return Badge(
+      key: Key('tab-count-$i'),
+      isLabelVisible: n > 0,
+      backgroundColor: RaeedColors.error,
+      label: Text(n > 99 ? '99+' : '$n'),
+      child: icon,
+    );
+  }
+
+  Future<void> _openNotifications() async {
+    final tapped = await Navigator.push<AppNotification>(
+      context,
+      MaterialPageRoute(builder: (_) => NotificationsScreen(keepMessages: _messagesTab != null)),
+    );
+    if (!mounted || tapped == null) return;
+    final tab = tapped.tabFor(widget.role);
+    if (tab != null && tab < widget.role.tabs.length) _select(tab);
     _refreshRole();
   }
 
@@ -159,6 +207,7 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
         actions: [
+          NotificationBell(onOpen: _openNotifications),
           Padding(
             padding: const EdgeInsetsDirectional.only(end: 12),
             child: IconButton(
@@ -176,10 +225,14 @@ class _HomeShellState extends State<HomeShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _select,
         destinations: [
-          for (final tab in tabs)
-            NavigationDestination(icon: Icon(tab.icon), selectedIcon: Icon(tab.selectedIcon), label: tab.label),
+          for (var i = 0; i < tabs.length; i++)
+            NavigationDestination(
+              icon: _withCount(i, Icon(tabs[i].icon)),
+              selectedIcon: _withCount(i, Icon(tabs[i].selectedIcon)),
+              label: tabs[i].label,
+            ),
         ],
       ),
     );

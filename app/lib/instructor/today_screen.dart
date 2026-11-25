@@ -7,8 +7,9 @@ import 'models.dart';
 import 'sessions_screen.dart';
 import 'widgets.dart';
 
-/// The اليوم tab: the session happening now with one button to take attendance, open
-/// absence alerts, today's sessions, and attendance still waiting to be sent.
+/// The مواعدي tab: the session happening now with one button to take attendance, open
+/// absence alerts, attendance still waiting to be sent, and the month's sessions this
+/// instructor is given, where they can announce an absence with its reason.
 class TodayTab extends StatelessWidget {
   const TodayTab({super.key});
 
@@ -18,7 +19,6 @@ class TodayTab extends StatelessWidget {
       builder: (context, data) {
         final store = InstructorScope.of(context);
         final now = store.now();
-        final today = data.sessionsOn(now);
         // The hero is the next session this instructor runs: only they take its attendance.
         final next = data.nextSession(now, where: store.runs);
         final hero = next != null && next.date == dayOnly(now) ? next : null;
@@ -53,13 +53,6 @@ class TodayTab extends StatelessWidget {
                 ),
               ),
             for (final a in data.openAlerts.take(3)) ...[const SizedBox(height: 10), AlertCard(alert: a, data: data)],
-            if (today.isNotEmpty) ...[
-              const SectionLabel('حصص اليوم'),
-              for (final s in today) ...[
-                SessionCard(session: s, data: data, onTap: () => openSession(context, s.id)),
-                const SizedBox(height: 8),
-              ],
-            ],
             if (waiting.isNotEmpty || sentToday.isNotEmpty) ...[
               const SectionLabel('إرسال الحضور'),
               for (final id in waiting) _QueueRow(label: _sessionName(data, id, now), waiting: true),
@@ -78,6 +71,7 @@ class TodayTab extends StatelessWidget {
                 ),
               ],
             ],
+            if (data.groups.isNotEmpty) _MonthAppointments(data: data, now: now),
           ],
         );
       },
@@ -173,6 +167,147 @@ class _QueueRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The sessions this instructor is given, one month at a time, by day. A coming one can
+/// be marked as an absence, with its reason, for the مشرف الفئة.
+class _MonthAppointments extends StatefulWidget {
+  const _MonthAppointments({required this.data, required this.now});
+
+  final InstructorSnapshot data;
+  final DateTime now;
+
+  @override
+  State<_MonthAppointments> createState() => _MonthAppointmentsState();
+}
+
+class _MonthAppointmentsState extends State<_MonthAppointments> {
+  int _monthOffset = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = InstructorScope.of(context);
+    final data = widget.data;
+    final now = widget.now;
+    final text = Theme.of(context).textTheme;
+    final month = DateTime(now.year, now.month + _monthOffset);
+    final mine = [
+      for (final s in data.sessions)
+        if (s.date.year == month.year && s.date.month == month.month && store.runs(s)) s,
+    ];
+    final days = <DateTime, List<Session>>{};
+    for (final s in mine) {
+      days.putIfAbsent(s.date, () => []).add(s);
+    }
+    final coming = mine.where((s) => !s.cancelled && s.endsAt.isAfter(now)).length;
+    final away = mine.where((s) => data.absenceOf(s.id, store.personId) != null).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionLabel('مواعدي'),
+        Row(
+          children: [
+            IconButton(
+              key: const Key('previous-month'),
+              tooltip: 'الشهر السابق',
+              onPressed: () => setState(() => _monthOffset--),
+              icon: const Icon(Icons.chevron_right),
+            ),
+            Expanded(
+              child: Column(
+                children: [
+                  Text(
+                    '${monthNames[month.month - 1]} ${month.year}',
+                    key: const Key('month-label'),
+                    style: text.titleSmall,
+                  ),
+                  Text(
+                    [
+                      countLabel(mine.length, one: 'حصة واحدة', two: 'حصتان', few: 'حصص', many: 'حصة'),
+                      if (coming > 0) '$coming قادمة',
+                      if (away > 0) 'غياب $away',
+                    ].join(' · '),
+                    style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              key: const Key('next-month'),
+              tooltip: 'الشهر التالي',
+              onPressed: () => setState(() => _monthOffset++),
+              icon: const Icon(Icons.chevron_left),
+            ),
+          ],
+        ),
+        if (days.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'لم تُكلَّف بحصص في هذا الشهر.',
+              textAlign: TextAlign.center,
+              style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
+            ),
+          )
+        else
+          Text(
+            'اضغط على «غياب» لتُبلغ مشرف الفئة بغيابك عن حصة قادمة مع ذكر المبرر.',
+            style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+          ),
+        for (final e in days.entries) ...[
+          SectionLabel(dayLabel(e.key, now)),
+          for (final s in e.value) _Appointment(session: s, data: data, now: now),
+        ],
+      ],
+    );
+  }
+}
+
+class _Appointment extends StatelessWidget {
+  const _Appointment({required this.session, required this.data, required this.now});
+
+  final Session session;
+  final InstructorSnapshot data;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = InstructorScope.of(context);
+    final s = session;
+    final group = data.group(s.groupId);
+    final absence = data.absenceOf(s.id, store.personId);
+    final open = !s.cancelled && s.endsAt.isAfter(now);
+    final text = Theme.of(context).textTheme;
+    return Card(
+      key: Key('appointment-${s.id}'),
+      child: ListTile(
+        leading: group == null ? null : GroupLogo.of(group, size: 36),
+        title: Text(
+          '${formatTime(s.start)} · ${s.title}',
+          style: TextStyle(decoration: s.cancelled ? TextDecoration.lineThrough : null),
+        ),
+        subtitle: Text(
+          [
+            [?group?.name, s.placeLabel].join(' · '),
+            if (s.cancelled) 'ملغاة',
+            if (absence != null) 'غيابك: ${absence.reason}',
+          ].join('\n'),
+          style: absence != null || s.cancelled ? text.bodySmall?.copyWith(color: RaeedColors.error) : null,
+        ),
+        trailing: absence != null
+            ? const Icon(Icons.person_off, color: RaeedColors.error, semanticLabel: 'غائب')
+            : open && store.canRecord(s)
+            ? TextButton(
+                key: Key('absent-${s.id}'),
+                style: TextButton.styleFrom(foregroundColor: RaeedColors.error),
+                onPressed: () => askAbsence(context, s),
+                child: const Text('غياب'),
+              )
+            : null,
+        onTap: () => openSession(context, s.id),
       ),
     );
   }

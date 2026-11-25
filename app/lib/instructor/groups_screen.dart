@@ -112,8 +112,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     final kids = data.childrenIn(group.id);
     final now = store.now();
     final sessions = data.sessionsOf(group.id);
-    final upcoming = sessions.where((s) => s.endsAt.isAfter(now)).toList();
-    final past = sessions.where((s) => !s.endsAt.isAfter(now)).toList().reversed.toList();
     final text = Theme.of(context).textTheme;
     final staff = [for (final id in group.instructorIds) data.staffNames[id]].nonNulls.join('، ');
     return Scaffold(
@@ -144,6 +142,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         children: [
           SegmentedButton<int>(
             key: const Key('group-tabs'),
+            showSelectedIcon: false,
             segments: [
               ButtonSegment(value: 0, label: Text('الأطفال ${kids.length}')),
               const ButtonSegment(value: 1, label: Text('الحصص')),
@@ -185,17 +184,10 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               style: text.bodySmall?.copyWith(color: RaeedColors.grey),
             ),
           ] else ...[
-            if (upcoming.isEmpty && past.isEmpty) const Text('لا حصص بعد.', style: TextStyle(color: RaeedColors.grey)),
-            if (upcoming.isNotEmpty) const SectionLabel('القادمة'),
-            for (final s in upcoming.take(12)) ...[
-              SessionCard(session: s, data: data, showGroup: false, onTap: () => openSession(context, s.id)),
-              const SizedBox(height: 8),
-            ],
-            if (past.isNotEmpty) const SectionLabel('السابقة'),
-            for (final s in past.take(12)) ...[
-              SessionCard(session: s, data: data, showGroup: false, onTap: () => openSession(context, s.id)),
-              const SizedBox(height: 8),
-            ],
+            if (sessions.isEmpty)
+              const Text('لا حصص بعد.', style: TextStyle(color: RaeedColors.grey))
+            else
+              _GroupSessions(sessions: sessions, data: data, now: now),
           ],
           if (store.schedules && _tab == 1) ...[
             const SizedBox(height: 12),
@@ -212,8 +204,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 }
 
-/// One instructor of the فئة, for its supervisor: the sessions they ran in the last
-/// 30 days, how many have their attendance, and what is coming.
+/// One instructor of the فئة, for its supervisor: their presence in the last 30 days and
+/// the absences they announced.
 class _InstructorWork extends StatelessWidget {
   const _InstructorWork({required this.personId, required this.group, required this.data, required this.now});
 
@@ -233,35 +225,196 @@ class _InstructorWork extends StatelessWidget {
       for (final s in theirs)
         if (!s.endsAt.isAfter(now) && !s.date.isBefore(monthAgo)) s,
     ];
-    final missing = done.where((s) => data.attendanceFor(s.id).isEmpty).length;
-    final upcoming = theirs.where((s) => s.endsAt.isAfter(now)).length;
-    final absent = theirs.where((s) => data.absenceOf(s.id, personId) != null).length;
+    final absentDone = done.where((s) => data.absenceOf(s.id, personId) != null).length;
+    final rate = done.isEmpty ? null : (done.length - absentDone) / done.length;
+    final comingAbsences = theirs.where((s) => s.endsAt.isAfter(now) && data.absenceOf(s.id, personId) != null).length;
     final name = data.staffNames[personId] ?? 'مؤطر';
     return Card(
       key: Key('instructor-work-$personId'),
       child: ListTile(
         leading: InitialAvatar(name, size: 36),
         title: Text(name),
-        subtitle: Text(
-          [
-            countLabel(
-              done.length,
-              one: 'حصة منتهية واحدة',
-              two: 'حصتان منتهيتان',
-              few: 'حصص منتهية',
-              many: 'حصة منتهية',
-            ),
-            if (done.isNotEmpty) missing == 0 ? 'الحضور مسجّل في كلها' : 'بلا حضور: $missing',
-            countLabel(upcoming, one: 'حصة قادمة واحدة', two: 'حصتان قادمتان', few: 'حصص قادمة', many: 'حصة قادمة'),
-            if (absent > 0) 'غياب: $absent',
-          ].join(' · '),
-          style: TextStyle(color: missing > 0 || absent > 0 ? RaeedColors.error : null),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              rate == null
+                  ? const _Pill('لا حصص منتهية')
+                  : _Pill('الحضور ${(rate * 100).round()}%', good: absentDone == 0, alert: rate < 0.8),
+              if (absentDone > 0) _Pill('غاب $absentDone', alert: true),
+              if (comingAbsences > 0) _Pill('غياب قادم $comingAbsences', alert: true),
+            ],
+          ),
         ),
         trailing: const Icon(Icons.chevron_left),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute<void>(builder: (_) => InstructorDetailScreen(personId: personId, groupId: group.id)),
+          MaterialPageRoute<void>(
+            builder: (_) => InstructorDetailScreen(personId: personId, groupId: group.id),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// A short count on an instructor's card.
+class _Pill extends StatelessWidget {
+  const _Pill(this.label, {this.alert = false, this.good = false});
+
+  final String label;
+  final bool alert;
+  final bool good;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = alert ? RaeedColors.error : (good ? const Color(0xFF1C7A55) : RaeedColors.grey);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// A فئة's sessions: its weekly series in short, then one week at a time, so a long
+/// series does not make an endless list.
+class _GroupSessions extends StatefulWidget {
+  const _GroupSessions({required this.sessions, required this.data, required this.now});
+
+  final List<Session> sessions;
+  final InstructorSnapshot data;
+  final DateTime now;
+
+  @override
+  State<_GroupSessions> createState() => _GroupSessionsState();
+}
+
+class _GroupSessionsState extends State<_GroupSessions> {
+  int _weekOffset = 0;
+
+  DateTime get _thisWeek {
+    final today = dayOnly(widget.now);
+    return today.subtract(Duration(days: dayOfWeek(today)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final now = widget.now;
+    final weekStart = _thisWeek.add(Duration(days: 7 * _weekOffset));
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    final days = <DateTime, List<Session>>{};
+    for (final s in widget.sessions) {
+      if (s.date.isBefore(weekStart) || s.date.isAfter(weekEnd)) continue;
+      days.putIfAbsent(s.date, () => []).add(s);
+    }
+    // Series with sessions still to come.
+    final series = <String, List<Session>>{};
+    for (final s in widget.sessions) {
+      if (s.seriesId != null && !s.cancelled && s.endsAt.isAfter(now)) series.putIfAbsent(s.seriesId!, () => []).add(s);
+    }
+    final next = widget.sessions.where((s) => !s.cancelled && s.endsAt.isAfter(now)).firstOrNull;
+    final weekLabel = switch (_weekOffset) {
+      0 => 'هذا الأسبوع',
+      1 => 'الأسبوع القادم',
+      -1 => 'الأسبوع الماضي',
+      _ => 'الأسبوع',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (series.isNotEmpty) ...[
+          const SectionLabel('الحصص الأسبوعية'),
+          for (final e in series.entries) _SeriesRow(sessions: e.value, now: now),
+          const SizedBox(height: 4),
+        ],
+        Row(
+          children: [
+            IconButton(
+              key: const Key('group-previous-week'),
+              tooltip: 'الأسبوع السابق',
+              onPressed: () => setState(() => _weekOffset--),
+              icon: const Icon(Icons.chevron_right),
+            ),
+            Expanded(
+              child: Text(
+                '$weekLabel · من ${weekStart.day}'
+                '${weekStart.month == weekEnd.month ? '' : ' ${monthNames[weekStart.month - 1]}'}'
+                ' إلى ${weekEnd.day} ${monthNames[weekEnd.month - 1]}',
+                key: const Key('group-week-label'),
+                textAlign: TextAlign.center,
+                style: text.titleSmall,
+              ),
+            ),
+            IconButton(
+              key: const Key('group-next-week'),
+              tooltip: 'الأسبوع التالي',
+              onPressed: () => setState(() => _weekOffset++),
+              icon: const Icon(Icons.chevron_left),
+            ),
+          ],
+        ),
+        if (days.isEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'لا حصص في هذا الأسبوع.',
+              textAlign: TextAlign.center,
+              style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
+            ),
+          ),
+          if (next != null && (next.date.isBefore(weekStart) || next.date.isAfter(weekEnd)))
+            TextButton(
+              key: const Key('group-jump-next'),
+              onPressed: () => setState(() => _weekOffset = next.date.difference(_thisWeek).inDays ~/ 7),
+              child: Text('الحصة القادمة: ${dayLabel(next.date, now)}'),
+            ),
+        ],
+        for (final e in days.entries) ...[
+          SectionLabel(dayLabel(e.key, now)),
+          for (final s in e.value) ...[
+            SessionCard(session: s, data: widget.data, showGroup: false, onTap: () => openSession(context, s.id)),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+/// One weekly series of a فئة, in one line: its day and time, how many are left, until when.
+class _SeriesRow extends StatelessWidget {
+  const _SeriesRow({required this.sessions, required this.now});
+
+  /// Its coming sessions, in order.
+  final List<Session> sessions;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = sessions.first;
+    final last = sessions.last;
+    final weekdays = {for (final s in sessions) dayOfWeek(s.date)}.toList()..sort();
+    return Card(
+      child: ListTile(
+        key: Key('series-${first.seriesId}'),
+        leading: const Icon(Icons.repeat, color: RaeedColors.blue),
+        title: Text(first.title),
+        subtitle: Text(
+          [
+            '${[for (final d in weekdays) weekdayNames[d]].join(' و')} ${formatTime(first.start)}',
+            countLabel(sessions.length, one: 'حصة باقية', two: 'حصتان باقيتان', few: 'حصص باقية', many: 'حصة باقية'),
+            'حتى ${last.date.day} ${monthNames[last.date.month - 1]}',
+          ].join(' · '),
+        ),
+        trailing: const Icon(Icons.chevron_left),
+        onTap: () => openSession(context, first.id),
       ),
     );
   }
@@ -316,7 +469,13 @@ class InstructorDetailScreen extends StatelessWidget {
     final presence = {for (final s in theirs) s.id: data.presence(s, personId, now)};
     int count(InstructorPresence p) => presence.values.where((v) => v == p).length;
     final past = theirs.where((s) => !s.endsAt.isAfter(now)).toList().reversed.toList();
-    final coming = theirs.where((s) => s.endsAt.isAfter(now)).take(10).toList();
+    // Their absences: coming ones first, then the past, newest first.
+    final absences = [
+      for (final s in theirs.where((s) => s.endsAt.isAfter(now)))
+        if (presence[s.id] == InstructorPresence.absent) s,
+      for (final s in past)
+        if (presence[s.id] == InstructorPresence.absent) s,
+    ];
     final held = count(InstructorPresence.present) + count(InstructorPresence.unrecorded);
     final pastAbsent = past.where((s) => presence[s.id] == InstructorPresence.absent).length;
     final rate = past.isEmpty ? null : held / past.length;
@@ -383,10 +542,13 @@ class InstructorDetailScreen extends StatelessWidget {
             data.termStart == null ? 'منذ 30 يوماً.' : 'منذ بداية الفصل.',
             style: text.bodySmall?.copyWith(color: RaeedColors.grey),
           ),
-          if (coming.isNotEmpty) const SectionLabel('القادمة'),
-          for (final s in coming) _PresenceRow(session: s, personId: personId, presence: presence[s.id]!, now: now),
-          if (past.isNotEmpty) const SectionLabel('السابقة'),
-          for (final s in past) _PresenceRow(session: s, personId: personId, presence: presence[s.id]!, now: now),
+          if (absences.isNotEmpty) const SectionLabel('الغيابات'),
+          for (final s in absences) _PresenceRow(session: s, personId: personId, presence: presence[s.id]!, now: now),
+          if (theirs.isNotEmpty && absences.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text('لا غياب في هذه الفترة ولا غياب قادم.', style: TextStyle(color: RaeedColors.grey)),
+            ),
           if (theirs.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -421,7 +583,11 @@ class _Stat extends StatelessWidget {
                   color: alert ? RaeedColors.error : RaeedColors.blue,
                 ),
               ),
-              Text(label, style: text.bodySmall?.copyWith(color: RaeedColors.grey), textAlign: TextAlign.center),
+              Text(
+                label,
+                style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -457,7 +623,10 @@ class _PresenceRow extends StatelessWidget {
             if (absence != null) 'السبب: ${absence.reason}',
           ].join('\n'),
         ),
-        trailing: Text(presence.label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        trailing: Text(
+          presence.label,
+          style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        ),
         onTap: () => openSession(context, session.id),
       ),
     );

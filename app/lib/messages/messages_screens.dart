@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../auth/session_scope.dart';
 import '../instructor/models.dart';
 import '../instructor/widgets.dart';
+import '../notifications/inbox.dart';
 import '../notifications/push.dart';
 import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
@@ -179,8 +180,9 @@ class _SupervisorChannelTabState extends State<SupervisorChannelTab> with _Messa
                     leading: InitialAvatar(c.fullName, size: 36),
                     title: Text(c.fullName),
                     subtitle: Text(_summary(byChild[c.id], c)),
-                    trailing: const Icon(Icons.chevron_left),
+                    trailing: _UnreadChevron(childId: c.id),
                     onTap: () async {
+                      InboxScope.read(context)?.markMessagesRead(childId: c.id);
                       await Navigator.push(
                         context,
                         MaterialPageRoute<void>(
@@ -203,6 +205,31 @@ class _SupervisorChannelTabState extends State<SupervisorChannelTab> with _Messa
     if (ms == null || ms.isEmpty) return 'لا ملاحظات بعد';
     final replies = ms.fold<int>(0, (n, m) => n + m.replies.length);
     return ['آخر ملاحظة: ${longDay(ms.first.createdAt)}', if (replies > 0) 'ردود: $replies'].join(' · ');
+  }
+}
+
+/// The count of unread replies and likes about one child, before the chevron.
+class _UnreadChevron extends StatelessWidget {
+  const _UnreadChevron({required this.childId});
+
+  final String childId;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = InboxScope.of(context)?.unreadMessages(childId: childId) ?? 0;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (n > 0)
+          Badge(
+            key: Key('child-count-$childId'),
+            backgroundColor: RaeedColors.error,
+            label: Text('$n'),
+          ),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_left),
+      ],
+    );
   }
 }
 
