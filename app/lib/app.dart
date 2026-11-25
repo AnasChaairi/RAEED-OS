@@ -11,6 +11,7 @@ import 'home/home_shell.dart';
 import 'instructor/instructor_store.dart';
 import 'instructor/widgets.dart';
 import 'messages/messages_repository.dart';
+import 'notifications/inbox.dart';
 import 'notifications/push.dart';
 import 'parent/parent_store.dart';
 import 'profile/profile_repository.dart';
@@ -31,7 +32,11 @@ class RaeedApp extends StatelessWidget {
     required this.profiles,
     required this.push,
     this.messages,
+    this.inbox,
   });
+
+  /// The notifications behind the bell.
+  final InboxStore? inbox;
 
   /// The category supervisor's channel with parents.
   final MessagesRepository? messages;
@@ -73,6 +78,8 @@ class RaeedApp extends StatelessWidget {
                   clock: instructor.now,
                   child: MessagesScope(
                   repo: messages,
+                  child: InboxScope(
+                  store: inbox,
                   child: MaterialApp(
             title: 'رائد',
             debugShowCheckedModeBanner: false,
@@ -81,6 +88,7 @@ class RaeedApp extends StatelessWidget {
             supportedLocales: const [Locale('ar', 'MA')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: const SessionGate(),
+                  ),
                   ),
                   ),
                 ),

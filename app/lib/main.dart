@@ -11,6 +11,7 @@ import 'config.dart';
 import 'instructor/instructor_repository.dart';
 import 'instructor/instructor_store.dart';
 import 'messages/messages_repository.dart';
+import 'notifications/inbox.dart';
 import 'notifications/push.dart';
 import 'parent/parent_repository.dart';
 import 'parent/parent_store.dart';
@@ -24,7 +25,12 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final client = Supabase.instance.client;
   final push = await FirebasePush.create(client);
-  final session = AppSession(SupabaseAuthRepository(client), prefs)..beforeSignOut = push.unregister;
+  final inbox = InboxStore(SupabaseNotificationsRepository(client));
+  final session = AppSession(SupabaseAuthRepository(client), prefs)
+    ..beforeSignOut = () async {
+      inbox.clear();
+      await push.unregister();
+    };
   runApp(RaeedApp(
     session: session,
     setup: SetupStore(SupabaseSetupRepository(client)),
@@ -34,6 +40,7 @@ Future<void> main() async {
     profiles: SupabaseProfileRepository(client),
     push: push,
     messages: SupabaseMessagesRepository(client),
+    inbox: inbox,
   ));
   await session.start();
 }
