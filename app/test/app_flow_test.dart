@@ -143,13 +143,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('role-instructor')));
     await tester.pumpAndSettle();
-    expect(tabLabels(tester), ['اليوم', 'الحصص', 'فئاتي', 'التنبيهات']);
+    expect(tabLabels(tester), ['مواعدي', 'الحصص', 'فئاتي', 'التنبيهات']);
   });
 
   testWidgets('the last role is remembered on the next start', (tester) async {
     final auth = fakeAuth()..signedInAs = multiPhone;
     await pumpApp(tester, auth, prefs: {'last_role': 'instructor'});
-    expect(tabLabels(tester), ['اليوم', 'الحصص', 'فئاتي', 'التنبيهات']);
+    expect(tabLabels(tester), ['مواعدي', 'الحصص', 'فئاتي', 'التنبيهات']);
   });
 
   testWidgets('a saved session skips sign-in', (tester) async {

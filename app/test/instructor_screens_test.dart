@@ -464,6 +464,21 @@ void main() {
     expect(find.byKey(const Key('report-absence')), findsOneWidget);
   });
 
+  testWidgets('مواعدي lists the month of sessions and reports an absence with its reason', (tester) async {
+    final o = await openInstructor(tester);
+    expect(find.byKey(const Key('month-label')), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const Key('absent-today')), 200);
+    await tester.tap(find.byKey(const Key('absent-today')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('absence-reason')), 'سفر');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirm-absence')));
+    await tester.pumpAndSettle();
+    expect(o.repo.calls, contains('reportAbsence today سفر'));
+    expect(find.textContaining('غيابك: سفر'), findsOneWidget);
+    expect(find.byKey(const Key('absent-today')), findsNothing);
+  });
+
   testWidgets('a category supervisor picks a child and writes to the parents', (tester) async {
     final repo = seededInstructorRepo(me: 'someone-else', today: today);
     repo.groups[0] = repo.groups[0].withInstructors(['sara'], supervisors: [me]);
