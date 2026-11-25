@@ -5,6 +5,7 @@ import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
 import 'package:raeed_os/instructor/session_form_screen.dart';
+import 'package:raeed_os/instructor/widgets.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/setup/models.dart';
 import 'package:raeed_os/setup/setup_store.dart';
@@ -379,16 +380,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('new-session-for-group')), findsNothing, reason: 'not under المؤطرون');
     expect(find.byKey(const Key('instructor-work-sara')), findsOneWidget);
-    expect(find.textContaining('غياب: 1'), findsOneWidget);
+    expect(find.text('غياب قادم 1'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('instructor-work-sara')));
     await tester.pumpAndSettle();
     expect(find.text('سارة الإدريسي'), findsOneWidget);
     expect(find.byKey(const Key('instructor-phone')), findsOneWidget);
     expect(find.byKey(const Key('call-instructor')), findsOneWidget);
-    // Last week's session had no attendance taken; next week's has her notice of absence.
-    expect(find.descendant(of: find.byKey(const Key('presence-last-week')), matching: find.text('بلا حضور مسجّل')),
-        findsOneWidget);
+    // Only her absences are listed: next week's, with its reason.
+    expect(find.byKey(const Key('presence-last-week')), findsNothing);
     expect(find.descendant(of: find.byKey(const Key('presence-next-week')), matching: find.text('غائب')),
         findsOneWidget);
     expect(find.textContaining('موعد طبي'), findsOneWidget);
@@ -403,7 +403,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('الحصص'));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('مراجعة الحفظ').first);
+    expect(find.byKey(const Key('group-week-label')), findsOneWidget, reason: 'one week at a time');
+    await tester.tap(find.byKey(const Key('group-previous-week')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(SessionCard), matching: find.textContaining('مراجعة الحفظ')).first);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('delete-session')), 200);
     await tester.tap(find.byKey(const Key('delete-session')));
@@ -415,7 +418,9 @@ void main() {
     expect(find.byKey(const Key('delete-session')), findsNothing, reason: 'back on the group');
 
     final today0 = repo.sessions.firstWhere((s) => s.id == 'today');
-    await tester.tap(find.textContaining(today0.title).first);
+    await tester.tap(find.byKey(const Key('group-next-week')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(SessionCard), matching: find.textContaining(today0.title)).first);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('delete-session')), 200);
     await tester.tap(find.byKey(const Key('delete-session')));
