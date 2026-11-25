@@ -19,13 +19,14 @@ class FakeNotificationsRepository implements NotificationsRepository {
   }
 }
 
-AppNotification note(String id, String kind, {bool read = false}) => AppNotification(
+AppNotification note(String id, String kind, {bool read = false, String? child}) => AppNotification(
       id: id,
       kind: kind,
       title: 'عنوان $id',
       body: 'نص $id',
       createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
       read: read,
+      childId: child,
     );
 
 void main() {
@@ -80,5 +81,28 @@ void main() {
     expect(note('x', 'child_message_reply').tabFor(AppRole.parent), 1);
     expect(note('x', 'absence_alert').tabFor(AppRole.instructor), 3);
     expect(note('x', 'instructor_absence').tabFor(AppRole.advisor), 1);
+  });
+
+  test('notes and replies count per child, and stay unread when the bell keeps them', () async {
+    final repo = FakeNotificationsRepository()
+      ..items.addAll([
+        note('r1', 'child_message_reply', child: 'k1'),
+        note('r2', 'child_message_like', child: 'k1'),
+        note('r3', 'child_message_reply', child: 'k2'),
+        note('s1', 'session_cancelled'),
+      ]);
+    final store = InboxStore(repo);
+    await store.load();
+    expect(store.unread, 4);
+    expect(store.unreadMessages(), 3);
+    expect(store.unreadMessages(childId: 'k1'), 2);
+
+    await store.markAllRead(keepMessages: true);
+    expect(store.unread, 3);
+    expect(store.unreadMessages(), 3);
+
+    await store.markMessagesRead(childId: 'k1');
+    expect(store.unreadMessages(childId: 'k1'), 0);
+    expect(store.unreadMessages(), 1);
   });
 }

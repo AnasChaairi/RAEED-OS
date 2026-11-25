@@ -94,14 +94,40 @@ class _HomeShellState extends State<HomeShell> {
     _refreshRole();
   }
 
+  /// The tab with the notes and replies: أولياء الأمور for the مشرف الفئة, الملاحظات for parents.
+  int? get _messagesTab => switch (widget.role) {
+        AppRole.supervisor => 2,
+        AppRole.parent => 1,
+        _ => null,
+      };
+
+  void _select(int i) {
+    setState(() => _index = i);
+    // Parents read everything on the tab; the supervisor reads one child at a time.
+    if (widget.role == AppRole.parent && i == _messagesTab) InboxScope.read(context)?.markMessagesRead();
+  }
+
+  /// The unread notes and replies on the messages tab.
+  Widget _withCount(int i, Widget icon) {
+    if (i != _messagesTab) return icon;
+    final n = InboxScope.of(context)?.unreadMessages() ?? 0;
+    return Badge(
+      key: Key('tab-count-$i'),
+      isLabelVisible: n > 0,
+      backgroundColor: RaeedColors.error,
+      label: Text(n > 99 ? '99+' : '$n'),
+      child: icon,
+    );
+  }
+
   Future<void> _openNotifications() async {
     final tapped = await Navigator.push<AppNotification>(
       context,
-      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      MaterialPageRoute(builder: (_) => NotificationsScreen(keepMessages: _messagesTab != null)),
     );
     if (!mounted || tapped == null) return;
     final tab = tapped.tabFor(widget.role);
-    if (tab != null && tab < widget.role.tabs.length) setState(() => _index = tab);
+    if (tab != null && tab < widget.role.tabs.length) _select(tab);
     _refreshRole();
   }
 
@@ -199,10 +225,14 @@ class _HomeShellState extends State<HomeShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _select,
         destinations: [
-          for (final tab in tabs)
-            NavigationDestination(icon: Icon(tab.icon), selectedIcon: Icon(tab.selectedIcon), label: tab.label),
+          for (var i = 0; i < tabs.length; i++)
+            NavigationDestination(
+              icon: _withCount(i, Icon(tabs[i].icon)),
+              selectedIcon: _withCount(i, Icon(tabs[i].selectedIcon)),
+              label: tabs[i].label,
+            ),
         ],
       ),
     );

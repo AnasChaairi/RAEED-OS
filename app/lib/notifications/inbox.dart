@@ -15,6 +15,7 @@ class AppNotification {
     required this.body,
     required this.createdAt,
     this.read = false,
+    this.childId,
   });
 
   final String id;
@@ -24,8 +25,14 @@ class AppNotification {
   final DateTime createdAt;
   final bool read;
 
-  AppNotification asRead() =>
-      AppNotification(id: id, kind: kind, title: title, body: body, createdAt: createdAt, read: true);
+  /// The child it is about, when there is one.
+  final String? childId;
+
+  /// A note, reply or like in the channel between the مشرف الفئة and parents.
+  bool get isMessage => kind.startsWith('child_message');
+
+  AppNotification asRead() => AppNotification(
+      id: id, kind: kind, title: title, body: body, createdAt: createdAt, read: true, childId: childId);
 
   IconData get icon => switch (kind) {
         'child_message' || 'child_message_reply' => Icons.forum,
@@ -74,7 +81,7 @@ class SupabaseNotificationsRepository implements NotificationsRepository {
         if (me == null) return const [];
         final rows = await _db
             .from('notification_outbox')
-            .select('id, kind, title, body, created_at, read_at')
+            .select('id, kind, title, body, data, created_at, read_at')
             .eq('recipient_id', me)
             .order('created_at', ascending: false)
             .limit(100);
@@ -87,6 +94,7 @@ class SupabaseNotificationsRepository implements NotificationsRepository {
               body: r['body'] as String,
               createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
               read: r['read_at'] != null,
+              childId: (r['data'] as Map?)?['child_id'] as String?,
             ),
         ];
       });
@@ -126,12 +134,34 @@ class InboxStore extends ChangeNotifier {
     }
   }
 
-  Future<void> markAllRead() async {
-    if (unread == 0) return;
-    _items = [for (final n in _items) n.read ? n : n.asRead()];
+  /// Unread notes, replies and likes, for one child or all.
+  int unreadMessages({String? childId}) =>
+      _items.where((n) => !n.read && n.isMessage && (childId == null || n.childId == childId)).length;
+
+  /// Marks the unread notes, replies and likes read, for one child or all.
+  Future<void> markMessagesRead({String? childId}) async {
+    final ids = [
+      for (final n in _items)
+        if (!n.read && n.isMessage && (childId == null || n.childId == childId)) n.id,
+    ];
+    if (ids.isEmpty) return;
+    _items = [for (final n in _items) ids.contains(n.id) ? n.asRead() : n];
     notifyListeners();
     try {
-      await _repo.markRead();
+      await _repo.markRead(ids);
+    } catch (_) {
+      // Offline: they show as unread again on the next load.
+    }
+  }
+
+  /// With [keepMessages], notes and replies stay unread until their conversation is opened.
+  Future<void> markAllRead({bool keepMessages = false}) async {
+    final ids = [for (final n in _items) if (!n.read && !(keepMessages && n.isMessage)) n.id];
+    if (ids.isEmpty) return;
+    _items = [for (final n in _items) ids.contains(n.id) ? n.asRead() : n];
+    notifyListeners();
+    try {
+      await _repo.markRead(keepMessages ? ids : null);
     } catch (_) {
       // Offline: they show as unread again on the next load.
     }
@@ -178,10 +208,12 @@ class NotificationBell extends StatelessWidget {
   }
 }
 
-/// The person's notifications, newest first. Opening it marks them read. Pops with the
-/// notification tapped, if any.
+/// The person's notifications, newest first. Opening it marks them read (with
+/// [keepMessages], all but the notes and replies). Pops with the notification tapped, if any.
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({super.key, this.keepMessages = false});
+
+  final bool keepMessages;
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -200,7 +232,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       await store.load();
       if (!mounted) return;
       setState(() => _fresh.addAll([for (final n in store.items) if (!n.read) n.id]));
-      await store.markAllRead();
+      await store.markAllRead(keepMessages: widget.keepMessages);
     });
   }
 
