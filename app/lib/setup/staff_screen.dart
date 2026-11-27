@@ -28,10 +28,48 @@ class StaffScreen extends StatelessWidget {
       body: SetupLoadGate(
         builder: (context, data) {
           final advisors = data.staff.where((p) => p.roles.contains(AppRole.advisor)).toList();
-          final instructors = data.staff.where((p) => !p.roles.contains(AppRole.advisor)).toList();
+          final others = data.staff.where((p) => !p.roles.contains(AppRole.advisor)).toList();
+          final supervisors = others.where((p) => data.groupsSupervisedBy(p.id).isNotEmpty).toList();
+          final instructors = others.where((p) => data.groupsSupervisedBy(p.id).isEmpty).toList();
+          final unsupervised = data.activeGroups.where((g) => g.supervisorIds.isEmpty).toList();
+          final text = Theme.of(context).textTheme;
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
             children: [
+              Row(
+                children: [
+                  Expanded(child: SectionLabel('مشرفو الفئات (${supervisors.length})')),
+                  TextButton.icon(
+                    key: const Key('new-supervisor'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const StaffFormScreen(initialRoles: {AppRole.instructor, AppRole.supervisor}),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('مشرف فئة'),
+                  ),
+                ],
+              ),
+              if (supervisors.isEmpty)
+                Text(
+                  'لا يوجد مشرفو فئات بعد. افتح حساب مؤطر واختر دور «${AppRole.supervisor.label}» ثم فئته.',
+                  style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+                ),
+              for (final p in supervisors) ...[
+                _StaffRow(key: Key('supervisor-${p.id}'), person: p, data: data),
+                const SizedBox(height: 8),
+              ],
+              if (unsupervised.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    'فئات بلا مشرف: ${unsupervised.map((g) => g.name).join('، ')}',
+                    key: const Key('groups-without-supervisor'),
+                    style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+                  ),
+                ),
               SectionLabel('المؤطرون (${instructors.length})'),
               if (instructors.isEmpty)
                 const Text('لا يوجد مؤطرون بعد.', style: TextStyle(color: RaeedColors.grey)),
@@ -47,7 +85,7 @@ class StaffScreen extends StatelessWidget {
 }
 
 class _StaffRow extends StatelessWidget {
-  const _StaffRow({required this.person, required this.data});
+  const _StaffRow({super.key, required this.person, required this.data});
 
   final Person person;
   final SetupSnapshot data;
@@ -56,13 +94,14 @@ class _StaffRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final groups = data.groupsTaughtBy(person.id).map((g) => g.name).join('، ');
     final supervised = data.groupsSupervisedBy(person.id).map((g) => g.name).join('، ');
+    final roles = {...person.roles, if (supervised.isNotEmpty) AppRole.supervisor};
     return SetupRow(
       leading: InitialAvatar(person.fullName),
       title: person.fullName,
       lines: [
-        [for (final r in AppRole.values) if (person.roles.contains(r)) r.label].join(' · '),
-        if (groups.isNotEmpty) groups,
-        if (supervised.isNotEmpty) 'مشرف الفئة: $supervised',
+        [for (final r in AppRole.values) if (roles.contains(r)) r.label].join(' · '),
+        if (supervised.isNotEmpty) 'يشرف على: $supervised',
+        if (groups.isNotEmpty) 'يؤطر: $groups',
         if (person.mustChangePassword) 'لم يدخل بعد بكلمة مروره الخاصة',
       ],
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => StaffFormScreen(person: person))),
@@ -72,9 +111,12 @@ class _StaffRow extends StatelessWidget {
 
 /// New staff member (name, phone, role, groups), or edit one.
 class StaffFormScreen extends StatefulWidget {
-  const StaffFormScreen({super.key, this.person});
+  const StaffFormScreen({super.key, this.person, this.initialRoles = const {AppRole.instructor}});
 
   final Person? person;
+
+  /// Roles ticked on a new account.
+  final Set<AppRole> initialRoles;
 
   @override
   State<StaffFormScreen> createState() => _StaffFormScreenState();
@@ -85,7 +127,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
   late final _name = TextEditingController(text: widget.person?.fullName);
   final _phone = TextEditingController();
   late final Set<AppRole> _roles = widget.person == null
-      ? {AppRole.instructor}
+      ? {...widget.initialRoles}
       : widget.person!.roles.where((r) => r != AppRole.parent).toSet();
   late Gender? _gender = widget.person?.gender;
   Set<String>? _groups;
@@ -216,7 +258,15 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
     final isSelf = person != null && person.id == SessionScope.read(context).profile?.id;
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text(person == null ? 'مؤطر جديد' : person.fullName)),
+      appBar: AppBar(
+        title: Text(
+          person != null
+              ? person.fullName
+              : widget.initialRoles.contains(AppRole.supervisor)
+                  ? 'مشرف فئة جديد'
+                  : 'مؤطر جديد',
+        ),
+      ),
       body: SafeArea(
         child: Form(
           key: _form,

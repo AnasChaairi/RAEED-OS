@@ -121,6 +121,27 @@ void main() {
     expect(repo.people.values.singleWhere((p) => p.fullName == 'سارة الإدريسي').gender, Gender.female);
   });
 
+  testWidgets('مشرفو الفئات get their own section with the فئة they supervise', (tester) async {
+    await openAdvisor(tester, seed: (r) async {
+      final id = await r.saveGroup(stars);
+      await r.saveGroup(const GroupDraft(name: 'فئة الأشبال', logoLetter: 'ش', logoColor: 2));
+      r.addPerson('nadia', 'نادية', '0633333333', {AppRole.instructor});
+      await r.setGroupSupervisors(id, ['nadia']);
+    });
+    await tester.tap(find.byKey(const Key('setup-staff')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('مشرفو الفئات (1)'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('supervisor-nadia')), matching: find.text('يشرف على: فئة النجوم')), findsOneWidget);
+    expect(find.text('المؤطرون (1)'), findsOneWidget);
+    expect(find.text('فئات بلا مشرف: فئة الأشبال'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('new-supervisor')));
+    await tester.pumpAndSettle();
+    expect(find.text('مشرف فئة جديد'), findsOneWidget);
+    expect(find.byKey(const Key('staff-supervised-groups')), findsOneWidget);
+  });
+
   testWidgets('a new child with a new parent: password shown, child listed under the group', (tester) async {
     final repo = await openAdvisor(tester, tab: 'الأطفال', seed: (r) => r.saveGroup(stars));
     await tester.tap(find.byKey(const Key('new-child')));
