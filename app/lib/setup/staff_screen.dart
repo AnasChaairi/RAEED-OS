@@ -18,12 +18,12 @@ class StaffScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('المؤطرون والمشرفون')),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         key: const Key('new-staff'),
         heroTag: 'new-staff',
-        onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const StaffFormScreen())),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('مؤطر جديد'),
+        tooltip: 'إضافة',
+        onPressed: () => _chooseNew(context),
+        child: const Icon(Icons.add),
       ),
       body: SetupLoadGate(
         builder: (context, data) {
@@ -36,22 +36,7 @@ class StaffScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
             children: [
-              Row(
-                children: [
-                  Expanded(child: SectionLabel('مشرفو الفئات (${supervisors.length})')),
-                  TextButton.icon(
-                    key: const Key('new-supervisor'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const StaffFormScreen(initialRoles: {AppRole.instructor, AppRole.supervisor}),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('مشرف فئة'),
-                  ),
-                ],
-              ),
+              SectionLabel('مشرفو الفئات (${supervisors.length})'),
               if (supervisors.isEmpty)
                 Text(
                   'لا يوجد مشرفو فئات بعد. افتح حساب مؤطر واختر دور «${AppRole.supervisor.label}» ثم فئته.',
@@ -83,6 +68,72 @@ class StaffScreen extends StatelessWidget {
     );
   }
 }
+
+/// What the + adds: an مؤطر or a مشرف فئة.
+Future<void> _chooseNew(BuildContext context) => showModalBottomSheet<void>(
+  context: context,
+  showDragHandle: true,
+  builder: (sheet) {
+    final text = Theme.of(sheet).textTheme;
+    Widget option({
+      required Key key,
+      required IconData icon,
+      required Color fg,
+      required Color bg,
+      required String title,
+      required String subtitle,
+      required Set<AppRole> roles,
+    }) => ListTile(
+      key: key,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: fg),
+      ),
+      title: Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle),
+      onTap: () {
+        Navigator.pop(sheet);
+        Navigator.push(context, MaterialPageRoute<void>(builder: (_) => StaffFormScreen(initialRoles: roles)));
+      },
+    );
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text('إضافة', style: text.titleLarge),
+            ),
+            option(
+              key: const Key('new-instructor'),
+              icon: Icons.person_add_alt_1,
+              fg: RaeedColors.blue,
+              bg: RaeedColors.surfaceAlt,
+              title: 'مؤطر جديد',
+              subtitle: 'يؤطر حصص فئة أو أكثر',
+              roles: const {AppRole.instructor},
+            ),
+            option(
+              key: const Key('new-supervisor'),
+              icon: Icons.supervisor_account,
+              fg: RaeedColors.blue,
+              bg: RaeedColors.surfaceAlt,
+              title: 'مشرف فئة جديد',
+              subtitle: 'يخطّط أنشطة فئته ويتابع مؤطريها',
+              roles: const {AppRole.instructor, AppRole.supervisor},
+            ),
+          ],
+        ),
+      ),
+    );
+  },
+);
 
 class _StaffRow extends StatelessWidget {
   const _StaffRow({super.key, required this.person, required this.data});

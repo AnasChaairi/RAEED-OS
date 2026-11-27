@@ -103,6 +103,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('new-staff')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('new-instructor')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('staff-name')), 'سارة الإدريسي');
     await tester.enterText(find.byKey(const Key('staff-phone')), '06 22 22 22 22');
     await tester.tap(find.byKey(const Key('save-staff')));
@@ -136,6 +138,8 @@ void main() {
     expect(find.text('المؤطرون (1)'), findsOneWidget);
     expect(find.text('فئات بلا مشرف: فئة الأشبال'), findsOneWidget);
 
+    await tester.tap(find.byKey(const Key('new-staff')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('new-supervisor')));
     await tester.pumpAndSettle();
     expect(find.text('مشرف فئة جديد'), findsOneWidget);
