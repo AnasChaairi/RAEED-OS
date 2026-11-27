@@ -35,34 +35,16 @@ class _SessionsTabState extends State<SessionsTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       // A category supervisor plans from فئتي, under the group's الحصص.
-      // The advisor plans sessions here; a category supervisor plans them from فئتي, under
-      // the group's الحصص. Both plan أنشطة نوعية here, for one or several فئات.
-      floatingActionButton: !store.plansActivities
+      // The advisor plans here: one + opens the choice of a حصة or a نشاط نوعي. A category
+      // supervisor plans both from فئتي, under the group's الحصص.
+      floatingActionButton: store.view != StaffView.all || store.data.groups.isEmpty
           ? null
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                FloatingActionButton.extended(
-                  key: const Key('new-activity'),
-                  heroTag: 'new-activity',
-                  backgroundColor: RaeedColors.starSoft,
-                  foregroundColor: const Color(0xFF8A4B00),
-                  onPressed: () => openActivityForm(context),
-                  icon: const Icon(Icons.celebration_outlined),
-                  label: const Text('نشاط نوعي'),
-                ),
-                if (store.view == StaffView.all) ...[
-                  const SizedBox(height: 10),
-                  FloatingActionButton.extended(
-                    key: const Key('new-session'),
-                    heroTag: 'new-session',
-                    onPressed: () => openSessionForm(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('حصة جديدة'),
-                  ),
-                ],
-              ],
+          : FloatingActionButton(
+              key: const Key('new-plan'),
+              heroTag: 'new-plan',
+              tooltip: 'إضافة',
+              onPressed: () => _choosePlan(context),
+              child: const Icon(Icons.add),
             ),
       body: InstructorLoadGate(
         builder: (context, data) {
@@ -144,6 +126,72 @@ class _SessionsTabState extends State<SessionsTab> {
     );
   }
 }
+
+/// What the advisor's + adds: a حصة or a نشاط نوعي.
+Future<void> _choosePlan(BuildContext context) => showModalBottomSheet<void>(
+  context: context,
+  showDragHandle: true,
+  builder: (sheet) {
+    final text = Theme.of(sheet).textTheme;
+    Widget option({
+      required Key key,
+      required IconData icon,
+      required Color fg,
+      required Color bg,
+      required String title,
+      required String subtitle,
+      required VoidCallback open,
+    }) => ListTile(
+      key: key,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: fg),
+      ),
+      title: Text(title, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle),
+      onTap: () {
+        Navigator.pop(sheet);
+        open();
+      },
+    );
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text('إضافة', style: text.titleLarge),
+            ),
+            option(
+              key: const Key('new-session'),
+              icon: Icons.event_note_outlined,
+              fg: RaeedColors.blue,
+              bg: RaeedColors.surfaceAlt,
+              title: 'حصة جديدة',
+              subtitle: 'مرة واحدة أو أسبوعياً، لفئة واحدة',
+              open: () => openSessionForm(context),
+            ),
+            option(
+              key: const Key('new-activity'),
+              icon: Icons.celebration_outlined,
+              fg: const Color(0xFF8A4B00),
+              bg: RaeedColors.starSoft,
+              title: 'نشاط نوعي',
+              subtitle: 'مخيم، مبيت، خرجة... لفئة أو أكثر، وله الأولوية على الحصص',
+              open: () => openActivityForm(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  },
+);
 
 class _Hint extends StatelessWidget {
   const _Hint(this.text);
