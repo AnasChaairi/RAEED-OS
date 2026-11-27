@@ -142,7 +142,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.acceptPrivacyCalls, 1);
     expect(auth.accounts[newPhone]!.privacyConsentVersion, privacyTermsVersion);
-    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
+    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'الواجبات', 'حسابي']);
   });
 
   testWidgets('a parent who accepted the 09-08 statement is not asked again', (tester) async {
@@ -152,7 +152,7 @@ void main() {
       ..privacyConsentVersion = privacyTermsVersion;
     await pumpApp(tester, auth);
     expect(find.text(privacyTermsTitle), findsNothing);
-    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
+    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'الواجبات', 'حسابي']);
   });
 
   testWidgets('a parent who accepted an older 09-08 text is asked again', (tester) async {
@@ -195,7 +195,7 @@ void main() {
     await tester.tap(find.byKey(const Key('role-parent')));
     await tester.tap(find.byKey(const Key('continue')));
     await tester.pumpAndSettle();
-    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
+    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'الواجبات', 'حسابي']);
 
     await tester.tap(find.byKey(const Key('account')));
     await tester.pumpAndSettle();

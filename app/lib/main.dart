@@ -8,6 +8,7 @@ import 'app.dart';
 import 'auth/app_session.dart';
 import 'auth/auth_repository.dart';
 import 'config.dart';
+import 'homework/homework.dart';
 import 'instructor/instructor_repository.dart';
 import 'instructor/instructor_store.dart';
 import 'messages/messages_repository.dart';
@@ -41,6 +42,7 @@ Future<void> main() async {
     push: push,
     messages: SupabaseMessagesRepository(client),
     inbox: inbox,
+    homework: SupabaseHomeworkRepository(client),
   ));
   await session.start();
 }

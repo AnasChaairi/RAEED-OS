@@ -44,12 +44,14 @@ class AppNotification {
         'instructor_absence' => Icons.person_off,
         'activity_cancelled' => Icons.event_busy,
         'activity_created' || 'activity_changed' || 'activity_reminder' => Icons.celebration,
+        'homework_assigned' => Icons.assignment,
         _ => Icons.notifications,
       };
 
   /// The bottom tab of [role] that this notification is about, if any.
   int? tabFor(AppRole role) => switch ((role, kind)) {
         (AppRole.parent, 'child_message' || 'child_message_reply' || 'child_message_like') => 1,
+        (AppRole.parent, 'homework_assigned') => 2,
         (AppRole.parent, _) => 0,
         (AppRole.supervisor, 'child_message' || 'child_message_reply' || 'child_message_like') => 2,
         (AppRole.supervisor, 'absence_alert') => 4,
