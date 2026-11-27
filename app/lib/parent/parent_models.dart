@@ -56,9 +56,29 @@ class ParentSnapshot {
     this.sessions = const [],
     this.staffNames = const {},
     this.parents = const [],
+    this.activities = const [],
   });
 
   final List<ParentChild> children;
+
+  /// The أنشطة نوعية of the children's groups, sorted by start.
+  final List<SpecialActivity> activities;
+
+  SpecialActivity? activity(String id) => activities.where((a) => a.id == id).firstOrNull;
+
+  /// The planned activity that replaces [s], if any.
+  SpecialActivity? replacedBy(Session s) => activityReplacing(activities, s);
+
+  /// The child's activities that have not ended yet, cancelled ones included.
+  List<SpecialActivity> activitiesFor(String childId, DateTime now) {
+    final group = child(childId)?.group?.id;
+    if (group == null) return const [];
+    return activities.where((a) => a.groupIds.contains(group) && a.endsAt.isAfter(now)).toList();
+  }
+
+  /// The child's next activity that is not cancelled, for the banner on top.
+  SpecialActivity? nextActivityFor(String childId, DateTime now) =>
+      activitiesFor(childId, now).where((a) => !a.cancelled).firstOrNull;
 
   /// Sorted by start.
   final List<Session> sessions;
@@ -77,12 +97,16 @@ class ParentSnapshot {
     return sessions.where((s) => s.groupId == group && s.endsAt.isAfter(now)).toList();
   }
 
-  Session? nextFor(String childId, DateTime now) => upcomingFor(childId, now).where((s) => !s.cancelled).firstOrNull;
+  Session? nextFor(String childId, DateTime now) =>
+      upcomingFor(childId, now).where((s) => !s.cancelled && replacedBy(s) == null).firstOrNull;
 
-  /// Changed or cancelled sessions in the next seven days.
+  /// Changed, cancelled or replaced sessions in the next seven days.
   List<Session> changesFor(String childId, DateTime now) {
     final until = dayOnly(now).add(const Duration(days: 8));
-    return upcomingFor(childId, now).where((s) => s.status != SessionStatus.planned && s.date.isBefore(until)).toList();
+    return upcomingFor(
+      childId,
+      now,
+    ).where((s) => (s.status != SessionStatus.planned || replacedBy(s) != null) && s.date.isBefore(until)).toList();
   }
 
   /// Everyone told about these children's sessions: the caller first, each person once.
@@ -99,6 +123,7 @@ class ParentSnapshot {
     'sessions': [for (final s in sessions) s.toJson()],
     'staff_names': staffNames,
     'parents': [for (final p in parents) p.toJson()],
+    'activities': [for (final a in activities) a.toJson()],
   };
 
   static ParentSnapshot fromJson(Map<String, dynamic> j) => ParentSnapshot(
@@ -109,6 +134,9 @@ class ParentSnapshot {
         e.key as String: [for (final n in e.value as List) n as String],
     },
     parents: [for (final p in j['parents'] as List) ChildParent.fromJson(p as Map<String, dynamic>)],
+    activities: [
+      for (final a in (j['activities'] as List?) ?? const []) SpecialActivity.fromJson(a as Map<String, dynamic>),
+    ],
   );
 }
 

@@ -42,6 +42,8 @@ class AppNotification {
         'session_created' || 'session_changed' => Icons.event,
         'absence_alert' => Icons.warning_amber_rounded,
         'instructor_absence' => Icons.person_off,
+        'activity_cancelled' => Icons.event_busy,
+        'activity_created' || 'activity_changed' || 'activity_reminder' => Icons.celebration,
         _ => Icons.notifications,
       };
 
@@ -56,6 +58,7 @@ class AppNotification {
         (AppRole.instructor, 'absence_alert') => 3,
         (AppRole.instructor, _) => 1,
         (AppRole.advisor, 'session_cancelled' || 'session_created' || 'session_changed' || 'instructor_absence') => 1,
+        (AppRole.advisor, 'activity_created' || 'activity_changed' || 'activity_cancelled' || 'activity_reminder') => 1,
         (AppRole.advisor, 'absence_alert') => 3,
         _ => null,
       };

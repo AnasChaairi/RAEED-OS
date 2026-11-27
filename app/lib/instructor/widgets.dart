@@ -100,6 +100,9 @@ class SessionCard extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final group = data.group(s.groupId);
     final taken = data.attendanceFor(s.id).isNotEmpty;
+    // A نشاط نوعي over it has priority: shown as cancelled, with the activity's name.
+    final by = s.cancelled ? null : data.replacedBy(s);
+    final off = s.cancelled || by != null;
     final extras = [
       if (s.materials.isNotEmpty)
         countLabel(s.materials.length, one: 'مادة مرفقة', two: 'مادتان مرفقتان', few: 'مواد مرفقة', many: 'مادة مرفقة'),
@@ -125,7 +128,7 @@ class SessionCard extends StatelessWidget {
                       formatTime(s.start),
                       style: text.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        decoration: s.cancelled ? TextDecoration.lineThrough : null,
+                        decoration: off ? TextDecoration.lineThrough : null,
                       ),
                     ),
                     Text('${s.end - s.start} د', style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
@@ -144,6 +147,12 @@ class SessionCard extends StatelessWidget {
                     if (s.cancelled)
                       Text(
                         'ملغاة${s.cancelReason == null || s.cancelReason!.isEmpty ? '' : ' · ${s.cancelReason}'}',
+                        style: text.bodySmall?.copyWith(color: RaeedColors.error, fontWeight: FontWeight.w600),
+                      )
+                    else if (by != null)
+                      Text(
+                        by.replacesLabel,
+                        key: Key('replaced-by-${s.id}'),
                         style: text.bodySmall?.copyWith(color: RaeedColors.error, fontWeight: FontWeight.w600),
                       )
                     else ...[
@@ -167,7 +176,7 @@ class SessionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (s.status == SessionStatus.changed && !s.cancelled)
+              if (s.status == SessionStatus.changed && !off)
                 const Padding(
                   padding: EdgeInsetsDirectional.only(start: 6),
                   child: Icon(Icons.update, size: 18, color: RaeedColors.starEnd, semanticLabel: 'تغيّر الموعد'),
