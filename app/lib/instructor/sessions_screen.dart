@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import 'activities_screen.dart';
 import 'attendance_screen.dart';
 import 'instructor_repository.dart';
 import 'models.dart';
@@ -34,14 +35,34 @@ class _SessionsTabState extends State<SessionsTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       // A category supervisor plans from فئتي, under the group's الحصص.
-      floatingActionButton: store.view != StaffView.all || store.data.groups.isEmpty
+      // The advisor plans sessions here; a category supervisor plans them from فئتي, under
+      // the group's الحصص. Both plan أنشطة نوعية here, for one or several فئات.
+      floatingActionButton: !store.plansActivities
           ? null
-          : FloatingActionButton.extended(
-              key: const Key('new-session'),
-              heroTag: 'new-session',
-              onPressed: () => openSessionForm(context),
-              icon: const Icon(Icons.add),
-              label: const Text('حصة جديدة'),
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.extended(
+                  key: const Key('new-activity'),
+                  heroTag: 'new-activity',
+                  backgroundColor: RaeedColors.starSoft,
+                  foregroundColor: const Color(0xFF8A4B00),
+                  onPressed: () => openActivityForm(context),
+                  icon: const Icon(Icons.celebration_outlined),
+                  label: const Text('نشاط نوعي'),
+                ),
+                if (store.view == StaffView.all) ...[
+                  const SizedBox(height: 10),
+                  FloatingActionButton.extended(
+                    key: const Key('new-session'),
+                    heroTag: 'new-session',
+                    onPressed: () => openSessionForm(context),
+                    icon: const Icon(Icons.add),
+                    label: const Text('حصة جديدة'),
+                  ),
+                ],
+              ],
             ),
       body: InstructorLoadGate(
         builder: (context, data) {
@@ -50,6 +71,13 @@ class _SessionsTabState extends State<SessionsTab> {
             if (s.date.isBefore(weekStart) || s.date.isAfter(weekEnd)) continue;
             days.putIfAbsent(s.date, () => []).add(s);
           }
+          // أنشطة نوعية show on each day they cover, above that day's sessions.
+          final activityDays = <DateTime, List<SpecialActivity>>{};
+          for (var d = weekStart; !d.isAfter(weekEnd); d = DateTime(d.year, d.month, d.day + 1)) {
+            final on = data.activitiesOn(d);
+            if (on.isNotEmpty) activityDays[d] = on;
+          }
+          final dayList = {...days.keys, ...activityDays.keys}.toList()..sort();
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
             children: [
@@ -86,15 +114,25 @@ class _SessionsTabState extends State<SessionsTab> {
                       ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
                       : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.',
                 )
-              else if (days.isEmpty)
+              else if (dayList.isEmpty)
                 _Hint(
                   store.schedules
                       ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
                       : 'لا حصص هذا الأسبوع. يخطّط المشرف العام الحصص وتظهر هنا.',
                 ),
-              for (final e in days.entries) ...[
-                SectionLabel(dayLabel(e.key, now)),
-                for (final s in e.value) ...[
+              for (final day in dayList) ...[
+                SectionLabel(dayLabel(day, now)),
+                for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
+                  ActivityCard(
+                    activity: a,
+                    day: day,
+                    groupNames: activityGroupNames(a, data.groups),
+                    replaced: a.dayNumber(day) == 1 ? data.replacedSessions(a).length : 0,
+                    onTap: () => openActivity(context, a.id),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                for (final s in days[day] ?? const <Session>[]) ...[
                   SessionCard(session: s, data: data, onTap: () => openSession(context, s.id)),
                   const SizedBox(height: 8),
                 ],
@@ -153,6 +191,7 @@ class SessionDetailScreen extends StatelessWidget {
     final mine = data.absenceOf(s.id, store.personId);
     final absences = data.absencesFor(s.id);
     final over = !s.endsAt.isAfter(store.now());
+    final by = s.cancelled ? null : data.replacedBy(s);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 68,
@@ -215,6 +254,23 @@ class SessionDetailScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (by != null) ...[
+            const SizedBox(height: 8),
+            Card(
+              key: const Key('session-replaced'),
+              color: const Color(0xFFFDE8E3),
+              child: ListTile(
+                leading: Text(by.kind.emoji, style: const TextStyle(fontSize: 26)),
+                title: Text(
+                  by.replacesLabel,
+                  style: text.titleSmall?.copyWith(color: RaeedColors.error, fontWeight: FontWeight.w700),
+                ),
+                subtitle: const Text('للنشاط النوعي الأولوية: لا يُسجَّل حضور هذه الحصة ولا يُحسب غياب للمؤطرين.'),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => openActivity(context, by.id),
+              ),
+            ),
+          ],
           if (s.materials.isNotEmpty) ...[
             const SectionLabel('المواد'),
             for (final m in s.materials) MaterialRow(material: m),

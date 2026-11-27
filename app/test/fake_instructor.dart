@@ -17,6 +17,8 @@ class FakeInstructorRepository implements InstructorRepository {
   final observations = <SessionObservation>[];
   final staffPhones = <String, String>{};
   final absences = <InstructorAbsence>[];
+  final activities = <SpecialActivity>[];
+  final activityAttendance = <String, ActivityAttendance>{};
 
   /// Who is signed in, for writes that take it from the session.
   String me = 'me';
@@ -54,6 +56,9 @@ class FakeInstructorRepository implements InstructorRepository {
       staffNames: staffNames,
       staffPhones: staffPhones,
       absences: absences.where((a) => list.any((s) => s.id == a.sessionId)).toList(),
+      activities: (activities.where((a) => a.groupIds.any(mine.contains)).toList()
+        ..sort((a, b) => a.startsAt.compareTo(b.startsAt))),
+      activityAttendance: activityAttendance.values.toList(),
     );
   }
 
@@ -299,6 +304,66 @@ class FakeInstructorRepository implements InstructorRepository {
     _check();
     calls.add('withdrawAbsence $absenceId');
     absences.removeWhere((a) => a.id == absenceId);
+  }
+
+  SpecialActivity _withId(SpecialActivity d, String id, {bool? cancelled, String? reason}) => SpecialActivity(
+    id: id,
+    kind: d.kind,
+    customLabel: d.customLabel,
+    title: d.title,
+    place: d.place,
+    mapUrl: d.mapUrl,
+    meetingPlace: d.meetingPlace,
+    details: d.details,
+    startDate: d.startDate,
+    start: d.start,
+    endDate: d.endDate,
+    end: d.end,
+    cancelled: cancelled ?? d.cancelled,
+    cancelReason: reason ?? d.cancelReason,
+    groupIds: d.groupIds,
+  );
+
+  @override
+  Future<String> createActivity(SpecialActivity draft) async {
+    _check();
+    final id = 'act${_ids++}';
+    calls.add('createActivity ${draft.title} ${(draft.groupIds.toList()..sort()).join(',')}');
+    activities.add(_withId(draft, id));
+    return id;
+  }
+
+  @override
+  Future<void> updateActivity(SpecialActivity draft) async {
+    _check();
+    calls.add('updateActivity ${draft.id} ${draft.title}');
+    final i = activities.indexWhere((a) => a.id == draft.id);
+    activities[i] = _withId(draft, draft.id);
+  }
+
+  @override
+  Future<void> cancelActivity(String activityId, String reason) async {
+    _check();
+    calls.add('cancelActivity $activityId $reason');
+    final i = activities.indexWhere((a) => a.id == activityId);
+    activities[i] = _withId(activities[i], activityId, cancelled: true, reason: reason);
+  }
+
+  @override
+  Future<void> deleteActivity(String activityId) async {
+    _check();
+    calls.add('deleteActivity $activityId');
+    activities.removeWhere((a) => a.id == activityId);
+  }
+
+  @override
+  Future<void> saveActivityAttendance(String activityId, Map<String, AttendanceStatus> statuses) async {
+    _check();
+    calls.add('saveActivityAttendance $activityId ${statuses.length}');
+    for (final e in statuses.entries) {
+      activityAttendance['$activityId/${e.key}'] =
+          ActivityAttendance(activityId: activityId, childId: e.key, status: e.value);
+    }
   }
 }
 

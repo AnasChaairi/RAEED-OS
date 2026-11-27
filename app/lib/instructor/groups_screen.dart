@@ -6,6 +6,7 @@ import '../profile/child_profile_screen.dart';
 import '../setup/models.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import 'activities_screen.dart';
 import 'models.dart';
 import 'session_form_screen.dart';
 import 'sessions_screen.dart';
@@ -184,10 +185,10 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               style: text.bodySmall?.copyWith(color: RaeedColors.grey),
             ),
           ] else ...[
-            if (sessions.isEmpty)
+            if (sessions.isEmpty && !data.activities.any((a) => a.groupIds.contains(group.id)))
               const Text('لا حصص بعد.', style: TextStyle(color: RaeedColors.grey))
             else
-              _GroupSessions(sessions: sessions, data: data, now: now),
+              _GroupSessions(sessions: sessions, data: data, now: now, groupId: group.id),
           ],
           if (store.schedules && _tab == 1) ...[
             const SizedBox(height: 12),
@@ -196,6 +197,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               onPressed: () => openSessionForm(context, groupId: group.id),
               icon: const Icon(Icons.add),
               label: const Text('حصة جديدة لهذه الفئة'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('new-activity-for-group'),
+              onPressed: () => openActivityForm(context, groupId: group.id),
+              icon: const Icon(Icons.celebration_outlined),
+              label: const Text('نشاط نوعي لهذه الفئة'),
             ),
           ],
         ],
@@ -219,7 +227,7 @@ class _InstructorWork extends StatelessWidget {
     final monthAgo = dayOnly(now).subtract(const Duration(days: 30));
     final theirs = [
       for (final s in data.sessionsOf(group.id))
-        if (!s.cancelled && data.runs(s, personId)) s,
+        if (!s.cancelled && data.replacedBy(s) == null && data.runs(s, personId)) s,
     ];
     final done = [
       for (final s in theirs)
@@ -285,8 +293,9 @@ class _Pill extends StatelessWidget {
 /// A فئة's sessions: its weekly series in short, then one week at a time, so a long
 /// series does not make an endless list.
 class _GroupSessions extends StatefulWidget {
-  const _GroupSessions({required this.sessions, required this.data, required this.now});
+  const _GroupSessions({required this.sessions, required this.data, required this.now, required this.groupId});
 
+  final String groupId;
   final List<Session> sessions;
   final InstructorSnapshot data;
   final DateTime now;
@@ -314,6 +323,15 @@ class _GroupSessionsState extends State<_GroupSessions> {
       if (s.date.isBefore(weekStart) || s.date.isAfter(weekEnd)) continue;
       days.putIfAbsent(s.date, () => []).add(s);
     }
+    final activityDays = <DateTime, List<SpecialActivity>>{};
+    for (var d = weekStart; !d.isAfter(weekEnd); d = DateTime(d.year, d.month, d.day + 1)) {
+      final on = [
+        for (final a in widget.data.activitiesOn(d))
+          if (a.groupIds.contains(widget.groupId)) a,
+      ];
+      if (on.isNotEmpty) activityDays[d] = on;
+    }
+    final dayList = {...days.keys, ...activityDays.keys}.toList()..sort();
     // Series with sessions still to come.
     final series = <String, List<Session>>{};
     for (final s in widget.sessions) {
@@ -360,7 +378,7 @@ class _GroupSessionsState extends State<_GroupSessions> {
             ),
           ],
         ),
-        if (days.isEmpty) ...[
+        if (dayList.isEmpty) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
@@ -376,9 +394,18 @@ class _GroupSessionsState extends State<_GroupSessions> {
               child: Text('الحصة القادمة: ${dayLabel(next.date, now)}'),
             ),
         ],
-        for (final e in days.entries) ...[
-          SectionLabel(dayLabel(e.key, now)),
-          for (final s in e.value) ...[
+        for (final day in dayList) ...[
+          SectionLabel(dayLabel(day, now)),
+          for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
+            ActivityCard(
+              activity: a,
+              day: day,
+              groupNames: activityGroupNames(a, widget.data.groups),
+              onTap: () => openActivity(context, a.id),
+            ),
+            const SizedBox(height: 8),
+          ],
+          for (final s in days[day] ?? const <Session>[]) ...[
             SessionCard(session: s, data: widget.data, showGroup: false, onTap: () => openSession(context, s.id)),
             const SizedBox(height: 8),
           ],
@@ -464,7 +491,8 @@ class InstructorDetailScreen extends StatelessWidget {
     final since = data.termStart ?? dayOnly(now).subtract(const Duration(days: 30));
     final theirs = [
       for (final s in data.sessionsOf(groupId))
-        if (!s.cancelled && data.runs(s, personId) && !s.date.isBefore(since)) s,
+        // A session replaced by a نشاط نوعي does not count for or against them.
+        if (!s.cancelled && data.replacedBy(s) == null && data.runs(s, personId) && !s.date.isBefore(since)) s,
     ];
     final presence = {for (final s in theirs) s.id: data.presence(s, personId, now)};
     int count(InstructorPresence p) => presence.values.where((v) => v == p).length;

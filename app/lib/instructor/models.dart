@@ -548,6 +548,8 @@ class InstructorSnapshot {
     this.staffPhones = const {},
     this.absences = const [],
     this.termStart,
+    this.activities = const [],
+    this.activityAttendance = const [],
   });
 
   final List<Group> groups;
@@ -567,6 +569,29 @@ class InstructorSnapshot {
   /// Instructors' notices of absence on these sessions.
   final List<InstructorAbsence> absences;
   final DateTime? termStart;
+
+  /// The أنشطة نوعية of these groups, sorted by start.
+  final List<SpecialActivity> activities;
+  final List<ActivityAttendance> activityAttendance;
+
+  SpecialActivity? activity(String id) => activities.where((a) => a.id == id).firstOrNull;
+
+  /// The planned activity that replaces [s], if any.
+  SpecialActivity? replacedBy(Session s) => activityReplacing(activities, s);
+
+  /// The activities on [day], cancelled ones included.
+  List<SpecialActivity> activitiesOn(DateTime day) => activities.where((a) => a.covers(day)).toList();
+
+  /// The sessions [a] replaces, for the groups in this snapshot.
+  List<Session> replacedSessions(SpecialActivity a) => sessions.where((s) => !s.cancelled && a.replaces(s)).toList();
+
+  Map<String, AttendanceStatus> activityAttendanceFor(String activityId) => {
+    for (final r in activityAttendance)
+      if (r.activityId == activityId) r.childId: r.status,
+  };
+
+  /// The children of [a]'s groups that this snapshot holds.
+  List<RosterChild> childrenOf(SpecialActivity a) => children.where((c) => a.groupIds.contains(c.groupId)).toList();
 
   /// [personId]'s notice of absence for [sessionId], if they gave one.
   InstructorAbsence? absenceOf(String sessionId, String? personId) =>
@@ -606,6 +631,7 @@ class InstructorSnapshot {
         (s) =>
             !s.cancelled &&
             s.endsAt.isAfter(now) &&
+            replacedBy(s) == null &&
             (groupId == null || s.groupId == groupId) &&
             (where == null || where(s)),
       )
@@ -635,17 +661,20 @@ class InstructorSnapshot {
   /// The number of parent accounts that hear about a change to this group.
   int parentCount(String groupId) => {for (final c in childrenIn(groupId)) ...c.parents.map((p) => p.id)}.length;
 
-  InstructorSnapshot copyWith({List<AttendanceRecord>? attendance}) => InstructorSnapshot(
-    groups: groups,
-    children: children,
-    sessions: sessions,
-    attendance: attendance ?? this.attendance,
-    alerts: alerts,
-    staffNames: staffNames,
-    staffPhones: staffPhones,
-    absences: absences,
-    termStart: termStart,
-  );
+  InstructorSnapshot copyWith({List<AttendanceRecord>? attendance, List<ActivityAttendance>? activityAttendance}) =>
+      InstructorSnapshot(
+        groups: groups,
+        children: children,
+        sessions: sessions,
+        attendance: attendance ?? this.attendance,
+        alerts: alerts,
+        staffNames: staffNames,
+        staffPhones: staffPhones,
+        absences: absences,
+        termStart: termStart,
+        activities: activities,
+        activityAttendance: activityAttendance ?? this.activityAttendance,
+      );
 
   Map<String, Object?> toJson() => {
     'groups': [
@@ -669,6 +698,8 @@ class InstructorSnapshot {
     'staff_phones': staffPhones,
     'absences': [for (final a in absences) a.toJson()],
     'term_start': termStart == null ? null : dbDay(termStart!),
+    'activities': [for (final a in activities) a.toJson()],
+    'activity_attendance': [for (final a in activityAttendance) a.toJson()],
   };
 
   static InstructorSnapshot fromJson(Map<String, dynamic> j) => InstructorSnapshot(
@@ -695,6 +726,13 @@ class InstructorSnapshot {
       for (final a in (j['absences'] as List?) ?? const []) InstructorAbsence.fromJson(a as Map<String, dynamic>),
     ],
     termStart: j['term_start'] == null ? null : DateTime.parse(j['term_start'] as String),
+    activities: [
+      for (final a in (j['activities'] as List?) ?? const []) SpecialActivity.fromJson(a as Map<String, dynamic>),
+    ],
+    activityAttendance: [
+      for (final a in (j['activity_attendance'] as List?) ?? const [])
+        ActivityAttendance.fromJson(a as Map<String, dynamic>),
+    ],
   );
 }
 
@@ -707,3 +745,160 @@ List<DateTime> seriesDates(DateTime first, DateTime until, Set<int> weekdays) {
   }
   return out;
 }
+
+/// The types of نشاط نوعي. [custom] carries the planner's own name for it.
+enum ActivityKind {
+  camp('مخيم', '⛺'),
+  overnight('مبيت', '🌙'),
+  outing('خرجة', '🚌'),
+  custom('نشاط آخر', '⭐');
+
+  const ActivityKind(this.label, this.emoji);
+
+  final String label;
+  final String emoji;
+}
+
+/// A نشاط نوعي: a camp, sleepover, outing or another kind, for one or more فئات, over
+/// one or several days. It has priority: a حصة of one of its فئات that overlaps it is
+/// replaced by it (shown crossed out, no attendance, no reminder).
+class SpecialActivity {
+  const SpecialActivity({
+    required this.id,
+    required this.kind,
+    this.customLabel,
+    required this.title,
+    required this.place,
+    this.mapUrl,
+    this.meetingPlace,
+    this.details,
+    required this.startDate,
+    required this.start,
+    required this.endDate,
+    required this.end,
+    this.cancelled = false,
+    this.cancelReason,
+    this.groupIds = const [],
+    this.createdBy,
+  });
+
+  final String id;
+  final ActivityKind kind;
+  final String? customLabel;
+  final String title;
+  final String place;
+  final String? mapUrl;
+
+  /// Where the children are dropped off and picked up, when it is not [place].
+  final String? meetingPlace;
+
+  /// What to bring, the cost, anything else for the parents.
+  final String? details;
+  final DateTime startDate;
+
+  /// Minutes after midnight on [startDate].
+  final int start;
+  final DateTime endDate;
+
+  /// Minutes after midnight on [endDate].
+  final int end;
+  final bool cancelled;
+  final String? cancelReason;
+  final List<String> groupIds;
+  final String? createdBy;
+
+  DateTime get startsAt => startDate.add(Duration(minutes: start));
+  DateTime get endsAt => endDate.add(Duration(minutes: end));
+
+  /// مخيم, مبيت, خرجة, or the planner's name for it.
+  String get kindLabel =>
+      kind == ActivityKind.custom && (customLabel ?? '').trim().isNotEmpty ? customLabel!.trim() : kind.label;
+
+  /// The number of days it covers, 1 for a single day.
+  int get dayCount => endDate.difference(startDate).inDays + 1;
+
+  bool covers(DateTime day) => !dayOnly(day).isBefore(startDate) && !dayOnly(day).isAfter(endDate);
+
+  /// What a حصة it replaces says: "ملغاة بسبب: ⛺ مخيم · مخيم الربيع".
+  String get replacesLabel => 'ملغاة بسبب: ${kind.emoji} $kindLabel · $title';
+
+  /// 1 on its first day, 2 on the second...
+  int dayNumber(DateTime day) => dayOnly(day).difference(startDate).inDays + 1;
+
+  /// السبت 13 فبراير · 09:00 – 17:00, or من السبت 13 فبراير 09:00 إلى الاثنين 15 فبراير 17:00.
+  String get whenLabel => dayCount == 1
+      ? '${longDay(startDate)} · ${formatTime(start)} – ${formatTime(end)}'
+      : 'من ${longDay(startDate)} ${formatTime(start)} إلى ${longDay(endDate)} ${formatTime(end)}';
+
+  /// Whether it replaces [s]: planned, for [s]'s فئة, and overlapping it in time.
+  bool replaces(Session s) =>
+      !cancelled && groupIds.contains(s.groupId) && startsAt.isBefore(s.endsAt) && endsAt.isAfter(s.startsAt);
+
+  /// The columns in the shape create_activity and update_activity read.
+  Map<String, Object?> toFields() => {
+    'kind': kind.name,
+    'custom_label': kind == ActivityKind.custom ? customLabel : null,
+    'title': title,
+    'place': place,
+    'map_url': mapUrl,
+    'meeting_place': meetingPlace,
+    'details': details,
+    'start_date': dbDay(startDate),
+    'start_time': formatTime(start),
+    'end_date': dbDay(endDate),
+    'end_time': formatTime(end),
+  };
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    ...toFields(),
+    'status': cancelled ? 'cancelled' : 'planned',
+    'cancel_reason': cancelReason,
+    'group_ids': groupIds,
+    'created_by': createdBy,
+  };
+
+  /// Reads a special_activities row (with its activity_groups) or [toJson]'s output.
+  static SpecialActivity fromJson(Map<String, dynamic> j) => SpecialActivity(
+    id: j['id'] as String,
+    kind: ActivityKind.values.byName(j['kind'] as String),
+    customLabel: j['custom_label'] as String?,
+    title: j['title'] as String,
+    place: j['place'] as String,
+    mapUrl: j['map_url'] as String?,
+    meetingPlace: j['meeting_place'] as String?,
+    details: j['details'] as String?,
+    startDate: DateTime.parse(j['start_date'] as String),
+    start: parseTime(j['start_time'] as String),
+    endDate: DateTime.parse(j['end_date'] as String),
+    end: parseTime(j['end_time'] as String),
+    cancelled: j['status'] == 'cancelled',
+    cancelReason: j['cancel_reason'] as String?,
+    groupIds: [
+      for (final g in (j['group_ids'] as List? ?? const [])) g as String,
+      for (final g in (j['activity_groups'] as List? ?? const [])) (g as Map)['group_id'] as String,
+    ],
+    createdBy: j['created_by'] as String?,
+  );
+}
+
+/// One child's status on one activity.
+class ActivityAttendance {
+  const ActivityAttendance({required this.activityId, required this.childId, required this.status});
+
+  final String activityId;
+  final String childId;
+  final AttendanceStatus status;
+
+  Map<String, Object?> toJson() => {'activity_id': activityId, 'child_id': childId, 'status': status.name};
+
+  static ActivityAttendance fromJson(Map<String, dynamic> j) => ActivityAttendance(
+    activityId: j['activity_id'] as String,
+    childId: j['child_id'] as String,
+    status: AttendanceStatus.fromDb(j['status'] as String),
+  );
+}
+
+/// The first planned activity of [activities] that replaces [s], if any.
+SpecialActivity? activityReplacing(List<SpecialActivity> activities, Session s) =>
+    activities.where((a) => a.replaces(s)).firstOrNull;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import 'activities_screen.dart';
 import 'alerts_screen.dart';
 import 'models.dart';
 import 'sessions_screen.dart';
@@ -53,6 +54,18 @@ class TodayTab extends StatelessWidget {
                 ),
               ),
             for (final a in data.openAlerts.take(3)) ...[const SizedBox(height: 10), AlertCard(alert: a, data: data)],
+            // أنشطة نوعية of their groups in the coming two weeks.
+            if (_coming(data, now).isNotEmpty) ...[
+              const SectionLabel('أنشطة نوعية قادمة'),
+              for (final a in _coming(data, now)) ...[
+                ActivityCard(
+                  activity: a,
+                  groupNames: activityGroupNames(a, data.groups),
+                  onTap: () => openActivity(context, a.id),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
             if (waiting.isNotEmpty || sentToday.isNotEmpty) ...[
               const SectionLabel('إرسال الحضور'),
               for (final id in waiting) _QueueRow(label: _sessionName(data, id, now), waiting: true),
@@ -77,6 +90,11 @@ class TodayTab extends StatelessWidget {
       },
     );
   }
+
+  static List<SpecialActivity> _coming(InstructorSnapshot data, DateTime now) => [
+    for (final a in data.activities)
+      if (!a.cancelled && a.endsAt.isAfter(now) && a.startDate.isBefore(dayOnly(now).add(const Duration(days: 15)))) a,
+  ];
 
   static String _sessionName(InstructorSnapshot data, String id, DateTime now) {
     final s = data.session(id);
@@ -202,7 +220,7 @@ class _MonthAppointmentsState extends State<_MonthAppointments> {
     for (final s in mine) {
       days.putIfAbsent(s.date, () => []).add(s);
     }
-    final coming = mine.where((s) => !s.cancelled && s.endsAt.isAfter(now)).length;
+    final coming = mine.where((s) => !s.cancelled && data.replacedBy(s) == null && s.endsAt.isAfter(now)).length;
     final away = mine.where((s) => data.absenceOf(s.id, store.personId) != null).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -279,7 +297,9 @@ class _Appointment extends StatelessWidget {
     final s = session;
     final group = data.group(s.groupId);
     final absence = data.absenceOf(s.id, store.personId);
-    final open = !s.cancelled && s.endsAt.isAfter(now);
+    final by = s.cancelled ? null : data.replacedBy(s);
+    final off = s.cancelled || by != null;
+    final open = !off && s.endsAt.isAfter(now);
     final text = Theme.of(context).textTheme;
     return Card(
       key: Key('appointment-${s.id}'),
@@ -287,15 +307,16 @@ class _Appointment extends StatelessWidget {
         leading: group == null ? null : GroupLogo.of(group, size: 36),
         title: Text(
           '${formatTime(s.start)} · ${s.title}',
-          style: TextStyle(decoration: s.cancelled ? TextDecoration.lineThrough : null),
+          style: TextStyle(decoration: off ? TextDecoration.lineThrough : null),
         ),
         subtitle: Text(
           [
             [?group?.name, s.placeLabel].join(' · '),
             if (s.cancelled) 'ملغاة',
+            if (by != null) by.replacesLabel,
             if (absence != null) 'غيابك: ${absence.reason}',
           ].join('\n'),
-          style: absence != null || s.cancelled ? text.bodySmall?.copyWith(color: RaeedColors.error) : null,
+          style: absence != null || off ? text.bodySmall?.copyWith(color: RaeedColors.error) : null,
         ),
         trailing: absence != null
             ? const Icon(Icons.person_off, color: RaeedColors.error, semanticLabel: 'غائب')

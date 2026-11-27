@@ -59,7 +59,28 @@ class SupabaseParentRepository implements ParentRepository {
       _db.rpc<List<dynamic>>('my_children_parents'),
       for (final g in groupIds) _db.rpc<List<dynamic>>('group_staff_names', params: {'g': g}),
     ]);
+    // أنشطة نوعية, read apart: the schedule still opens before their tables exist.
+    final activities = <SpecialActivity>[];
+    if (groupIds.isNotEmpty) {
+      try {
+        final links = await _db.from('activity_groups').select('activity_id').inFilter('group_id', groupIds);
+        final ids = {for (final l in links) l['activity_id'] as String}.toList();
+        if (ids.isNotEmpty) {
+          final rows = await _db
+              .from('special_activities')
+              .select('*, activity_groups(group_id)')
+              .inFilter('id', ids)
+              .gte('end_date', dbDay(today.subtract(const Duration(days: 7))))
+              .lte('start_date', dbDay(today.add(const Duration(days: 62))));
+          activities.addAll(rows.map(SpecialActivity.fromJson));
+          activities.sort((a, b) => a.startsAt.compareTo(b.startsAt));
+        }
+      } on PostgrestException {
+        activities.clear();
+      }
+    }
     return ParentSnapshot(
+      activities: activities,
       children: children,
       sessions: [for (final s in results[0]) Session.fromJson(s as Map<String, dynamic>)],
       parents: [for (final p in results[1]) ChildParent.fromJson(p as Map<String, dynamic>)],

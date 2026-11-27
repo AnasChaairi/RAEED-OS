@@ -64,6 +64,22 @@ abstract interface class InstructorRepository {
 
   /// Takes back a notice of absence.
   Future<void> withdrawAbsence(String absenceId);
+
+  /// Plans a نشاط نوعي for its groups. Parents, instructors and supervisors are notified.
+  /// Returns its id.
+  Future<String> createActivity(SpecialActivity draft);
+
+  /// Edits [draft] (its id names the activity) and the groups it is for.
+  Future<void> updateActivity(SpecialActivity draft);
+
+  /// Cancels it: the sessions it replaced take place again. Everyone is notified.
+  Future<void> cancelActivity(String activityId, String reason);
+
+  /// Deletes it with its attendance. Nobody is notified.
+  Future<void> deleteActivity(String activityId);
+
+  /// Saves the attendance taken on an activity. Needs a connection.
+  Future<void> saveActivityAttendance(String activityId, Map<String, AttendanceStatus> statuses);
 }
 
 class SupabaseInstructorRepository implements InstructorRepository {
@@ -192,7 +208,41 @@ class SupabaseInstructorRepository implements InstructorRepository {
       absences.clear();
     }
 
+    // أنشطة نوعية, read apart too: the app still opens before their tables exist.
+    final activities = <SpecialActivity>[];
+    final activityAttendance = <ActivityAttendance>[];
+    try {
+      final links = await _db.from('activity_groups').select('activity_id').inFilter('group_id', ids);
+      final activityIds = {for (final l in links) l['activity_id'] as String}.toList();
+      for (var i = 0; i < activityIds.length; i += 100) {
+        final rows = await _db
+            .from('special_activities')
+            .select('*, activity_groups(group_id)')
+            .inFilter('id', activityIds.sublist(i, i + 100 > activityIds.length ? activityIds.length : i + 100))
+            .gte('end_date', dbDay(from))
+            .lte('start_date', dbDay(today.add(const Duration(days: 200))));
+        activities.addAll(rows.map(SpecialActivity.fromJson));
+      }
+      activities.sort((a, b) => a.startsAt.compareTo(b.startsAt));
+      final begun = [
+        for (final a in activities)
+          if (!a.startDate.isAfter(today)) a.id,
+      ];
+      for (var i = 0; i < begun.length; i += 100) {
+        final rows = await _db
+            .from('activity_attendance')
+            .select('activity_id, child_id, status')
+            .inFilter('activity_id', begun.sublist(i, i + 100 > begun.length ? begun.length : i + 100));
+        activityAttendance.addAll(rows.map(ActivityAttendance.fromJson));
+      }
+    } on PostgrestException {
+      activities.clear();
+      activityAttendance.clear();
+    }
+
     return InstructorSnapshot(
+      activities: activities,
+      activityAttendance: activityAttendance,
       groups: groups,
       children: children,
       sessions: sessions,
@@ -213,6 +263,46 @@ class SupabaseInstructorRepository implements InstructorRepository {
   @override
   Future<void> withdrawAbsence(String absenceId) =>
       guardSupabase(() => _db.from('instructor_absences').delete().eq('id', absenceId));
+
+  @override
+  Future<String> createActivity(SpecialActivity draft) => guardSupabase(() async {
+    final id = await _db.rpc('create_activity', params: {'p_fields': draft.toFields(), 'p_groups': draft.groupIds});
+    return id as String;
+  });
+
+  @override
+  Future<void> updateActivity(SpecialActivity draft) => guardSupabase(
+    () => _db.rpc(
+      'update_activity',
+      params: {'p_activity': draft.id, 'p_fields': draft.toFields(), 'p_groups': draft.groupIds},
+    ),
+  );
+
+  @override
+  Future<void> cancelActivity(String activityId, String reason) => guardSupabase(
+    () => _db.rpc('cancel_activity', params: {'p_activity': activityId, 'p_reason': reason}),
+  );
+
+  @override
+  Future<void> deleteActivity(String activityId) =>
+      guardSupabase(() => _db.rpc('delete_activity', params: {'p_activity': activityId}));
+
+  @override
+  Future<void> saveActivityAttendance(String activityId, Map<String, AttendanceStatus> statuses) =>
+      guardSupabase(() async {
+        if (statuses.isEmpty) return;
+        final at = DateTime.now().toUtc().toIso8601String();
+        await _db.from('activity_attendance').upsert([
+          for (final e in statuses.entries)
+            {
+              'activity_id': activityId,
+              'child_id': e.key,
+              'status': e.value.name,
+              'recorded_by': _me,
+              'recorded_at': at,
+            },
+        ], onConflict: 'activity_id,child_id');
+      });
 
   @override
   Future<void> pushAttendance(List<AttendanceRecord> records) => guardSupabase(() async {

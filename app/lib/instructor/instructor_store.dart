@@ -53,7 +53,27 @@ class InstructorStore extends ChangeNotifier {
   bool runs(Session s) => _data.runs(s, _personId);
 
   /// Whether the signed-in person takes [s]'s attendance and writes observations on it.
-  bool canRecord(Session s) => _view == StaffView.teaching && runs(s);
+  /// Nobody does on a session that a نشاط نوعي replaces.
+  bool canRecord(Session s) => _view == StaffView.teaching && runs(s) && _data.replacedBy(s) == null;
+
+  /// Whether the signed-in person plans أنشطة نوعية: the advisor for every فئة, a مشرف
+  /// الفئة for theirs.
+  bool get plansActivities => schedules && _data.groups.isNotEmpty;
+
+  /// Whether they may change [a]: the advisor, or a مشرف الفئة who supervises every فئة
+  /// it is for.
+  bool canManageActivity(SpecialActivity a) =>
+      _view == StaffView.all ||
+      (_view == StaffView.supervising &&
+          a.groupIds.isNotEmpty &&
+          a.groupIds.every((g) => _data.group(g) != null));
+
+  /// Staff take an activity's attendance from its first day, for the children of their
+  /// groups.
+  bool canRecordActivity(SpecialActivity a) =>
+      !a.cancelled &&
+      !a.startsAt.isAfter(_clock().add(const Duration(minutes: 30))) &&
+      _data.childrenOf(a).isNotEmpty;
 
   /// True once there is something to show, from the server or from the phone.
   bool get loaded => _loaded;
@@ -219,6 +239,44 @@ class InstructorStore extends ChangeNotifier {
   Future<void> deleteSessions(Session s, {required bool upcoming}) async {
     await _repo.deleteSessions(s, upcoming: upcoming);
     await refresh();
+  }
+
+  /// Throws [SetupError]. Returns the new activity's id.
+  Future<String> createActivity(SpecialActivity draft) async {
+    final id = await _repo.createActivity(draft);
+    await refresh();
+    return id;
+  }
+
+  /// Throws [SetupError].
+  Future<void> updateActivity(SpecialActivity draft) async {
+    await _repo.updateActivity(draft);
+    await refresh();
+  }
+
+  /// Throws [SetupError].
+  Future<void> cancelActivity(SpecialActivity a, String reason) async {
+    await _repo.cancelActivity(a.id, reason);
+    await refresh();
+  }
+
+  /// Throws [SetupError].
+  Future<void> deleteActivity(SpecialActivity a) async {
+    await _repo.deleteActivity(a.id);
+    await refresh();
+  }
+
+  /// Sends the activity's attendance at once (it is not kept offline). Throws [SetupError].
+  Future<void> saveActivityAttendance(SpecialActivity a, Map<String, AttendanceStatus> statuses) async {
+    await _repo.saveActivityAttendance(a.id, statuses);
+    _data = _data.copyWith(
+      activityAttendance: [
+        ..._data.activityAttendance.where((r) => r.activityId != a.id || !statuses.containsKey(r.childId)),
+        for (final e in statuses.entries) ActivityAttendance(activityId: a.id, childId: e.key, status: e.value),
+      ],
+    );
+    notifyListeners();
+    unawaited(refresh());
   }
 
   /// Throws [SetupError].
