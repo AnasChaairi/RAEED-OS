@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../roles/app_role.dart';
 import 'auth_repository.dart';
+import 'privacy_terms.dart';
 
 enum SessionStage {
   /// Checking a saved session on start-up.
@@ -13,6 +14,9 @@ enum SessionStage {
 
   /// Signed in with a temporary password from the advisor.
   mustChangePassword,
+
+  /// A parent who has not accepted the current Law 09-08 statement yet.
+  mustAcceptPrivacy,
 
   /// Several roles and no remembered choice yet.
   choosingRole,
@@ -81,6 +85,14 @@ class AppSession extends ChangeNotifier {
     _route();
   }
 
+  /// Throws [AuthError].
+  Future<void> acceptPrivacyTerms() async {
+    await _auth.acceptPrivacyTerms(privacyTermsVersion);
+    _profile = _profile!.copyWith(privacyConsentVersion: privacyTermsVersion, privacyConsentAt: DateTime.now());
+    await _prefs.setString(_profileKey, jsonEncode(_profile!.toJson()));
+    _route();
+  }
+
   void chooseRole(AppRole role) {
     assert(_profile!.roles.contains(role));
     _role = role;
@@ -141,6 +153,12 @@ class AppSession extends ChangeNotifier {
   void _route() {
     final p = _profile!;
     if (p.mustChangePassword) return _set(SessionStage.mustChangePassword);
+    // Offline, the acceptance could not be saved: ask on the next start with a connection.
+    if (p.roles.contains(AppRole.parent) &&
+        !_offlineProfile &&
+        (p.privacyConsentVersion ?? 0) < privacyTermsVersion) {
+      return _set(SessionStage.mustAcceptPrivacy);
+    }
     if (p.roles.isEmpty) return _set(SessionStage.noRole);
     if (p.roles.length == 1) {
       _role = p.roles.single;

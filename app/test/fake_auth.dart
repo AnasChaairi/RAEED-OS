@@ -1,5 +1,6 @@
 import 'package:raeed_os/auth/auth_repository.dart';
 import 'package:raeed_os/auth/phone.dart';
+import 'package:raeed_os/auth/privacy_terms.dart';
 import 'package:raeed_os/roles/app_role.dart';
 
 /// An in-memory stand-in for Supabase sign-in.
@@ -36,6 +37,7 @@ class FakeAuthRepository implements AuthRepository {
       phone: '+$signedInAs',
       mustChangePassword: a.mustChangePassword,
       roles: [for (final r in AppRole.values) if (a.roles.contains(r)) r],
+      privacyConsentVersion: a.privacyConsentVersion,
     );
   }
 
@@ -48,6 +50,15 @@ class FakeAuthRepository implements AuthRepository {
     a
       ..password = newPassword
       ..mustChangePassword = false;
+  }
+
+  int acceptPrivacyCalls = 0;
+
+  @override
+  Future<void> acceptPrivacyTerms(int version) async {
+    acceptPrivacyCalls++;
+    if (offline) throw const AuthError(AuthFailure.offline);
+    accounts[signedInAs]!.privacyConsentVersion = version;
   }
 
   final deletionRequests = <String>{};
@@ -69,6 +80,7 @@ class FakeAccount {
     required this.roles,
     this.mustChangePassword = false,
     this.hasProfile = true,
+    this.privacyConsentVersion = privacyTermsVersion,
   });
 
   final String fullName;
@@ -76,4 +88,7 @@ class FakeAccount {
   final Set<AppRole> roles;
   bool mustChangePassword;
   final bool hasProfile;
+
+  /// Accepted by default, so only the tests about it see the 09-08 screen.
+  int? privacyConsentVersion;
 }

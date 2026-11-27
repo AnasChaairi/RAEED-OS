@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/change_password_screen.dart';
 import '../auth/delete_account.dart';
+import '../auth/privacy_consent_screen.dart';
 import '../auth/session_scope.dart';
 import '../notifications/push.dart';
 import '../setup/widgets.dart';
@@ -94,7 +95,18 @@ class ParentAccountTab extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton(
+            key: const Key('privacy-terms-open'),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const PrivacyConsentScreen(fromAccount: true)),
+            ),
+            child: const Text('حماية المعطيات الشخصية (القانون 09-08)'),
+          ),
+        ),
+        const SizedBox(height: 12),
         OutlinedButton(
           key: const Key('change-password'),
           onPressed: () => Navigator.push(

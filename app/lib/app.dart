@@ -5,6 +5,7 @@ import 'advisor/stats_store.dart';
 import 'auth/app_session.dart';
 import 'auth/change_password_screen.dart';
 import 'auth/messages.dart';
+import 'auth/privacy_consent_screen.dart';
 import 'auth/session_scope.dart';
 import 'auth/sign_in_screen.dart';
 import 'home/home_shell.dart';
@@ -114,6 +115,7 @@ class SessionGate extends StatelessWidget {
         SessionStage.starting => const _Splash(),
         SessionStage.signedOut => const SignInScreen(),
         SessionStage.mustChangePassword => const ChangePasswordScreen(),
+        SessionStage.mustAcceptPrivacy => const PrivacyConsentScreen(),
         SessionStage.choosingRole => const ChooseRoleScreen(),
         SessionStage.noRole => const _Notice(
             key: ValueKey('no-role'),
