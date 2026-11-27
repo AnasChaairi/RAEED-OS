@@ -5,6 +5,7 @@ import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
+import 'package:raeed_os/messages/messages_repository.dart';
 import 'package:raeed_os/profile/profile_repository.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/setup/models.dart';
@@ -13,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
 import 'fake_instructor.dart';
+import 'fake_messages.dart';
 import 'fake_setup.dart';
 import 'fake_stage4.dart';
 
@@ -81,6 +83,7 @@ Future<FakeProfileRepository> openAdvisor(
   WidgetTester tester, {
   FakeStatsRepository? stats,
   FakeSetupRepository? setup,
+  MessagesRepository? messages,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -94,7 +97,12 @@ Future<FakeProfileRepository> openAdvisor(
     signedInAs: anas,
   );
   final profiles = FakeProfileRepository()..profiles['adam'] = adamProfile();
-  final extra = stage4(prefs, stats: (stats ?? FakeStatsRepository())..data = seededStats(), profiles: profiles, clock: () => now);
+  final extra = stage4(
+    prefs,
+    stats: (stats ?? FakeStatsRepository())..data = seededStats(),
+    profiles: profiles,
+    clock: () => now,
+  );
   final session = AppSession(auth, prefs);
   await tester.pumpWidget(
     RaeedApp(
@@ -105,6 +113,7 @@ Future<FakeProfileRepository> openAdvisor(
       stats: extra.stats,
       profiles: extra.profiles,
       push: extra.push,
+      messages: messages,
     ),
   );
   await session.start();
@@ -155,6 +164,66 @@ void main() {
     await tester.pumpAndSettle();
     expect(profiles.added, ['يحتاج تشجيعاً']);
     expect(find.text('يحتاج تشجيعاً'), findsOneWidget);
+  });
+
+  testWidgets('the child profile shows the category supervisor and the parents talking, read only', (tester) async {
+    final messages = FakeMessagesRepository(me: 'sup', myName: 'سارة');
+    for (var i = 0; i < 4; i++) {
+      messages.messages.add(
+        ChildMessage(
+          id: 'm$i',
+          childId: i == 3 ? 'other' : 'adam',
+          childName: 'آدم',
+          authorId: 'sup',
+          authorName: 'سارة',
+          body: 'ملاحظة $i',
+          createdAt: DateTime(2027, 2, 10 + i),
+          replies: [
+            if (i == 0)
+              MessageReply(
+                id: 'r0',
+                authorId: 'dad',
+                authorName: 'كريم',
+                body: 'شكراً لك',
+                createdAt: DateTime(2027, 2, 11),
+              ),
+          ],
+          likedBy: i == 0 ? const {'dad': 'كريم'} : const {},
+        ),
+      );
+    }
+    // Four about adam, to see the «all» button.
+    messages.messages.add(
+      ChildMessage(
+        id: 'm4',
+        childId: 'adam',
+        childName: 'آدم',
+        authorId: 'sup',
+        authorName: 'سارة',
+        body: 'ملاحظة 4',
+        createdAt: DateTime(2027, 2, 15),
+      ),
+    );
+    await openAdvisor(tester, messages: messages);
+    await tester.tap(find.byKey(const Key('stats-group-stars')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('stats-kid-adam')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('مراسلات مشرف الفئة مع أولياء الأمور'), findsOneWidget);
+    expect(find.text('ملاحظة 4'), findsOneWidget);
+    expect(find.text('ملاحظة 0'), findsNothing, reason: 'only the newest three until asked');
+    expect(find.text('ملاحظة 3'), findsNothing, reason: 'another child');
+    await tester.scrollUntilVisible(find.byKey(const Key('child-conversations-all')), 200);
+    await tester.tap(find.byKey(const Key('child-conversations-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('ملاحظة 0'), findsOneWidget);
+    expect(find.text('شكراً لك'), findsOneWidget);
+    expect(find.text('أعجب بها: كريم'), findsOneWidget);
+    expect(find.byKey(const Key('like-m0')), findsNothing);
+    expect(find.byType(TextField), findsNothing, reason: 'no reply field for the general supervisor');
+    expect(find.byTooltip('حذف'), findsNothing);
+    expect(messages.calls, isEmpty);
   });
 
   testWidgets('the pilot measures show against their targets for the chosen period', (tester) async {
