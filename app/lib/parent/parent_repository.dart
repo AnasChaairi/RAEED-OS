@@ -7,7 +7,7 @@ import 'parent_models.dart';
 /// The parent's reads. Every call throws [SetupError]; offline shows as
 /// [SetupFailure.offline].
 abstract interface class ParentRepository {
-  /// [personId]'s children, their groups' sessions from a week ago to two months ahead,
+  /// [personId]'s children, their groups' sessions from five weeks ago to four months ahead (the month calendar browses them),
   /// the instructors' names, and who else is a parent of each child.
   Future<ParentSnapshot> load(String personId);
 }
@@ -52,8 +52,8 @@ class SupabaseParentRepository implements ParentRepository {
                 .from('sessions')
                 .select('*, materials(kind, url, label)')
                 .inFilter('group_id', groupIds)
-                .gte('session_date', dbDay(today.subtract(const Duration(days: 7))))
-                .lte('session_date', dbDay(today.add(const Duration(days: 62))))
+                .gte('session_date', dbDay(today.subtract(const Duration(days: 35))))
+                .lte('session_date', dbDay(today.add(const Duration(days: 124))))
                 .order('session_date')
                 .order('start_time'),
       _db.rpc<List<dynamic>>('my_children_parents'),
@@ -70,8 +70,8 @@ class SupabaseParentRepository implements ParentRepository {
               .from('special_activities')
               .select('*, activity_groups(group_id)')
               .inFilter('id', ids)
-              .gte('end_date', dbDay(today.subtract(const Duration(days: 7))))
-              .lte('start_date', dbDay(today.add(const Duration(days: 62))));
+              .gte('end_date', dbDay(today.subtract(const Duration(days: 35))))
+              .lte('start_date', dbDay(today.add(const Duration(days: 124))));
           activities.addAll(rows.map(SpecialActivity.fromJson));
           activities.sort((a, b) => a.startsAt.compareTo(b.startsAt));
         }

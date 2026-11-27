@@ -6,6 +6,7 @@ import '../profile/child_profile_screen.dart';
 import '../setup/models.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import '../widgets/month_calendar.dart';
 import 'activities_screen.dart';
 import 'models.dart';
 import 'session_form_screen.dart';
@@ -344,73 +345,106 @@ class _GroupSessionsState extends State<_GroupSessions> {
       -1 => 'الأسبوع الماضي',
       _ => 'الأسبوع',
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (series.isNotEmpty) ...[
-          const SectionLabel('الحصص الأسبوعية'),
-          for (final e in series.entries) _SeriesRow(sessions: e.value, now: now),
-          const SizedBox(height: 4),
-        ],
-        Row(
-          children: [
-            IconButton(
-              key: const Key('group-previous-week'),
-              tooltip: 'الأسبوع السابق',
-              onPressed: () => setState(() => _weekOffset--),
-              icon: const Icon(Icons.chevron_right),
-            ),
-            Expanded(
-              child: Text(
-                '$weekLabel · من ${weekStart.day}'
-                '${weekStart.month == weekEnd.month ? '' : ' ${monthNames[weekStart.month - 1]}'}'
-                ' إلى ${weekEnd.day} ${monthNames[weekEnd.month - 1]}',
-                key: const Key('group-week-label'),
-                textAlign: TextAlign.center,
-                style: text.titleSmall,
-              ),
-            ),
-            IconButton(
-              key: const Key('group-next-week'),
-              tooltip: 'الأسبوع التالي',
-              onPressed: () => setState(() => _weekOffset++),
-              icon: const Icon(Icons.chevron_left),
-            ),
-          ],
-        ),
-        if (dayList.isEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              'لا حصص في هذا الأسبوع.',
-              textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
-            ),
+    final groupActivities = [
+      for (final a in widget.data.activities)
+        if (a.groupIds.contains(widget.groupId)) a,
+    ];
+    List<Widget> dayCards(BuildContext context, DateTime day) => [
+      for (final a in groupActivities)
+        if (a.covers(day)) ...[
+          ActivityCard(
+            activity: a,
+            day: day,
+            groupNames: activityGroupNames(a, widget.data.groups),
+            onTap: () => openActivity(context, a.id),
           ),
-          if (next != null && (next.date.isBefore(weekStart) || next.date.isAfter(weekEnd)))
-            TextButton(
-              key: const Key('group-jump-next'),
-              onPressed: () => setState(() => _weekOffset = next.date.difference(_thisWeek).inDays ~/ 7),
-              child: Text('الحصة القادمة: ${dayLabel(next.date, now)}'),
-            ),
+          const SizedBox(height: 8),
         ],
-        for (final day in dayList) ...[
-          SectionLabel(dayLabel(day, now)),
-          for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
-            ActivityCard(
-              activity: a,
-              day: day,
-              groupNames: activityGroupNames(a, widget.data.groups),
-              onTap: () => openActivity(context, a.id),
-            ),
-            const SizedBox(height: 8),
-          ],
-          for (final s in days[day] ?? const <Session>[]) ...[
-            SessionCard(session: s, data: widget.data, showGroup: false, onTap: () => openSession(context, s.id)),
-            const SizedBox(height: 8),
-          ],
-        ],
+      for (final s in widget.sessions.where((s) => s.date == day)) ...[
+        SessionCard(session: s, data: widget.data, showGroup: false, onTap: () => openSession(context, s.id)),
+        const SizedBox(height: 8),
       ],
+    ];
+    return ScheduleModeBuilder(
+      builder: (context, mode) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (series.isNotEmpty) ...[
+            const SectionLabel('الحصص الأسبوعية'),
+            for (final e in series.entries) _SeriesRow(sessions: e.value, now: now),
+            const SizedBox(height: 4),
+          ],
+          const ScheduleModeToggle(),
+          if (mode == ScheduleMode.month)
+            MonthCalendar(
+              now: now,
+              sessions: widget.sessions,
+              activities: groupActivities,
+              replacedBy: widget.data.replacedBy,
+              dayItems: dayCards,
+            )
+          else ...[
+            Row(
+              children: [
+                IconButton(
+                  key: const Key('group-previous-week'),
+                  tooltip: 'الأسبوع السابق',
+                  onPressed: () => setState(() => _weekOffset--),
+                  icon: const Icon(Icons.chevron_right),
+                ),
+                Expanded(
+                  child: Text(
+                    '$weekLabel · من ${weekStart.day}'
+                    '${weekStart.month == weekEnd.month ? '' : ' ${monthNames[weekStart.month - 1]}'}'
+                    ' إلى ${weekEnd.day} ${monthNames[weekEnd.month - 1]}',
+                    key: const Key('group-week-label'),
+                    textAlign: TextAlign.center,
+                    style: text.titleSmall,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('group-next-week'),
+                  tooltip: 'الأسبوع التالي',
+                  onPressed: () => setState(() => _weekOffset++),
+                  icon: const Icon(Icons.chevron_left),
+                ),
+              ],
+            ),
+            if (dayList.isEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'لا حصص في هذا الأسبوع.',
+                  textAlign: TextAlign.center,
+                  style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
+                ),
+              ),
+              if (next != null && (next.date.isBefore(weekStart) || next.date.isAfter(weekEnd)))
+                TextButton(
+                  key: const Key('group-jump-next'),
+                  onPressed: () => setState(() => _weekOffset = next.date.difference(_thisWeek).inDays ~/ 7),
+                  child: Text('الحصة القادمة: ${dayLabel(next.date, now)}'),
+                ),
+            ],
+            for (final day in dayList) ...[
+              SectionLabel(dayLabel(day, now)),
+              for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
+                ActivityCard(
+                  activity: a,
+                  day: day,
+                  groupNames: activityGroupNames(a, widget.data.groups),
+                  onTap: () => openActivity(context, a.id),
+                ),
+                const SizedBox(height: 8),
+              ],
+              for (final s in days[day] ?? const <Session>[]) ...[
+                SessionCard(session: s, data: widget.data, showGroup: false, onTap: () => openSession(context, s.id)),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ],
+        ],
+      ),
     );
   }
 }
