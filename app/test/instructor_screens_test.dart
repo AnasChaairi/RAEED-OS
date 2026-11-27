@@ -208,7 +208,12 @@ void main() {
     expect(o.store.schedules, isTrue);
     await tab(tester, 'الحصص');
     expect(find.text('فئة الفرسان · رياضة'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('new-plan')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('new-session')), findsOneWidget);
+    expect(find.byKey(const Key('new-activity')), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('take-attendance')), findsNothing);
@@ -359,7 +364,7 @@ void main() {
       ),
     );
     await openInstructor(tester, repo: repo, role: AppRole.supervisor);
-    expect(find.byKey(const Key('new-session')), findsNothing, reason: 'planned from فئتي, under الحصص');
+    expect(find.byKey(const Key('new-plan')), findsNothing, reason: 'planned from فئتي, under الحصص');
     await tab(tester, 'الملاحظات');
     expect(find.text('يوسف يحتاج متابعة في الحفظ'), findsOneWidget);
     await tester.tap(find.text('يوسف يحتاج متابعة في الحفظ'));

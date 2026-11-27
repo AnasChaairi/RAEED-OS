@@ -117,8 +117,7 @@ void main() {
     repo.groups[0] = repo.groups[0].withInstructors(['sara'], supervisors: [me]);
     repo.activities.add(camp());
     await openInstructor(tester, repo: repo, role: AppRole.supervisor);
-    expect(find.byKey(const Key('new-activity')), findsOneWidget);
-    expect(find.byKey(const Key('new-session')), findsNothing);
+    expect(find.byKey(const Key('new-plan')), findsNothing, reason: 'planned from فئتي, under الحصص');
 
     await tester.tap(find.byKey(const Key('activity-camp-2027-02-06')));
     await tester.pumpAndSettle();
