@@ -42,6 +42,7 @@ class AppNotification {
         'session_created' || 'session_changed' => Icons.event,
         'absence_alert' => Icons.warning_amber_rounded,
         'instructor_absence' => Icons.person_off,
+        'child_absence' => Icons.event_busy_outlined,
         'activity_cancelled' => Icons.event_busy,
         'activity_created' || 'activity_changed' || 'activity_reminder' => Icons.celebration,
         _ => Icons.notifications,

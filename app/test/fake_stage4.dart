@@ -24,6 +24,48 @@ class FakeParentRepository implements ParentRepository {
     if (offline) throw const SetupError(SetupFailure.offline);
     return data;
   }
+
+  final calls = <String>[];
+
+  @override
+  Future<void> reportAbsence(String sessionId, String childId, String reason) async {
+    if (offline) throw const SetupError(SetupFailure.offline);
+    calls.add('reportAbsence $sessionId $childId $reason');
+    data = ParentSnapshot(
+      children: data.children,
+      sessions: data.sessions,
+      staffNames: data.staffNames,
+      parents: data.parents,
+      activities: data.activities,
+      breaks: data.breaks,
+      absences: [
+        ...data.absences,
+        ChildAbsenceReport(
+          id: 'r${data.absences.length + 1}',
+          sessionId: sessionId,
+          childId: childId,
+          reportedBy: 'me',
+          reason: reason,
+          createdAt: DateTime(2026, 10, 1),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> withdrawAbsence(String reportId) async {
+    if (offline) throw const SetupError(SetupFailure.offline);
+    calls.add('withdrawAbsence $reportId');
+    data = ParentSnapshot(
+      children: data.children,
+      sessions: data.sessions,
+      staffNames: data.staffNames,
+      parents: data.parents,
+      activities: data.activities,
+      breaks: data.breaks,
+      absences: data.absences.where((a) => a.id != reportId).toList(),
+    );
+  }
 }
 
 class FakeStatsRepository implements StatsRepository {

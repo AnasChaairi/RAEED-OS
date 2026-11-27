@@ -208,6 +208,21 @@ class SupabaseInstructorRepository implements InstructorRepository {
       absences.clear();
     }
 
+    // Parents' notices that a child will miss a session, read apart for the same reason.
+    final childAbsences = <ChildAbsenceReport>[];
+    try {
+      final ids = [for (final s in sessions) s.id];
+      for (var i = 0; i < ids.length; i += 100) {
+        final rows = await _db
+            .from('child_absence_reports')
+            .select('id, session_id, child_id, reported_by, reason, created_at')
+            .inFilter('session_id', ids.sublist(i, i + 100 > ids.length ? ids.length : i + 100));
+        childAbsences.addAll(rows.map(ChildAbsenceReport.fromJson));
+      }
+    } on PostgrestException {
+      childAbsences.clear();
+    }
+
     // أنشطة نوعية, read apart too: the app still opens before their tables exist.
     final activities = <SpecialActivity>[];
     final activityAttendance = <ActivityAttendance>[];
@@ -254,6 +269,7 @@ class SupabaseInstructorRepository implements InstructorRepository {
       staffNames: staffNames,
       staffPhones: staffPhones,
       absences: absences,
+      childAbsences: childAbsences,
       termStart: termStart,
     );
   });

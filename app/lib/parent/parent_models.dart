@@ -58,7 +58,15 @@ class ParentSnapshot {
     this.parents = const [],
     this.activities = const [],
     this.breaks = const [],
+    this.absences = const [],
   });
+
+  /// The parents' notices that one of these children will miss a session.
+  final List<ChildAbsenceReport> absences;
+
+  /// The notice that [childId] will miss [sessionId], if a parent gave one.
+  ChildAbsenceReport? absenceOf(String sessionId, String childId) =>
+      absences.where((a) => a.sessionId == sessionId && a.childId == childId).firstOrNull;
 
   /// Holidays, Ramadan and the academy's stops, for the month calendar.
   final List<CalendarBreak> breaks;
@@ -129,6 +137,7 @@ class ParentSnapshot {
     'parents': [for (final p in parents) p.toJson()],
     'activities': [for (final a in activities) a.toJson()],
     'breaks': [for (final b in breaks) b.toJson()],
+    'absences': [for (final a in absences) a.toJson()],
   };
 
   static ParentSnapshot fromJson(Map<String, dynamic> j) => ParentSnapshot(
@@ -143,6 +152,9 @@ class ParentSnapshot {
       for (final a in (j['activities'] as List?) ?? const []) SpecialActivity.fromJson(a as Map<String, dynamic>),
     ],
     breaks: [for (final b in (j['breaks'] as List?) ?? const []) CalendarBreak.fromJson(b as Map<String, dynamic>)],
+    absences: [
+      for (final a in (j['absences'] as List?) ?? const []) ChildAbsenceReport.fromJson(a as Map<String, dynamic>),
+    ],
   );
 }
 

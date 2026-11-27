@@ -272,6 +272,7 @@ class SessionDetailScreen extends StatelessWidget {
     final taken = data.attendanceFor(s.id).length;
     final mine = data.absenceOf(s.id, store.personId);
     final absences = data.absencesFor(s.id);
+    final childAbsences = data.childAbsencesFor(s.id).values.toList();
     final over = !s.endsAt.isAfter(store.now());
     final by = s.cancelled ? null : data.replacedBy(s);
     return Scaffold(
@@ -368,6 +369,22 @@ class SessionDetailScreen extends StatelessWidget {
                   subtitle: Text(a.reason),
                 ),
               ),
+          ],
+          if (childAbsences.isNotEmpty && !s.cancelled) ...[
+            const SectionLabel('غياب الأطفال (أبلغ أولياء الأمور)'),
+            for (final a in childAbsences)
+              Card(
+                key: Key('child-absence-${a.childId}'),
+                child: ListTile(
+                  leading: const Icon(Icons.event_busy_outlined, color: Color(0xFF8A5A00)),
+                  title: Text(data.child(a.childId)?.fullName ?? 'طفل'),
+                  subtitle: Text(a.reason),
+                ),
+              ),
+            Text(
+              'يبدأ هؤلاء «معذورين» في ورقة الحضور، ويمكنك تغيير ذلك.',
+              style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+            ),
           ],
           if (store.canRecord(s) && !s.cancelled && mine != null) ...[
             const SizedBox(height: 12),

@@ -17,6 +17,7 @@ class FakeInstructorRepository implements InstructorRepository {
   final observations = <SessionObservation>[];
   final staffPhones = <String, String>{};
   final absences = <InstructorAbsence>[];
+  final childAbsences = <ChildAbsenceReport>[];
   final activities = <SpecialActivity>[];
   final breaks = <CalendarBreak>[];
   final activityAttendance = <String, ActivityAttendance>{};
@@ -57,6 +58,7 @@ class FakeInstructorRepository implements InstructorRepository {
       staffNames: staffNames,
       staffPhones: staffPhones,
       absences: absences.where((a) => list.any((s) => s.id == a.sessionId)).toList(),
+      childAbsences: childAbsences.where((a) => list.any((s) => s.id == a.sessionId)).toList(),
       activities: (activities.where((a) => a.groupIds.any(mine.contains)).toList()
         ..sort((a, b) => a.startsAt.compareTo(b.startsAt))),
       activityAttendance: activityAttendance.values.toList(),

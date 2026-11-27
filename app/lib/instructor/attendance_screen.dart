@@ -6,8 +6,8 @@ import '../theme/raeed_theme.dart';
 import 'models.dart';
 import 'widgets.dart';
 
-/// The attendance sheet. Everyone starts as present, so the instructor taps only the
-/// exceptions. Saving writes to the phone first and sends when there is a connection.
+/// The attendance sheet. Everyone starts as present, or as معذور when a parent reported the
+/// absence, so the instructor taps only the exceptions. Saving writes to the phone first and sends when there is a connection.
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key, required this.sessionId});
 
@@ -42,7 +42,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final group = data.group(session.groupId);
     final kids = data.childrenIn(session.groupId);
     final existing = data.attendanceFor(session.id);
-    final statuses = _statuses ??= {for (final c in kids) c.id: existing[c.id]?.status ?? AttendanceStatus.present};
+    final reported = data.childAbsencesFor(session.id);
+    final statuses = _statuses ??= {
+      for (final c in kids)
+        c.id:
+            existing[c.id]?.status ??
+            (reported.containsKey(c.id) ? AttendanceStatus.excused : AttendanceStatus.present),
+    };
     final text = Theme.of(context).textTheme;
     final waiting = store.waitingSessions.contains(session.id);
 
@@ -100,6 +106,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       return _KidRow(
                         child: kid,
                         status: statuses[kid.id] ?? AttendanceStatus.present,
+                        reported: reported[kid.id]?.reason,
                         onChanged: (s) => setState(() => statuses[kid.id] = s),
                       );
                     },
@@ -183,10 +190,13 @@ class _CountChip extends StatelessWidget {
 }
 
 class _KidRow extends StatelessWidget {
-  const _KidRow({required this.child, required this.status, required this.onChanged});
+  const _KidRow({required this.child, required this.status, required this.onChanged, this.reported});
 
   final RosterChild child;
   final AttendanceStatus status;
+
+  /// The reason a parent gave when reporting the absence, if they did.
+  final String? reported;
   final ValueChanged<AttendanceStatus> onChanged;
 
   @override
@@ -219,6 +229,18 @@ class _KidRow extends StatelessWidget {
                 ),
               ],
             ),
+            if (reported != null)
+              Container(
+                key: Key('reported-${child.id}'),
+                width: double.infinity,
+                margin: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: const Color(0xFFFFF1D6), borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  'أبلغ وليّ الأمر بالغياب: $reported',
+                  style: const TextStyle(color: Color(0xFF8A5A00), fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+              ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.all(3),

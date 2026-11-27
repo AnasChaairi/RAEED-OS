@@ -11,6 +11,13 @@ abstract interface class ParentRepository {
   /// [personId]'s children, their groups' sessions from five weeks ago to four months ahead (the month calendar browses them),
   /// the instructors' names, and who else is a parent of each child.
   Future<ParentSnapshot> load(String personId);
+
+  /// The signed-in parent reports that [childId] will miss [sessionId]. The session's
+  /// instructors and the فئة's supervisors are notified.
+  Future<void> reportAbsence(String sessionId, String childId, String reason);
+
+  /// Takes back a notice of absence, before the session starts.
+  Future<void> withdrawAbsence(String reportId);
 }
 
 class SupabaseParentRepository implements ParentRepository {
@@ -80,10 +87,24 @@ class SupabaseParentRepository implements ParentRepository {
         activities.clear();
       }
     }
+    // Absence notices, read apart: the schedule still opens before their table exists.
+    final absences = <ChildAbsenceReport>[];
+    if (children.isNotEmpty) {
+      try {
+        final rows = await _db
+            .from('child_absence_reports')
+            .select('id, session_id, child_id, reported_by, reason, created_at')
+            .inFilter('child_id', [for (final c in children) c.id]);
+        absences.addAll(rows.map(ChildAbsenceReport.fromJson));
+      } on PostgrestException {
+        absences.clear();
+      }
+    }
     final breaks = groupIds.isEmpty
         ? const <CalendarBreak>[]
         : await loadCalendarBreaks(_db, today.subtract(const Duration(days: 35)), today.add(const Duration(days: 124)));
     return ParentSnapshot(
+      absences: absences,
       breaks: breaks,
       activities: activities,
       children: children,
@@ -95,4 +116,18 @@ class SupabaseParentRepository implements ParentRepository {
       },
     );
   });
+
+  @override
+  Future<void> reportAbsence(String sessionId, String childId, String reason) => guardSupabase(
+    () => _db.from('child_absence_reports').insert({
+      'session_id': sessionId,
+      'child_id': childId,
+      'reported_by': _db.auth.currentUser!.id,
+      'reason': reason,
+    }),
+  );
+
+  @override
+  Future<void> withdrawAbsence(String reportId) =>
+      guardSupabase(() => _db.from('child_absence_reports').delete().eq('id', reportId));
 }

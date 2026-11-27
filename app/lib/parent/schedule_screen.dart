@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../instructor/activities_screen.dart' show ActivityCard, activityColors;
 import '../instructor/models.dart';
 import '../instructor/widgets.dart' show OfflineBanner, dayLabel;
+import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/month_calendar.dart';
@@ -92,6 +93,7 @@ class ParentScheduleTab extends StatelessWidget {
           session: s,
           isNext: s.id == next?.id,
           replacedBy: s.cancelled ? null : data.replacedBy(s),
+          absent: data.absenceOf(s.id, childId!) != null,
           onTap: () => openSession(s),
         ),
         const SizedBox(height: 8),
@@ -199,6 +201,7 @@ class ParentScheduleTab extends StatelessWidget {
                     session: s,
                     isNext: s.id == next?.id,
                     replacedBy: s.cancelled ? null : data.replacedBy(s),
+                    absent: data.absenceOf(s.id, childId!) != null,
                     onTap: () => openSession(s),
                   ),
                   const SizedBox(height: 8),
@@ -222,10 +225,20 @@ class ParentScheduleTab extends StatelessWidget {
 
 /// A session in the parent's schedule: the time on the side, then what the child needs.
 class ParentSessionCard extends StatelessWidget {
-  const ParentSessionCard({super.key, required this.session, this.isNext = false, this.onTap, this.replacedBy});
+  const ParentSessionCard({
+    super.key,
+    required this.session,
+    this.isNext = false,
+    this.onTap,
+    this.replacedBy,
+    this.absent = false,
+  });
 
   final Session session;
   final bool isNext;
+
+  /// A parent reported that the child will miss it.
+  final bool absent;
   final VoidCallback? onTap;
 
   /// The نشاط نوعي that takes this session's place: it shows as cancelled because of it.
@@ -278,6 +291,7 @@ class ParentSessionCard extends StatelessWidget {
                           ),
                         ),
                       if (s.cancelled) Text('ملغاة', style: flag),
+                      if (absent && !off) Text('غياب مسجَّل', key: Key('parent-absent-${s.id}'), style: flag),
                       if (by != null)
                         Text(
                           by.replacesLabel,
@@ -484,9 +498,167 @@ class ParentSessionScreen extends StatelessWidget {
               icon: const Icon(Icons.event_available),
               label: const Text('إضافة إلى تقويم الهاتف'),
             ),
+            _AbsenceSection(session: s, child: child),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Under the calendar button: «تسجيل غياب» with a reason for a session still to come, or
+/// the absence already reported, which can be taken back until the session starts.
+class _AbsenceSection extends StatefulWidget {
+  const _AbsenceSection({required this.session, required this.child});
+
+  final Session session;
+  final ParentChild child;
+
+  @override
+  State<_AbsenceSection> createState() => _AbsenceSectionState();
+}
+
+class _AbsenceSectionState extends State<_AbsenceSection> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = ParentScope.of(context);
+    final s = widget.session;
+    final report = store.data.absenceOf(s.id, widget.child.id);
+    final started = !s.startsAt.isAfter(store.now());
+    final text = Theme.of(context).textTheme;
+    if (report == null) {
+      if (started) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: OutlinedButton.icon(
+          key: const Key('report-child-absence'),
+          style: OutlinedButton.styleFrom(foregroundColor: RaeedColors.error),
+          onPressed: _busy ? null : _report,
+          icon: const Icon(Icons.event_busy_outlined),
+          label: const Text('تسجيل غياب'),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Card(
+        key: const Key('child-absence-reported'),
+        color: _starSoft,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.event_busy_outlined, color: _star),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'سُجّل غياب ${widget.child.firstName} عن هذه الحصة',
+                      style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: _star),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text('المبرر: ${report.reason}', style: text.bodyMedium),
+              Text('وصل إلى المؤطر ومشرف الفئة.', style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
+              if (!started)
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton(
+                    key: const Key('withdraw-child-absence'),
+                    onPressed: _busy ? null : () => _withdraw(report.id),
+                    child: const Text('إلغاء الغياب: سيحضر'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _report() async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _ChildAbsenceDialog(childName: widget.child.firstName),
+    );
+    if (reason == null || !mounted) return;
+    await _run(
+      () => ParentScope.read(context).reportAbsence(widget.session.id, widget.child.id, reason),
+      'سُجّل الغياب ✓ وصل إلى المؤطر ومشرف الفئة.',
+    );
+  }
+
+  Future<void> _withdraw(String id) => _run(() => ParentScope.read(context).withdrawAbsence(id), 'أُلغي الغياب ✓');
+
+  Future<void> _run(Future<void> Function() action, String done) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _busy = true);
+    try {
+      await action();
+      messenger.showSnackBar(SnackBar(content: Text(done)));
+    } on SetupError catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+}
+
+/// Asks for the reason of the absence. Pops it, or null.
+class _ChildAbsenceDialog extends StatefulWidget {
+  const _ChildAbsenceDialog({required this.childName});
+
+  final String childName;
+
+  @override
+  State<_ChildAbsenceDialog> createState() => _ChildAbsenceDialogState();
+}
+
+class _ChildAbsenceDialogState extends State<_ChildAbsenceDialog> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = _reason.text.trim().isNotEmpty;
+    return AlertDialog(
+      title: Text('تسجيل غياب ${widget.childName}'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('يصل إلى المؤطر ومشرف الفئة، ويُسجَّل الطفل «معذوراً» في هذه الحصة.'),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key('child-absence-reason'),
+            controller: _reason,
+            autofocus: true,
+            maxLines: 2,
+            maxLength: 500,
+            decoration: const InputDecoration(labelText: 'المبرر', hintText: 'مثلاً: مرض، سفر عائلي'),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('رجوع')),
+        FilledButton(
+          key: const Key('confirm-child-absence'),
+          onPressed: ok ? () => Navigator.pop(context, _reason.text.trim()) : null,
+          child: const Text('تسجيل'),
+        ),
+      ],
     );
   }
 }
