@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
+import 'package:raeed_os/homework/homework.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
 import 'package:raeed_os/messages/messages_repository.dart';
@@ -12,6 +13,7 @@ import 'package:raeed_os/setup/setup_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
+import 'fake_homework.dart';
 import 'fake_instructor.dart';
 import 'fake_messages.dart';
 import 'fake_setup.dart';
@@ -124,6 +126,7 @@ Future<OpenedParent> openParent(
   bool fresh = true,
   PushState pushState = PushState.on,
   FakeMessagesRepository? messages,
+  FakeHomeworkRepository? homework,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -150,6 +153,7 @@ Future<OpenedParent> openParent(
       profiles: extra.profiles,
       push: extra.push,
       messages: messages,
+      homework: homework,
     ),
   );
   await session.start();
@@ -384,5 +388,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(messages.calls, ['like m1', 'reply m1 شكراً لكم']);
     expect(find.text('شكراً لكم'), findsOneWidget);
+  });
+
+  testWidgets('a parent sees each child\'s homework and marks it done or not', (tester) async {
+    final homework = FakeHomeworkRepository(
+      items: [
+        Homework(
+          id: 'h1',
+          groupId: 'stars',
+          template: HomeworkTemplate.review,
+          fields: const {'surah': 'الملك', 'from': 'الآية 1', 'to': 'الآية 15'},
+          details: 'مع التجويد',
+          dueDate: DateTime(2027, 2, 12),
+        ),
+        // For another child of البراعم: not salma's.
+        Homework(
+          id: 'h2',
+          groupId: 'buds',
+          template: HomeworkTemplate.wird,
+          fields: const {'amount': 'ثمن'},
+          dueDate: DateTime(2027, 2, 13),
+          wholeGroup: false,
+          childIds: const ['someone'],
+        ),
+        Homework(
+          id: 'h3',
+          groupId: 'buds',
+          template: HomeworkTemplate.presentation,
+          fields: const {'topic': 'الصدق'},
+          dueDate: DateTime(2027, 2, 1),
+        ),
+      ],
+    );
+    await openParent(tester, homework: homework);
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('الواجبات')));
+    await tester.pumpAndSettle();
+    expect(find.text('مراجعة المحفوظ: الملك من الآية 1 إلى الآية 15'), findsOneWidget);
+    expect(find.text('مع التجويد'), findsOneWidget);
+    expect(find.textContaining('مراجعة المحفوظ · آدم'), findsOneWidget);
+    expect(find.text('ورد قرآني: ثمن'), findsNothing, reason: 'given to another child');
+    expect(find.text('إعداد عرض حول الصدق'), findsNothing, reason: 'past, folded');
+    await tester.tap(find.byKey(const Key('homework-past')));
+    await tester.pumpAndSettle();
+    expect(find.text('إعداد عرض حول الصدق'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('mark-h1-adam-true')));
+    await tester.pumpAndSettle();
+    expect(homework.calls, ['mark h1 adam true']);
+    expect(find.descendant(of: find.byKey(const Key('mark-h1-adam-true')), matching: find.text('تم')), findsOneWidget);
+    expect(tester.widget(find.byKey(const Key('mark-h1-adam-true'))), isA<FilledButton>());
+    // Tapping it again clears it.
+    await tester.tap(find.byKey(const Key('mark-h1-adam-true')));
+    await tester.pumpAndSettle();
+    expect(homework.calls.last, 'mark h1 adam null');
+    expect(tester.widget(find.byKey(const Key('mark-h1-adam-true'))), isA<OutlinedButton>());
   });
 }

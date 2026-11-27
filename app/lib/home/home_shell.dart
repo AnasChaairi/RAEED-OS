@@ -8,6 +8,7 @@ import '../auth/delete_account.dart';
 import '../auth/phone.dart';
 import '../auth/session_scope.dart';
 import '../roles/app_role.dart';
+import '../homework/homework_screens.dart';
 import '../instructor/alerts_screen.dart';
 import '../instructor/groups_screen.dart';
 import '../instructor/instructor_repository.dart';
@@ -184,7 +185,8 @@ class _HomeShellState extends State<HomeShell> {
         (AppRole.supervisor, 4) => const AlertsTab(),
         (AppRole.parent, 0) => const ParentScheduleTab(),
         (AppRole.parent, 1) => const ParentMessagesTab(),
-        (AppRole.parent, 2) => const ParentAccountTab(),
+        (AppRole.parent, 2) => const ParentHomeworkTab(),
+        (AppRole.parent, 3) => const ParentAccountTab(),
         _ => EmptyTab(tab: widget.role.tabs[i]),
       };
 

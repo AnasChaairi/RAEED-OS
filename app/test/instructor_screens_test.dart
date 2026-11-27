@@ -12,6 +12,7 @@ import 'package:raeed_os/setup/setup_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
+import 'fake_homework.dart';
 import 'fake_instructor.dart';
 import 'fake_messages.dart';
 import 'fake_setup.dart';
@@ -39,6 +40,7 @@ Future<Opened> openInstructor(
   bool offline = false,
   AppRole role = AppRole.instructor,
   FakeMessagesRepository? messages,
+  FakeHomeworkRepository? homework,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -66,6 +68,7 @@ Future<Opened> openInstructor(
       profiles: extra.profiles,
       push: extra.push,
       messages: messages,
+      homework: homework,
     ),
   );
   await session.start();
@@ -532,5 +535,64 @@ void main() {
     expect(messages.calls, ['post adam آدم حفظ السورة كاملة']);
     expect(find.text('آدم حفظ السورة كاملة'), findsOneWidget);
     expect(find.byKey(const Key('like-m0')), findsNothing, reason: 'the supervisor does not like their own');
+  });
+
+  testWidgets('a category supervisor gives homework from a template and sees who did it', (tester) async {
+    final repo = seededInstructorRepo(me: 'someone-else', today: today);
+    repo.groups[0] = repo.groups[0].withInstructors(['sara'], supervisors: [me]);
+    final homework = FakeHomeworkRepository();
+    await openInstructor(tester, repo: repo, role: AppRole.supervisor, homework: homework);
+    await tab(tester, 'فئتي');
+    await tester.tap(find.text('فئة النجوم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الواجبات'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('new-homework')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('template-reading')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('homework-field-book')), findsOneWidget);
+    expect(find.byKey(const Key('homework-field-surah')), findsNothing);
+    await tester.enterText(find.byKey(const Key('homework-field-book')), 'رياض الصالحين');
+    await tester.enterText(find.byKey(const Key('homework-field-from')), '12');
+    await tester.enterText(find.byKey(const Key('homework-field-to')), '20');
+    await tester.scrollUntilVisible(find.byKey(const Key('save-homework')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.byKey(const Key('save-homework')));
+    await tester.pumpAndSettle();
+    expect(homework.calls, isEmpty, reason: 'no due date yet');
+    expect(find.text('اختر موعد التسليم'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('homework-due')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('date-day-2027-2-10')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('picker-done')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أطفال محددون'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('homework-pick-omar')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.byKey(const Key('homework-pick-omar')));
+    await tester.scrollUntilVisible(find.byKey(const Key('save-homework')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.byKey(const Key('save-homework')));
+    await tester.pumpAndSettle();
+    expect(homework.calls, ['create reading omar']);
+    expect(homework.items.single.dueDate, DateTime(2027, 2, 10));
+    expect(find.text('قراءة مقطع من رياض الصالحين من الصفحة 12 إلى الصفحة 20'), findsOneWidget);
+    expect(find.text('طفل واحد · تم 0 · لم يتم 0 · لم يُحدَّد 1'), findsOneWidget);
+
+    // A parent marks it done; the supervisor sees it on the child's row.
+    await homework.mark('h0', 'omar', true);
+    await tester.tap(find.byKey(const Key('homework-h0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('homework-child-omar')), findsOneWidget);
+    expect(find.byKey(const Key('homework-child-adam')), findsNothing);
+    expect(find.descendant(of: find.byKey(const Key('homework-child-omar')), matching: find.text('تم')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete-homework')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-homework')));
+    await tester.pumpAndSettle();
+    expect(homework.items, isEmpty);
+    expect(find.textContaining('لم تُكلَّف هذه الفئة'), findsOneWidget);
   });
 }

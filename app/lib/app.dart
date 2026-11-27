@@ -9,6 +9,7 @@ import 'auth/privacy_consent_screen.dart';
 import 'auth/session_scope.dart';
 import 'auth/sign_in_screen.dart';
 import 'home/home_shell.dart';
+import 'homework/homework.dart';
 import 'instructor/instructor_store.dart';
 import 'instructor/widgets.dart';
 import 'messages/messages_repository.dart';
@@ -34,7 +35,11 @@ class RaeedApp extends StatelessWidget {
     required this.push,
     this.messages,
     this.inbox,
+    this.homework,
   });
+
+  /// الواجبات: the مشرف الفئة gives them, parents mark them.
+  final HomeworkRepository? homework;
 
   /// The notifications behind the bell.
   final InboxStore? inbox;
@@ -81,6 +86,8 @@ class RaeedApp extends StatelessWidget {
                   repo: messages,
                   child: InboxScope(
                   store: inbox,
+                  child: HomeworkScope(
+                  repo: homework,
                   child: MaterialApp(
             title: 'رائد',
             debugShowCheckedModeBanner: false,
@@ -89,6 +96,7 @@ class RaeedApp extends StatelessWidget {
             supportedLocales: const [Locale('ar', 'MA')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             home: const SessionGate(),
+                  ),
                   ),
                   ),
                   ),

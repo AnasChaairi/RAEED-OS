@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/phone.dart';
+import '../homework/homework_screens.dart';
 import '../profile/child_profile_screen.dart';
 import '../setup/models.dart';
 import '../setup/widgets.dart';
@@ -149,6 +150,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               ButtonSegment(value: 0, label: Text('الأطفال ${kids.length}')),
               const ButtonSegment(value: 1, label: Text('الحصص')),
               if (store.schedules) const ButtonSegment(value: 2, label: Text('المؤطرون')),
+              if (store.schedules) const ButtonSegment(value: 3, label: Text('الواجبات')),
             ],
             selected: {_tab},
             onSelectionChanged: (v) => setState(() => _tab = v.first),
@@ -173,6 +175,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   : 'نسبة الحضور هذا الفصل. اضغط على اسم لفتح ملف الطفل.',
               style: text.bodySmall?.copyWith(color: RaeedColors.grey),
             ),
+          ] else if (_tab == 3) ...[
+            GroupHomework(groupId: group.id),
           ] else if (_tab == 2) ...[
             if (group.instructorIds.isEmpty)
               const Text('لا مؤطرين في هذه الفئة بعد.', style: TextStyle(color: RaeedColors.grey))
