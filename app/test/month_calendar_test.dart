@@ -29,6 +29,23 @@ void main() {
         sessions: data.sessions,
         staffNames: data.staffNames,
         parents: data.parents,
+        breaks: [
+          CalendarBreak(
+            id: 'ramadan',
+            kind: BreakKind.ramadan,
+            title: 'رمضان',
+            startDate: DateTime(2027, 2, 8),
+            endDate: DateTime(2027, 3, 9),
+          ),
+          CalendarBreak(
+            id: 'buds-only',
+            kind: BreakKind.pause,
+            title: 'توقف البراعم',
+            startDate: DateTime(2027, 2, 15),
+            endDate: DateTime(2027, 2, 15),
+            groupId: 'buds',
+          ),
+        ],
         activities: [
           SpecialActivity(
             id: 'camp',
@@ -53,6 +70,9 @@ void main() {
     expect(find.byKey(const Key('calendar-bar-camp')), findsNWidgets(2));
     // Today (Wednesday 10) is picked: its changed session is listed under the grid.
     expect(find.byKey(const Key('parent-session-wed')), findsOneWidget);
+    // It is in Ramadan, which is said above the day's cards.
+    expect(find.byKey(const Key('calendar-break-ramadan')), findsOneWidget);
+    expect(find.textContaining('من 8 فبراير إلى 9 مارس'), findsOneWidget);
     // Saturday's sessions are red dots: the مبيت replaces them.
     expect(find.byKey(const Key('calendar-dot-sat')), findsOneWidget);
 
@@ -63,6 +83,11 @@ void main() {
     await tapKey(tester, 'calendar-day-2027-02-14');
     expect(find.byKey(const Key('activity-camp-2027-02-14')), findsOneWidget);
     expect(find.textContaining('اليوم 2 من 2'), findsOneWidget);
+
+    // Another فئة's stop is not shown for آدم.
+    await tapKey(tester, 'calendar-day-2027-02-15');
+    expect(find.byKey(const Key('calendar-break-buds-only')), findsNothing);
+    expect(find.byKey(const Key('calendar-break-ramadan')), findsOneWidget);
 
     await tapKey(tester, 'calendar-next-month');
     expect(find.text('مارس 2027'), findsOneWidget);

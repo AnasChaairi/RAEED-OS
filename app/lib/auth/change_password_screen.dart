@@ -61,8 +61,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       appBar: AppBar(
         title: Text(widget.fromAccount ? 'تغيير كلمة المرور' : 'إنشاء كلمة المرور'),
         actions: [
-          if (!widget.fromAccount)
-            TextButton(onPressed: _busy ? null : session.signOut, child: const Text('خروج')),
+          if (!widget.fromAccount) TextButton(onPressed: _busy ? null : session.signOut, child: const Text('خروج')),
         ],
       ),
       body: SafeArea(
@@ -72,17 +71,17 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
             children: [
               if (!widget.fromAccount) ...[
-              Text('أول دخول · ${session.profile?.fullName ?? ''}', style: text.bodyMedium?.copyWith(color: RaeedColors.grey)),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text(
-                    'دخلت بكلمة مرور مؤقتة من الأكاديمية. اختر كلمة مرور خاصة بك.',
-                    style: text.bodyMedium,
+                Text(
+                  'أول دخول · ${session.profile?.fullName ?? ''}',
+                  style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Text('دخلت بكلمة مرور مؤقتة من الأكاديمية. اختر كلمة مرور خاصة بك.', style: text.bodyMedium),
                   ),
                 ),
-              ),
               ],
               const SizedBox(height: 20),
               TextFormField(
@@ -111,10 +110,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 '$minPasswordLength أحرف على الأقل. يبقى حسابك مفتوحاً على هذا الهاتف.',
                 style: text.bodySmall?.copyWith(color: RaeedColors.grey),
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                FormError(_error!),
-              ],
+              if (_error != null) ...[const SizedBox(height: 16), FormError(_error!)],
               const SizedBox(height: 24),
               FilledButton(
                 key: const Key('save-password'),

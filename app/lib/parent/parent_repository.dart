@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
+import '../instructor/instructor_repository.dart' show loadCalendarBreaks;
 import '../instructor/models.dart';
 import '../setup/setup_repository.dart';
 import 'parent_models.dart';
@@ -79,7 +80,11 @@ class SupabaseParentRepository implements ParentRepository {
         activities.clear();
       }
     }
+    final breaks = groupIds.isEmpty
+        ? const <CalendarBreak>[]
+        : await loadCalendarBreaks(_db, today.subtract(const Duration(days: 35)), today.add(const Duration(days: 124)));
     return ParentSnapshot(
+      breaks: breaks,
       activities: activities,
       children: children,
       sessions: [for (final s in results[0]) Session.fromJson(s as Map<String, dynamic>)],

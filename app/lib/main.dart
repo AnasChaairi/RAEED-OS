@@ -31,16 +31,18 @@ Future<void> main() async {
       inbox.clear();
       await push.unregister();
     };
-  runApp(RaeedApp(
-    session: session,
-    setup: SetupStore(SupabaseSetupRepository(client)),
-    instructor: InstructorStore(SupabaseInstructorRepository(client), prefs),
-    parent: ParentStore(SupabaseParentRepository(client), prefs),
-    stats: StatsStore(SupabaseStatsRepository(client)),
-    profiles: SupabaseProfileRepository(client),
-    push: push,
-    messages: SupabaseMessagesRepository(client),
-    inbox: inbox,
-  ));
+  runApp(
+    RaeedApp(
+      session: session,
+      setup: SetupStore(SupabaseSetupRepository(client)),
+      instructor: InstructorStore(SupabaseInstructorRepository(client), prefs),
+      parent: ParentStore(SupabaseParentRepository(client), prefs),
+      stats: StatsStore(SupabaseStatsRepository(client)),
+      profiles: SupabaseProfileRepository(client),
+      push: push,
+      messages: SupabaseMessagesRepository(client),
+      inbox: inbox,
+    ),
+  );
   await session.start();
 }

@@ -115,160 +115,172 @@ class SupabaseSetupRepository implements SetupRepository {
 
   @override
   Future<SetupSnapshot> load() => _guard(() async {
-        final results = await Future.wait([
-          _db.from('groups').select('id, name, logo_letter, logo_color, logo_path, age_min, age_max, archived, group_instructors(person_id), group_supervisors(person_id)').order('name'),
-          _db
-              .from('people')
-              .select('id, full_name, phone, gender, must_change_password, person_roles(role)')
-              .not('phone', 'like', 'deleted-%')
-              .order('full_name'),
-          _db.from('children').select('id, full_name, birth_date, gender, consent_recorded_at, child_groups(group_id, to_date), child_parents(parent_id)').order('full_name'),
-          _db.from('seasons').select('id, name, starts_on, ends_on, terms(id, name, starts_on, ends_on)').order('starts_on', ascending: false),
-          _db.from('account_deletion_requests').select('person_id, requested_at').order('requested_at'),
-        ]);
-        return SetupSnapshot(
-          groups: [
-            for (final g in results[0])
-              Group(
-                id: g['id'] as String,
-                name: g['name'] as String,
-                logoLetter: g['logo_letter'] as String,
-                logoColor: g['logo_color'] as int,
-                logoPath: g['logo_path'] as String?,
-                ageMin: g['age_min'] as int?,
-                ageMax: g['age_max'] as int?,
-                archived: g['archived'] as bool,
-                instructorIds: [for (final i in g['group_instructors'] as List) i['person_id'] as String],
-                supervisorIds: [for (final i in g['group_supervisors'] as List) i['person_id'] as String],
-              ),
-          ],
-          people: [
-            for (final p in results[1])
-              Person(
-                id: p['id'] as String,
-                fullName: p['full_name'] as String,
-                phone: p['phone'] as String,
-                mustChangePassword: p['must_change_password'] as bool,
-                gender: Gender.fromDb(p['gender']),
-                roles: {
-                  for (final r in p['person_roles'] as List)
-                    ?AppRole.fromDb(r['role'] as String),
-                },
-              ),
-          ],
-          children: [
-            for (final c in results[2])
-              Child(
-                id: c['id'] as String,
-                fullName: c['full_name'] as String,
-                birthDate: _date(c['birth_date']),
-                gender: Gender.fromDb(c['gender']),
-                consentRecordedAt: c['consent_recorded_at'] == null ? null : DateTime.parse(c['consent_recorded_at'] as String),
-                groupId: [
-                  for (final m in c['child_groups'] as List)
-                    if (m['to_date'] == null) m['group_id'] as String,
-                ].firstOrNull,
-                parentIds: [for (final p in c['child_parents'] as List) p['parent_id'] as String],
-              ),
-          ],
-          seasons: [
-            for (final s in results[3])
-              Season(
-                id: s['id'] as String,
-                name: s['name'] as String,
-                startsOn: _date(s['starts_on'])!,
-                endsOn: _date(s['ends_on'])!,
-                terms: [
-                  for (final t in s['terms'] as List)
-                    Term(
-                      id: t['id'] as String,
-                      name: t['name'] as String,
-                      startsOn: _date(t['starts_on'])!,
-                      endsOn: _date(t['ends_on'])!,
-                    ),
-                ]..sort((a, b) => a.startsOn.compareTo(b.startsOn)),
-              ),
-          ],
-          deletionRequests: [
-            for (final r in results[4])
-              (personId: r['person_id'] as String, requestedAt: DateTime.parse(r['requested_at'] as String).toLocal()),
-          ],
-        );
-      });
+    final results = await Future.wait([
+      _db
+          .from('groups')
+          .select(
+            'id, name, logo_letter, logo_color, logo_path, age_min, age_max, archived, group_instructors(person_id), group_supervisors(person_id)',
+          )
+          .order('name'),
+      _db
+          .from('people')
+          .select('id, full_name, phone, gender, must_change_password, person_roles(role)')
+          .not('phone', 'like', 'deleted-%')
+          .order('full_name'),
+      _db
+          .from('children')
+          .select(
+            'id, full_name, birth_date, gender, consent_recorded_at, child_groups(group_id, to_date), child_parents(parent_id)',
+          )
+          .order('full_name'),
+      _db
+          .from('seasons')
+          .select('id, name, starts_on, ends_on, terms(id, name, starts_on, ends_on)')
+          .order('starts_on', ascending: false),
+      _db.from('account_deletion_requests').select('person_id, requested_at').order('requested_at'),
+    ]);
+    return SetupSnapshot(
+      groups: [
+        for (final g in results[0])
+          Group(
+            id: g['id'] as String,
+            name: g['name'] as String,
+            logoLetter: g['logo_letter'] as String,
+            logoColor: g['logo_color'] as int,
+            logoPath: g['logo_path'] as String?,
+            ageMin: g['age_min'] as int?,
+            ageMax: g['age_max'] as int?,
+            archived: g['archived'] as bool,
+            instructorIds: [for (final i in g['group_instructors'] as List) i['person_id'] as String],
+            supervisorIds: [for (final i in g['group_supervisors'] as List) i['person_id'] as String],
+          ),
+      ],
+      people: [
+        for (final p in results[1])
+          Person(
+            id: p['id'] as String,
+            fullName: p['full_name'] as String,
+            phone: p['phone'] as String,
+            mustChangePassword: p['must_change_password'] as bool,
+            gender: Gender.fromDb(p['gender']),
+            roles: {for (final r in p['person_roles'] as List) ?AppRole.fromDb(r['role'] as String)},
+          ),
+      ],
+      children: [
+        for (final c in results[2])
+          Child(
+            id: c['id'] as String,
+            fullName: c['full_name'] as String,
+            birthDate: _date(c['birth_date']),
+            gender: Gender.fromDb(c['gender']),
+            consentRecordedAt: c['consent_recorded_at'] == null
+                ? null
+                : DateTime.parse(c['consent_recorded_at'] as String),
+            groupId: [
+              for (final m in c['child_groups'] as List)
+                if (m['to_date'] == null) m['group_id'] as String,
+            ].firstOrNull,
+            parentIds: [for (final p in c['child_parents'] as List) p['parent_id'] as String],
+          ),
+      ],
+      seasons: [
+        for (final s in results[3])
+          Season(
+            id: s['id'] as String,
+            name: s['name'] as String,
+            startsOn: _date(s['starts_on'])!,
+            endsOn: _date(s['ends_on'])!,
+            terms: [
+              for (final t in s['terms'] as List)
+                Term(
+                  id: t['id'] as String,
+                  name: t['name'] as String,
+                  startsOn: _date(t['starts_on'])!,
+                  endsOn: _date(t['ends_on'])!,
+                ),
+            ]..sort((a, b) => a.startsOn.compareTo(b.startsOn)),
+          ),
+      ],
+      deletionRequests: [
+        for (final r in results[4])
+          (personId: r['person_id'] as String, requestedAt: DateTime.parse(r['requested_at'] as String).toLocal()),
+      ],
+    );
+  });
 
   @override
   Future<String> saveGroup(GroupDraft d) => _guard(() async {
-        final row = {
-          'name': d.name,
-          'logo_letter': d.logoLetter,
-          'logo_color': d.logoColor,
-          'age_min': d.ageMin,
-          'age_max': d.ageMax,
-          'archived': d.archived,
-        };
-        if (d.id == null) {
-          final inserted = await _db.from('groups').insert(row).select('id').single();
-          return inserted['id'] as String;
-        }
-        await _db.from('groups').update(row).eq('id', d.id!);
-        return d.id!;
-      });
+    final row = {
+      'name': d.name,
+      'logo_letter': d.logoLetter,
+      'logo_color': d.logoColor,
+      'age_min': d.ageMin,
+      'age_max': d.ageMax,
+      'archived': d.archived,
+    };
+    if (d.id == null) {
+      final inserted = await _db.from('groups').insert(row).select('id').single();
+      return inserted['id'] as String;
+    }
+    await _db.from('groups').update(row).eq('id', d.id!);
+    return d.id!;
+  });
 
   @override
   Future<void> setGroupInstructors(String groupId, List<String> personIds) => _guard(() async {
-        var remove = _db.from('group_instructors').delete().eq('group_id', groupId);
-        if (personIds.isNotEmpty) remove = remove.not('person_id', 'in', '(${personIds.join(',')})');
-        await remove;
-        if (personIds.isNotEmpty) {
-          await _db
-              .from('group_instructors')
-              .upsert([for (final p in personIds) {'group_id': groupId, 'person_id': p}], ignoreDuplicates: true);
-        }
-      });
+    var remove = _db.from('group_instructors').delete().eq('group_id', groupId);
+    if (personIds.isNotEmpty) remove = remove.not('person_id', 'in', '(${personIds.join(',')})');
+    await remove;
+    if (personIds.isNotEmpty) {
+      await _db.from('group_instructors').upsert([
+        for (final p in personIds) {'group_id': groupId, 'person_id': p},
+      ], ignoreDuplicates: true);
+    }
+  });
 
   @override
   Future<void> setGroupSupervisors(String groupId, List<String> personIds) => _guard(() async {
-        var remove = _db.from('group_supervisors').delete().eq('group_id', groupId);
-        if (personIds.isNotEmpty) remove = remove.not('person_id', 'in', '(${personIds.join(',')})');
-        await remove;
-        if (personIds.isNotEmpty) {
-          await _db
-              .from('group_supervisors')
-              .upsert([for (final p in personIds) {'group_id': groupId, 'person_id': p}], ignoreDuplicates: true);
-        }
-      });
+    var remove = _db.from('group_supervisors').delete().eq('group_id', groupId);
+    if (personIds.isNotEmpty) remove = remove.not('person_id', 'in', '(${personIds.join(',')})');
+    await remove;
+    if (personIds.isNotEmpty) {
+      await _db.from('group_supervisors').upsert([
+        for (final p in personIds) {'group_id': groupId, 'person_id': p},
+      ], ignoreDuplicates: true);
+    }
+  });
 
   @override
   Future<void> setInstructorGroups(String personId, List<String> groupIds) => _guard(() async {
-        var remove = _db.from('group_instructors').delete().eq('person_id', personId);
-        if (groupIds.isNotEmpty) remove = remove.not('group_id', 'in', '(${groupIds.join(',')})');
-        await remove;
-        if (groupIds.isNotEmpty) {
-          await _db
-              .from('group_instructors')
-              .upsert([for (final g in groupIds) {'group_id': g, 'person_id': personId}], ignoreDuplicates: true);
-        }
-      });
+    var remove = _db.from('group_instructors').delete().eq('person_id', personId);
+    if (groupIds.isNotEmpty) remove = remove.not('group_id', 'in', '(${groupIds.join(',')})');
+    await remove;
+    if (groupIds.isNotEmpty) {
+      await _db.from('group_instructors').upsert([
+        for (final g in groupIds) {'group_id': g, 'person_id': personId},
+      ], ignoreDuplicates: true);
+    }
+  });
 
   @override
   Future<void> setGroupLogo(String groupId, Uint8List? image, {String? replaces}) => _guard(() async {
-        final bucket = _db.storage.from(groupLogoBucket);
-        String? path;
-        if (image != null) {
-          // A new name each time, so phones that cached the old picture fetch the new one.
-          final (ext, type) = _imageType(image);
-          path = '$groupId/${DateTime.now().millisecondsSinceEpoch}.$ext';
-          await bucket.uploadBinary(path, image, fileOptions: FileOptions(contentType: type));
-        }
-        await _db.from('groups').update({'logo_path': path}).eq('id', groupId);
-        if (replaces != null) {
-          try {
-            await bucket.remove([replaces]);
-          } catch (_) {
-            // A leftover image costs a few kilobytes; the group already shows the new one.
-          }
-        }
-      });
+    final bucket = _db.storage.from(groupLogoBucket);
+    String? path;
+    if (image != null) {
+      // A new name each time, so phones that cached the old picture fetch the new one.
+      final (ext, type) = _imageType(image);
+      path = '$groupId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await bucket.uploadBinary(path, image, fileOptions: FileOptions(contentType: type));
+    }
+    await _db.from('groups').update({'logo_path': path}).eq('id', groupId);
+    if (replaces != null) {
+      try {
+        await bucket.remove([replaces]);
+      } catch (_) {
+        // A leftover image costs a few kilobytes; the group already shows the new one.
+      }
+    }
+  });
 
   @override
   Future<NewAccount> createAccount({required String fullName, required String phone, required Set<AppRole> roles}) =>
@@ -281,34 +293,41 @@ class SupabaseSetupRepository implements SetupRepository {
           'phone': normalized,
           'roles': [for (final r in roles) r.dbName],
         });
-        return NewAccount(personId: result['person_id'] as String, temporaryPassword: result['temporary_password'] as String?);
+        return NewAccount(
+          personId: result['person_id'] as String,
+          temporaryPassword: result['temporary_password'] as String?,
+        );
       });
 
   @override
   Future<void> deleteAccount(String personId) => _guard(() async {
-        await _call({'action': 'delete', 'person_id': personId});
-      });
+    await _call({'action': 'delete', 'person_id': personId});
+  });
 
   @override
   Future<String> resetPassword(String personId) => _guard(() async {
-        final result = await _call({'action': 'reset', 'person_id': personId});
-        return result['temporary_password'] as String;
-      });
+    final result = await _call({'action': 'reset', 'person_id': personId});
+    return result['temporary_password'] as String;
+  });
 
   @override
   Future<void> setRoles(String personId, Set<AppRole> roles) => _guard(() async {
-        await _call({'action': 'set_roles', 'person_id': personId, 'roles': [for (final r in roles) r.dbName]});
-      });
+    await _call({
+      'action': 'set_roles',
+      'person_id': personId,
+      'roles': [for (final r in roles) r.dbName],
+    });
+  });
 
   @override
   Future<void> renamePerson(String personId, String fullName) => _guard(() async {
-        await _db.from('people').update({'full_name': fullName}).eq('id', personId);
-      });
+    await _db.from('people').update({'full_name': fullName}).eq('id', personId);
+  });
 
   @override
   Future<void> setGender(String personId, Gender gender) => _guard(() async {
-        await _db.from('people').update({'gender': gender.dbName}).eq('id', personId);
-      });
+    await _db.from('people').update({'gender': gender.dbName}).eq('id', personId);
+  });
 
   @override
   Future<String> saveChild({
@@ -317,47 +336,46 @@ class SupabaseSetupRepository implements SetupRepository {
     DateTime? birthDate,
     Gender? gender,
     required bool recordConsent,
-  }) =>
-      _guard(() async {
-        final row = <String, dynamic>{
-          'full_name': fullName,
-          'birth_date': birthDate == null ? null : _day(birthDate),
-          'gender': ?gender?.dbName,
-        };
-        if (recordConsent) {
-          row['consent_recorded_at'] = DateTime.now().toUtc().toIso8601String();
-          row['consent_recorded_by'] = _db.auth.currentUser!.id;
-        }
-        if (id == null) {
-          final inserted = await _db.from('children').insert(row).select('id').single();
-          return inserted['id'] as String;
-        }
-        await _db.from('children').update(row).eq('id', id);
-        return id;
-      });
+  }) => _guard(() async {
+    final row = <String, dynamic>{
+      'full_name': fullName,
+      'birth_date': birthDate == null ? null : _day(birthDate),
+      'gender': ?gender?.dbName,
+    };
+    if (recordConsent) {
+      row['consent_recorded_at'] = DateTime.now().toUtc().toIso8601String();
+      row['consent_recorded_by'] = _db.auth.currentUser!.id;
+    }
+    if (id == null) {
+      final inserted = await _db.from('children').insert(row).select('id').single();
+      return inserted['id'] as String;
+    }
+    await _db.from('children').update(row).eq('id', id);
+    return id;
+  });
 
   @override
   Future<void> moveChild(String childId, String? groupId) => _guard(() async {
-        final today = _day(DateTime.now());
-        // A membership that started today is simply replaced, not closed.
-        await _db.from('child_groups').delete().eq('child_id', childId).isFilter('to_date', null).eq('from_date', today);
-        await _db.from('child_groups').update({'to_date': today}).eq('child_id', childId).isFilter('to_date', null);
-        if (groupId != null) {
-          await _db.from('child_groups').insert({'child_id': childId, 'group_id': groupId, 'from_date': today});
-        }
-      });
+    final today = _day(DateTime.now());
+    // A membership that started today is simply replaced, not closed.
+    await _db.from('child_groups').delete().eq('child_id', childId).isFilter('to_date', null).eq('from_date', today);
+    await _db.from('child_groups').update({'to_date': today}).eq('child_id', childId).isFilter('to_date', null);
+    if (groupId != null) {
+      await _db.from('child_groups').insert({'child_id': childId, 'group_id': groupId, 'from_date': today});
+    }
+  });
 
   @override
   Future<void> setChildParents(String childId, List<String> parentIds) => _guard(() async {
-        var remove = _db.from('child_parents').delete().eq('child_id', childId);
-        if (parentIds.isNotEmpty) remove = remove.not('parent_id', 'in', '(${parentIds.join(',')})');
-        await remove;
-        if (parentIds.isNotEmpty) {
-          await _db
-              .from('child_parents')
-              .upsert([for (final p in parentIds) {'child_id': childId, 'parent_id': p}], ignoreDuplicates: true);
-        }
-      });
+    var remove = _db.from('child_parents').delete().eq('child_id', childId);
+    if (parentIds.isNotEmpty) remove = remove.not('parent_id', 'in', '(${parentIds.join(',')})');
+    await remove;
+    if (parentIds.isNotEmpty) {
+      await _db.from('child_parents').upsert([
+        for (final p in parentIds) {'child_id': childId, 'parent_id': p},
+      ], ignoreDuplicates: true);
+    }
+  });
 
   @override
   Future<String> saveSeason({String? id, required String name, required DateTime startsOn, required DateTime endsOn}) =>
@@ -375,57 +393,56 @@ class SupabaseSetupRepository implements SetupRepository {
     required String name,
     required DateTime startsOn,
     required DateTime endsOn,
-  }) =>
-      _guard(() async {
-        final row = {'season_id': seasonId, 'name': name, 'starts_on': _day(startsOn), 'ends_on': _day(endsOn)};
-        if (id == null) return (await _db.from('terms').insert(row).select('id').single())['id'] as String;
-        await _db.from('terms').update(row).eq('id', id);
-        return id;
-      });
+  }) => _guard(() async {
+    final row = {'season_id': seasonId, 'name': name, 'starts_on': _day(startsOn), 'ends_on': _day(endsOn)};
+    if (id == null) return (await _db.from('terms').insert(row).select('id').single())['id'] as String;
+    await _db.from('terms').update(row).eq('id', id);
+    return id;
+  });
 
   @override
   Future<void> deleteChild(String childId) => _guard(() async {
-        await _db.from('children').delete().eq('id', childId);
-      });
+    await _db.from('children').delete().eq('id', childId);
+  });
 
   @override
   Future<void> deleteGroup(String groupId) => _guard(() async {
-        final logo = await _db.rpc('delete_group', params: {'g': groupId}) as String?;
-        if (logo != null) {
-          try {
-            await _db.storage.from(groupLogoBucket).remove([logo]);
-          } catch (_) {
-            // A leftover image costs a few kilobytes.
-          }
-        }
-      });
+    final logo = await _db.rpc('delete_group', params: {'g': groupId}) as String?;
+    if (logo != null) {
+      try {
+        await _db.storage.from(groupLogoBucket).remove([logo]);
+      } catch (_) {
+        // A leftover image costs a few kilobytes.
+      }
+    }
+  });
 
   @override
   Future<GroupDeletionCounts> groupDeletionCounts(String groupId) => _guard(() async {
-        final rows = await _db.rpc('group_deletion_counts', params: {'g': groupId}) as List;
-        if (rows.isEmpty) throw const SetupError(SetupFailure.notAllowed);
-        final r = rows.first as Map;
-        return (
-          sessions: (r['sessions'] as num).toInt(),
-          attendance: (r['attendance'] as num).toInt(),
-          children: (r['children'] as num).toInt(),
-        );
-      });
+    final rows = await _db.rpc('group_deletion_counts', params: {'g': groupId}) as List;
+    if (rows.isEmpty) throw const SetupError(SetupFailure.notAllowed);
+    final r = rows.first as Map;
+    return (
+      sessions: (r['sessions'] as num).toInt(),
+      attendance: (r['attendance'] as num).toInt(),
+      children: (r['children'] as num).toInt(),
+    );
+  });
 
   @override
   Future<void> deleteSeason(String seasonId) => _guard(() async {
-        await _db.from('seasons').delete().eq('id', seasonId);
-      });
+    await _db.from('seasons').delete().eq('id', seasonId);
+  });
 
   @override
   Future<void> deleteTerm(String termId) => _guard(() async {
-        await _db.from('terms').delete().eq('id', termId);
-      });
+    await _db.from('terms').delete().eq('id', termId);
+  });
 
   @override
   Future<void> releaseStaff(String personId) => _guard(() async {
-        await _db.rpc('release_staff', params: {'p': personId});
-      });
+    await _db.rpc('release_staff', params: {'p': personId});
+  });
 
   Future<Map<String, dynamic>> _call(Map<String, dynamic> body) async {
     try {

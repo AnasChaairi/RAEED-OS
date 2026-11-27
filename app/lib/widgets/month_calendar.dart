@@ -14,6 +14,14 @@ enum ScheduleMode { list, month }
 final scheduleMode = ValueNotifier<ScheduleMode>(ScheduleMode.list);
 
 const _changed = Color(0xFFB45F00);
+
+/// The tint of a day under a [CalendarBreak], and the colour of its label.
+(Color, Color) breakColors(BreakKind k) => switch (k) {
+  BreakKind.holiday => (const Color(0xFFFFF1C2), const Color(0xFF8A5A00)),
+  BreakKind.ramadan => (const Color(0xFFE0F2E6), const Color(0xFF1C7A55)),
+  BreakKind.pause => (const Color(0xFFE6E9EE), RaeedColors.grey),
+};
+
 const _shortDays = ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 
 /// أسبوع | شهر, on top of a schedule.
@@ -82,6 +90,7 @@ class MonthCalendar extends StatefulWidget {
     required this.activities,
     required this.replacedBy,
     required this.dayItems,
+    this.breaks = const [],
     this.emptyDay = 'لا حصص ولا أنشطة في هذا اليوم.',
   });
 
@@ -89,6 +98,9 @@ class MonthCalendar extends StatefulWidget {
   final List<Session> sessions;
   final List<SpecialActivity> activities;
   final SpecialActivity? Function(Session s) replacedBy;
+
+  /// Holidays, Ramadan and the academy's stops that concern these فئات.
+  final List<CalendarBreak> breaks;
 
   /// The cards for one day: its activities, then its sessions.
   final List<Widget> Function(BuildContext context, DateTime day) dayItems;
@@ -158,6 +170,11 @@ class _MonthCalendarState extends State<MonthCalendar> {
     ].join(' · ');
 
     final items = widget.dayItems(context, selected);
+    final dayBreaks = widget.breaks.where((b) => b.covers(selected)).toList();
+    final monthKinds = {
+      for (final b in widget.breaks)
+        if (!b.endDate.isBefore(gridStart) && !b.startDate.isAfter(gridEnd)) b.kind,
+    };
     return Column(
       key: const Key('month-calendar'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -218,6 +235,7 @@ class _MonthCalendarState extends State<MonthCalendar> {
                     today: today,
                     selected: selected,
                     byDay: byDay,
+                    breaks: widget.breaks,
                     activities: widget.activities,
                     replacedBy: widget.replacedBy,
                     onTap: (d) => setState(() {
@@ -226,13 +244,14 @@ class _MonthCalendarState extends State<MonthCalendar> {
                     }),
                   ),
                 const SizedBox(height: 4),
-                const _Legend(),
+                _Legend(breaks: monthKinds),
               ],
             ),
           ),
         ),
         SectionLabel(dayLabel(selected, now)),
-        if (items.isEmpty)
+        for (final b in dayBreaks) _BreakNote(b),
+        if (items.isEmpty && dayBreaks.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
@@ -256,6 +275,7 @@ class _WeekRow extends StatelessWidget {
     required this.today,
     required this.selected,
     required this.byDay,
+    required this.breaks,
     required this.activities,
     required this.replacedBy,
     required this.onTap,
@@ -272,9 +292,20 @@ class _WeekRow extends StatelessWidget {
   final DateTime today;
   final DateTime selected;
   final Map<DateTime, List<Session>> byDay;
+  final List<CalendarBreak> breaks;
   final List<SpecialActivity> activities;
   final SpecialActivity? Function(Session) replacedBy;
   final ValueChanged<DateTime> onTap;
+
+  /// The break that tints [day]: a stop or a holiday shows over Ramadan.
+  BreakKind? _shownBreak(DateTime day) {
+    BreakKind? shown;
+    for (final b in breaks) {
+      if (!b.covers(day)) continue;
+      if (shown == null || shown == BreakKind.ramadan || b.kind == BreakKind.pause) shown = b.kind;
+    }
+    return shown;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -332,6 +363,7 @@ class _WeekRow extends StatelessWidget {
                         isSelected: days[i] == selected,
                         sessions: byDay[days[i]] ?? const [],
                         replacedBy: replacedBy,
+                        off: _shownBreak(days[i]),
                         hidden: hidden[i],
                         onTap: () => onTap(days[i]),
                       ),
@@ -412,6 +444,7 @@ class _DayCell extends StatelessWidget {
     required this.isSelected,
     required this.sessions,
     required this.replacedBy,
+    required this.off,
     required this.hidden,
     required this.onTap,
   });
@@ -422,6 +455,9 @@ class _DayCell extends StatelessWidget {
   final bool isSelected;
   final List<Session> sessions;
   final SpecialActivity? Function(Session) replacedBy;
+
+  /// The break this day falls in, which tints it.
+  final BreakKind? off;
   final int hidden;
   final VoidCallback onTap;
 
@@ -439,52 +475,58 @@ class _DayCell extends StatelessWidget {
       key: Key('calendar-day-${dbDay(day)}'),
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
-      child: Opacity(
-        opacity: faded ? 0.4 : 1,
-        child: Column(
-          children: [
-            const SizedBox(height: 2),
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? RaeedColors.blue : null,
-                border: isToday && !isSelected ? Border.all(color: RaeedColors.blue, width: 1.5) : null,
-              ),
-              child: Text(
-                '${day.day}',
-                style: text.bodySmall?.copyWith(
-                  fontWeight: isToday || isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.white : RaeedColors.ink,
+      child: Ink(
+        decoration: BoxDecoration(
+          color: off == null ? null : breakColors(off!).$1,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Opacity(
+          opacity: faded ? 0.4 : 1,
+          child: Column(
+            children: [
+              const SizedBox(height: 2),
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isSelected ? RaeedColors.blue : null,
+                  border: isToday && !isSelected ? Border.all(color: RaeedColors.blue, width: 1.5) : null,
+                ),
+                child: Text(
+                  '${day.day}',
+                  style: text.bodySmall?.copyWith(
+                    fontWeight: isToday || isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? Colors.white : RaeedColors.ink,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 2),
-            SizedBox(
-              height: 8,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (final s in shown)
-                    Container(
-                      key: Key('calendar-dot-${s.id}'),
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.symmetric(horizontal: 1),
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: dot(s)),
-                    ),
-                  if (sessions.length + hidden > shown.length)
-                    Text(
-                      '+${sessions.length + hidden - shown.length}',
-                      style: text.labelSmall?.copyWith(fontSize: 8, color: RaeedColors.grey, height: 1),
-                    ),
-                ],
+              const SizedBox(height: 2),
+              SizedBox(
+                height: 8,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (final s in shown)
+                      Container(
+                        key: Key('calendar-dot-${s.id}'),
+                        width: 6,
+                        height: 6,
+                        margin: const EdgeInsets.symmetric(horizontal: 1),
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: dot(s)),
+                      ),
+                    if (sessions.length + hidden > shown.length)
+                      Text(
+                        '+${sessions.length + hidden - shown.length}',
+                        style: text.labelSmall?.copyWith(fontSize: 8, color: RaeedColors.grey, height: 1),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-          ],
+              const SizedBox(height: 2),
+            ],
+          ),
         ),
       ),
     );
@@ -492,7 +534,10 @@ class _DayCell extends StatelessWidget {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend();
+  const _Legend({this.breaks = const {}});
+
+  /// The kinds of break on the grid, each given its tint.
+  final Set<BreakKind> breaks;
 
   @override
   Widget build(BuildContext context) {
@@ -531,7 +576,59 @@ class _Legend extends StatelessWidget {
           ),
           'نشاط نوعي',
         ),
+        for (final k in BreakKind.values)
+          if (breaks.contains(k))
+            item(
+              Container(
+                width: 12,
+                height: 10,
+                decoration: BoxDecoration(color: breakColors(k).$1, borderRadius: BorderRadius.circular(3)),
+              ),
+              k.label,
+            ),
       ],
+    );
+  }
+}
+
+/// «عطلة · العطلة البينية الثانية», above a day's cards.
+class _BreakNote extends StatelessWidget {
+  const _BreakNote(this.b);
+
+  final CalendarBreak b;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg) = breakColors(b.kind);
+    final text = Theme.of(context).textTheme;
+    final span = b.startDate == b.endDate
+        ? ''
+        : ' · من ${b.startDate.day} ${monthNames[b.startDate.month - 1]} إلى ${b.endDate.day} ${monthNames[b.endDate.month - 1]}';
+    return Container(
+      key: Key('calendar-break-${b.id}'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Icon(
+            switch (b.kind) {
+              BreakKind.holiday => Icons.beach_access_outlined,
+              BreakKind.ramadan => Icons.nightlight_outlined,
+              BreakKind.pause => Icons.pause_circle_outline,
+            },
+            size: 18,
+            color: fg,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              b.title == b.kind.label ? '${b.title}$span' : '${b.kind.label} · ${b.title}$span',
+              style: text.bodySmall?.copyWith(color: fg, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

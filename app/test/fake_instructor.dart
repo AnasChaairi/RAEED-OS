@@ -18,6 +18,7 @@ class FakeInstructorRepository implements InstructorRepository {
   final staffPhones = <String, String>{};
   final absences = <InstructorAbsence>[];
   final activities = <SpecialActivity>[];
+  final breaks = <CalendarBreak>[];
   final activityAttendance = <String, ActivityAttendance>{};
 
   /// Who is signed in, for writes that take it from the session.
@@ -59,6 +60,7 @@ class FakeInstructorRepository implements InstructorRepository {
       activities: (activities.where((a) => a.groupIds.any(mine.contains)).toList()
         ..sort((a, b) => a.startsAt.compareTo(b.startsAt))),
       activityAttendance: activityAttendance.values.toList(),
+      breaks: breaks,
     );
   }
 
@@ -290,13 +292,15 @@ class FakeInstructorRepository implements InstructorRepository {
   Future<void> reportAbsence(String sessionId, String reason) async {
     _check();
     calls.add('reportAbsence $sessionId $reason');
-    absences.add(InstructorAbsence(
-      id: 'a${_ids++}',
-      sessionId: sessionId,
-      personId: me,
-      reason: reason,
-      createdAt: DateTime(2026, 10, 1),
-    ));
+    absences.add(
+      InstructorAbsence(
+        id: 'a${_ids++}',
+        sessionId: sessionId,
+        personId: me,
+        reason: reason,
+        createdAt: DateTime(2026, 10, 1),
+      ),
+    );
   }
 
   @override
@@ -361,8 +365,11 @@ class FakeInstructorRepository implements InstructorRepository {
     _check();
     calls.add('saveActivityAttendance $activityId ${statuses.length}');
     for (final e in statuses.entries) {
-      activityAttendance['$activityId/${e.key}'] =
-          ActivityAttendance(activityId: activityId, childId: e.key, status: e.value);
+      activityAttendance['$activityId/${e.key}'] = ActivityAttendance(
+        activityId: activityId,
+        childId: e.key,
+        status: e.value,
+      );
     }
   }
 }

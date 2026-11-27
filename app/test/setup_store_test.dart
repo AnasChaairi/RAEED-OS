@@ -19,19 +19,23 @@ void main() {
   });
 
   test('a new child creates parent accounts and returns their passwords', () async {
-    await store.saveGroup(const GroupDraft(name: 'فئة النجوم', logoLetter: 'ن', logoColor: 1, instructorIds: ['yassine']));
+    await store.saveGroup(
+      const GroupDraft(name: 'فئة النجوم', logoLetter: 'ن', logoColor: 1, instructorIds: ['yassine']),
+    );
     final group = store.data.groups.single;
     expect(group.instructorIds, ['yassine']);
 
-    final issued = await store.saveChild(ChildDraft(
-      fullName: 'آدم بنعلي',
-      groupId: group.id,
-      consent: true,
-      parents: const [
-        ParentDraft.create(fullName: 'كريم بنعلي', phone: '06 12 34 56 78'),
-        ParentDraft.create(fullName: 'سعاد العلوي', phone: '0698765432'),
-      ],
-    ));
+    final issued = await store.saveChild(
+      ChildDraft(
+        fullName: 'آدم بنعلي',
+        groupId: group.id,
+        consent: true,
+        parents: const [
+          ParentDraft.create(fullName: 'كريم بنعلي', phone: '06 12 34 56 78'),
+          ParentDraft.create(fullName: 'سعاد العلوي', phone: '0698765432'),
+        ],
+      ),
+    );
 
     expect(issued.map((p) => p.fullName), ['كريم بنعلي', 'سعاد العلوي']);
     expect(issued.first.phone, '+212612345678');
@@ -43,21 +47,32 @@ void main() {
   });
 
   test('a parent who is already staff is linked, keeps their password and gains the parent role', () async {
-    final issued = await store.saveChild(const ChildDraft(
-      fullName: 'سلمى',
-      parents: [ParentDraft.create(fullName: 'ياسين', phone: '+212611111111')],
-    ));
+    final issued = await store.saveChild(
+      const ChildDraft(
+        fullName: 'سلمى',
+        parents: [ParentDraft.create(fullName: 'ياسين', phone: '+212611111111')],
+      ),
+    );
     expect(issued, isEmpty);
     expect(store.data.children.single.parentIds, ['yassine']);
     expect(store.data.person('yassine')!.roles, {AppRole.instructor, AppRole.parent});
   });
 
   test('editing a child only touches what changed, and consent is recorded once', () async {
-    await store.saveChild(const ChildDraft(fullName: 'سلمى', consent: true, parents: [ParentDraft.existing('yassine')]));
+    await store.saveChild(
+      const ChildDraft(fullName: 'سلمى', consent: true, parents: [ParentDraft.existing('yassine')]),
+    );
     final child = store.data.children.single;
     repo.calls.clear();
 
-    await store.saveChild(ChildDraft(id: child.id, fullName: 'سلمى العلوي', consent: true, parents: const [ParentDraft.existing('yassine')]));
+    await store.saveChild(
+      ChildDraft(
+        id: child.id,
+        fullName: 'سلمى العلوي',
+        consent: true,
+        parents: const [ParentDraft.existing('yassine')],
+      ),
+    );
 
     expect(repo.calls, ['saveChild سلمى العلوي consent=false']);
   });
@@ -66,17 +81,29 @@ void main() {
     await store.saveGroup(const GroupDraft(name: 'أ', logoLetter: 'أ', logoColor: 1));
     await store.saveGroup(const GroupDraft(name: 'ب', logoLetter: 'ب', logoColor: 2));
     final [a, b] = store.data.groups;
-    await store.saveChild(ChildDraft(fullName: 'سلمى', groupId: a.id, parents: const [ParentDraft.existing('yassine')]));
+    await store.saveChild(
+      ChildDraft(fullName: 'سلمى', groupId: a.id, parents: const [ParentDraft.existing('yassine')]),
+    );
     final child = store.data.children.single;
-    await store.saveChild(ChildDraft(id: child.id, fullName: 'سلمى', groupId: b.id, parents: const [ParentDraft.existing('yassine')]));
-    expect(repo.calls.where((c) => c.startsWith('moveChild')), ['moveChild ${child.id} ${a.id}', 'moveChild ${child.id} ${b.id}']);
+    await store.saveChild(
+      ChildDraft(id: child.id, fullName: 'سلمى', groupId: b.id, parents: const [ParentDraft.existing('yassine')]),
+    );
+    expect(repo.calls.where((c) => c.startsWith('moveChild')), [
+      'moveChild ${child.id} ${a.id}',
+      'moveChild ${child.id} ${b.id}',
+    ]);
     expect(store.data.children.single.groupId, b.id);
   });
 
   test('a new instructor is placed in the chosen groups', () async {
     await store.saveGroup(const GroupDraft(name: 'أ', logoLetter: 'أ', logoColor: 1, instructorIds: ['yassine']));
     final group = store.data.groups.single;
-    final issued = await store.createStaff(fullName: 'سارة', phone: '0622222222', roles: {AppRole.instructor}, groupIds: [group.id]);
+    final issued = await store.createStaff(
+      fullName: 'سارة',
+      phone: '0622222222',
+      roles: {AppRole.instructor},
+      groupIds: [group.id],
+    );
     expect(issued!.temporaryPassword, isNotEmpty);
     final sara = store.data.people.firstWhere((p) => p.fullName == 'سارة');
     expect(store.data.groups.single.instructorIds, unorderedEquals(['yassine', sara.id]));
@@ -86,7 +113,12 @@ void main() {
     repo.addPerson('hamza', 'حمزة', '0633333333', {AppRole.instructor, AppRole.parent});
     await store.load();
     await store.saveGroup(const GroupDraft(name: 'أ', logoLetter: 'أ', logoColor: 1, instructorIds: ['hamza']));
-    await store.updateStaff(person: store.data.person('hamza')!, fullName: 'حمزة', roles: {AppRole.advisor}, groupIds: const []);
+    await store.updateStaff(
+      person: store.data.person('hamza')!,
+      fullName: 'حمزة',
+      roles: {AppRole.advisor},
+      groupIds: const [],
+    );
     expect(store.data.person('hamza')!.roles, {AppRole.advisor, AppRole.parent});
     expect(store.data.groups.single.instructorIds, isEmpty);
   });
@@ -106,11 +138,23 @@ void main() {
   });
 
   test('staff gender is saved on creation and only sent again when it changes', () async {
-    await store.createStaff(fullName: 'سارة', phone: '0622222222', roles: {AppRole.instructor}, groupIds: const [], gender: Gender.female);
+    await store.createStaff(
+      fullName: 'سارة',
+      phone: '0622222222',
+      roles: {AppRole.instructor},
+      groupIds: const [],
+      gender: Gender.female,
+    );
     final sara = store.data.people.singleWhere((p) => p.fullName == 'سارة');
     expect(sara.gender, Gender.female);
     repo.calls.clear();
-    await store.updateStaff(person: sara, fullName: 'سارة', roles: {AppRole.instructor}, groupIds: const [], gender: Gender.female);
+    await store.updateStaff(
+      person: sara,
+      fullName: 'سارة',
+      roles: {AppRole.instructor},
+      groupIds: const [],
+      gender: Gender.female,
+    );
     expect(repo.calls.where((c) => c.startsWith('setGender')), isEmpty);
   });
 
@@ -181,10 +225,20 @@ void main() {
     });
 
     test('a staff member is taken off their groups before the account goes', () async {
-      await store.saveGroup(const GroupDraft(name: 'النجوم', logoLetter: 'ن', logoColor: 1, instructorIds: ['yassine'], supervisorIds: ['yassine']));
+      await store.saveGroup(
+        const GroupDraft(
+          name: 'النجوم',
+          logoLetter: 'ن',
+          logoColor: 1,
+          instructorIds: ['yassine'],
+          supervisorIds: ['yassine'],
+        ),
+      );
       await store.deleteStaff(store.data.person('yassine')!);
-      expect(repo.calls.indexWhere((c) => c == 'releaseStaff yassine'),
-          lessThan(repo.calls.indexWhere((c) => c == 'deleteAccount yassine')));
+      expect(
+        repo.calls.indexWhere((c) => c == 'releaseStaff yassine'),
+        lessThan(repo.calls.indexWhere((c) => c == 'deleteAccount yassine')),
+      );
       expect(store.data.groups.single.instructorIds, isEmpty);
       expect(store.data.groups.single.supervisorIds, isEmpty);
       expect(store.data.person('yassine'), isNull);
@@ -197,7 +251,12 @@ void main() {
 
       await store.saveSeason(name: '2026–2027', startsOn: DateTime(2026, 9, 1), endsOn: DateTime(2027, 7, 1));
       final season = store.data.seasons.single;
-      await store.saveTerm(seasonId: season.id, name: 'الفصل الأول', startsOn: DateTime(2026, 9, 1), endsOn: DateTime(2027, 1, 31));
+      await store.saveTerm(
+        seasonId: season.id,
+        name: 'الفصل الأول',
+        startsOn: DateTime(2026, 9, 1),
+        endsOn: DateTime(2027, 1, 31),
+      );
       await store.deleteTerm(store.data.seasons.single.terms.single);
       expect(store.data.seasons.single.terms, isEmpty);
       await store.deleteSeason(store.data.seasons.single);

@@ -31,37 +31,37 @@ class AppNotification {
   /// A note, reply or like in the channel between the مشرف الفئة and parents.
   bool get isMessage => kind.startsWith('child_message');
 
-  AppNotification asRead() => AppNotification(
-      id: id, kind: kind, title: title, body: body, createdAt: createdAt, read: true, childId: childId);
+  AppNotification asRead() =>
+      AppNotification(id: id, kind: kind, title: title, body: body, createdAt: createdAt, read: true, childId: childId);
 
   IconData get icon => switch (kind) {
-        'child_message' || 'child_message_reply' => Icons.forum,
-        'child_message_like' => Icons.favorite,
-        'session_cancelled' => Icons.event_busy,
-        'session_reminder' => Icons.alarm,
-        'session_created' || 'session_changed' => Icons.event,
-        'absence_alert' => Icons.warning_amber_rounded,
-        'instructor_absence' => Icons.person_off,
-        'activity_cancelled' => Icons.event_busy,
-        'activity_created' || 'activity_changed' || 'activity_reminder' => Icons.celebration,
-        _ => Icons.notifications,
-      };
+    'child_message' || 'child_message_reply' => Icons.forum,
+    'child_message_like' => Icons.favorite,
+    'session_cancelled' => Icons.event_busy,
+    'session_reminder' => Icons.alarm,
+    'session_created' || 'session_changed' => Icons.event,
+    'absence_alert' => Icons.warning_amber_rounded,
+    'instructor_absence' => Icons.person_off,
+    'activity_cancelled' => Icons.event_busy,
+    'activity_created' || 'activity_changed' || 'activity_reminder' => Icons.celebration,
+    _ => Icons.notifications,
+  };
 
   /// The bottom tab of [role] that this notification is about, if any.
   int? tabFor(AppRole role) => switch ((role, kind)) {
-        (AppRole.parent, 'child_message' || 'child_message_reply' || 'child_message_like') => 1,
-        (AppRole.parent, _) => 0,
-        (AppRole.supervisor, 'child_message' || 'child_message_reply' || 'child_message_like') => 2,
-        (AppRole.supervisor, 'absence_alert') => 4,
-        (AppRole.supervisor, 'instructor_absence') => 1,
-        (AppRole.supervisor, _) => 0,
-        (AppRole.instructor, 'absence_alert') => 3,
-        (AppRole.instructor, _) => 1,
-        (AppRole.advisor, 'session_cancelled' || 'session_created' || 'session_changed' || 'instructor_absence') => 1,
-        (AppRole.advisor, 'activity_created' || 'activity_changed' || 'activity_cancelled' || 'activity_reminder') => 1,
-        (AppRole.advisor, 'absence_alert') => 3,
-        _ => null,
-      };
+    (AppRole.parent, 'child_message' || 'child_message_reply' || 'child_message_like') => 1,
+    (AppRole.parent, _) => 0,
+    (AppRole.supervisor, 'child_message' || 'child_message_reply' || 'child_message_like') => 2,
+    (AppRole.supervisor, 'absence_alert') => 4,
+    (AppRole.supervisor, 'instructor_absence') => 1,
+    (AppRole.supervisor, _) => 0,
+    (AppRole.instructor, 'absence_alert') => 3,
+    (AppRole.instructor, _) => 1,
+    (AppRole.advisor, 'session_cancelled' || 'session_created' || 'session_changed' || 'instructor_absence') => 1,
+    (AppRole.advisor, 'activity_created' || 'activity_changed' || 'activity_cancelled' || 'activity_reminder') => 1,
+    (AppRole.advisor, 'absence_alert') => 3,
+    _ => null,
+  };
 }
 
 /// The signed-in person's notifications. Every call throws [SetupError].
@@ -80,27 +80,27 @@ class SupabaseNotificationsRepository implements NotificationsRepository {
 
   @override
   Future<List<AppNotification>> load() => guardSupabase(() async {
-        final me = _db.auth.currentUser?.id;
-        if (me == null) return const [];
-        final rows = await _db
-            .from('notification_outbox')
-            .select('id, kind, title, body, data, created_at, read_at')
-            .eq('recipient_id', me)
-            .order('created_at', ascending: false)
-            .limit(100);
-        return [
-          for (final r in rows)
-            AppNotification(
-              id: r['id'] as String,
-              kind: r['kind'] as String,
-              title: r['title'] as String,
-              body: r['body'] as String,
-              createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
-              read: r['read_at'] != null,
-              childId: (r['data'] as Map?)?['child_id'] as String?,
-            ),
-        ];
-      });
+    final me = _db.auth.currentUser?.id;
+    if (me == null) return const [];
+    final rows = await _db
+        .from('notification_outbox')
+        .select('id, kind, title, body, data, created_at, read_at')
+        .eq('recipient_id', me)
+        .order('created_at', ascending: false)
+        .limit(100);
+    return [
+      for (final r in rows)
+        AppNotification(
+          id: r['id'] as String,
+          kind: r['kind'] as String,
+          title: r['title'] as String,
+          body: r['body'] as String,
+          createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
+          read: r['read_at'] != null,
+          childId: (r['data'] as Map?)?['child_id'] as String?,
+        ),
+    ];
+  });
 
   @override
   Future<void> markRead([List<String>? ids]) =>
@@ -159,7 +159,10 @@ class InboxStore extends ChangeNotifier {
 
   /// With [keepMessages], notes and replies stay unread until their conversation is opened.
   Future<void> markAllRead({bool keepMessages = false}) async {
-    final ids = [for (final n in _items) if (!n.read && !(keepMessages && n.isMessage)) n.id];
+    final ids = [
+      for (final n in _items)
+        if (!n.read && !(keepMessages && n.isMessage)) n.id,
+    ];
     if (ids.isEmpty) return;
     _items = [for (final n in _items) ids.contains(n.id) ? n.asRead() : n];
     notifyListeners();
@@ -230,11 +233,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     final store = InboxScope.read(context)!;
-    _fresh = {for (final n in store.items) if (!n.read) n.id};
+    _fresh = {
+      for (final n in store.items)
+        if (!n.read) n.id,
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await store.load();
       if (!mounted) return;
-      setState(() => _fresh.addAll([for (final n in store.items) if (!n.read) n.id]));
+      setState(
+        () => _fresh.addAll([
+          for (final n in store.items)
+            if (!n.read) n.id,
+        ]),
+      );
       await store.markAllRead(keepMessages: widget.keepMessages);
     });
   }
@@ -258,8 +269,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     store.loading
                         ? 'جارٍ التحميل…'
                         : store.failed
-                            ? 'تعذّر تحميل الإشعارات. اسحب للأسفل للمحاولة مجدداً.'
-                            : 'لا توجد إشعارات بعد.',
+                        ? 'تعذّر تحميل الإشعارات. اسحب للأسفل للمحاولة مجدداً.'
+                        : 'لا توجد إشعارات بعد.',
                     textAlign: TextAlign.center,
                     style: text.bodyMedium?.copyWith(color: RaeedColors.grey),
                   ),

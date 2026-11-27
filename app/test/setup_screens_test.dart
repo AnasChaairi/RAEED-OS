@@ -26,7 +26,9 @@ Future<FakeSetupRepository> openAdvisor(
   addTearDown(tester.view.reset);
   SharedPreferences.setMockInitialValues({});
   final auth = FakeAuthRepository(
-    accounts: {'212691015402': FakeAccount(fullName: 'أنس', password: 'secret-pass', roles: {AppRole.advisor})},
+    accounts: {
+      '212691015402': FakeAccount(fullName: 'أنس', password: 'secret-pass', roles: {AppRole.advisor}),
+    },
     signedInAs: '212691015402',
   );
   final repo = FakeSetupRepository()
@@ -36,15 +38,17 @@ Future<FakeSetupRepository> openAdvisor(
   final prefs = await SharedPreferences.getInstance();
   final session = AppSession(auth, prefs);
   final extra = stage4(prefs);
-  await tester.pumpWidget(RaeedApp(
-    session: session,
-    setup: SetupStore(repo),
-    instructor: InstructorStore(FakeInstructorRepository(), prefs, retryEvery: null),
-    parent: extra.parent,
-    stats: extra.stats,
-    profiles: extra.profiles,
-    push: extra.push,
-  ));
+  await tester.pumpWidget(
+    RaeedApp(
+      session: session,
+      setup: SetupStore(repo),
+      instructor: InstructorStore(FakeInstructorRepository(), prefs, retryEvery: null),
+      parent: extra.parent,
+      stats: extra.stats,
+      profiles: extra.profiles,
+      push: extra.push,
+    ),
+  );
   await session.start();
   await tester.pumpAndSettle();
   await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text(tab)));
@@ -74,7 +78,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('age-min')), '8');
     await tester.enterText(find.byKey(const Key('age-max')), '10');
     await tester.tap(find.widgetWithText(FilterChip, 'ياسين الإدريسي').first);
-    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-group')),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
 
@@ -91,7 +99,11 @@ void main() {
     await tester.tap(find.byKey(const Key('new-group')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('group-name')), 'فئة النجوم');
-    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-group')),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
     expect(find.textContaining('يوجد اسم مطابق'), findsOneWidget);
@@ -226,7 +238,11 @@ void main() {
     await tester.tap(find.byKey(const Key('pick-logo')));
     await tester.pumpAndSettle();
     expect(find.text('تغيير الصورة'), findsOneWidget);
-    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-group')),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
 
@@ -239,7 +255,11 @@ void main() {
     await tester.tap(find.byKey(const Key('remove-logo')));
     await tester.pump();
     expect(find.text('رفع صورة الشعار'), findsOneWidget);
-    await tester.scrollUntilVisible(find.byKey(const Key('save-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-group')),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
     await tester.tap(find.byKey(const Key('save-group')));
     await tester.pumpAndSettle();
     expect(repo.groups.values.single.logoPath, isNull);
@@ -274,7 +294,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('سلمى بنعلي'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('delete-child')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('delete-child')),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
     await tester.tap(find.byKey(const Key('delete-child')));
     await tester.pumpAndSettle();
 
@@ -292,13 +316,21 @@ void main() {
   });
 
   testWidgets('deleting a group says what goes with it', (tester) async {
-    final repo = await openAdvisor(tester, tab: 'الفئات', seed: (r) async {
-      await r.saveGroup(stars);
-      r.groupCounts[r.groups.keys.single] = (sessions: 12, attendance: 140, children: 9);
-    });
+    final repo = await openAdvisor(
+      tester,
+      tab: 'الفئات',
+      seed: (r) async {
+        await r.saveGroup(stars);
+        r.groupCounts[r.groups.keys.single] = (sessions: 12, attendance: 140, children: 9);
+      },
+    );
     await tester.tap(find.text('فئة النجوم'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('delete-group')), 300, scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('delete-group')),
+      300,
+      scrollable: find.descendant(of: find.byType(Form), matching: find.byType(Scrollable)).first,
+    );
     await tester.tap(find.byKey(const Key('delete-group')));
     await tester.pumpAndSettle();
     expect(find.textContaining('12 من الأنشطة و140 من سجلات الحضور'), findsOneWidget);

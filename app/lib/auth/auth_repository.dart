@@ -30,34 +30,34 @@ class Profile {
   final DateTime? privacyConsentAt;
 
   Profile copyWith({bool? mustChangePassword, int? privacyConsentVersion, DateTime? privacyConsentAt}) => Profile(
-        id: id,
-        fullName: fullName,
-        phone: phone,
-        mustChangePassword: mustChangePassword ?? this.mustChangePassword,
-        roles: roles,
-        privacyConsentVersion: privacyConsentVersion ?? this.privacyConsentVersion,
-        privacyConsentAt: privacyConsentAt ?? this.privacyConsentAt,
-      );
+    id: id,
+    fullName: fullName,
+    phone: phone,
+    mustChangePassword: mustChangePassword ?? this.mustChangePassword,
+    roles: roles,
+    privacyConsentVersion: privacyConsentVersion ?? this.privacyConsentVersion,
+    privacyConsentAt: privacyConsentAt ?? this.privacyConsentAt,
+  );
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'full_name': fullName,
-        'phone': phone,
-        'must_change_password': mustChangePassword,
-        'roles': [for (final r in roles) r.dbName],
-        'privacy_consent_version': privacyConsentVersion,
-        'privacy_consent_at': privacyConsentAt?.toIso8601String(),
-      };
+    'id': id,
+    'full_name': fullName,
+    'phone': phone,
+    'must_change_password': mustChangePassword,
+    'roles': [for (final r in roles) r.dbName],
+    'privacy_consent_version': privacyConsentVersion,
+    'privacy_consent_at': privacyConsentAt?.toIso8601String(),
+  };
 
   static Profile fromJson(Map<String, Object?> j) => Profile(
-        id: j['id'] as String,
-        fullName: j['full_name'] as String,
-        phone: j['phone'] as String,
-        mustChangePassword: j['must_change_password'] as bool,
-        roles: [for (final r in j['roles'] as List) ?AppRole.fromDb(r as String)],
-        privacyConsentVersion: j['privacy_consent_version'] as int?,
-        privacyConsentAt: _date(j['privacy_consent_at']),
-      );
+    id: j['id'] as String,
+    fullName: j['full_name'] as String,
+    phone: j['phone'] as String,
+    mustChangePassword: j['must_change_password'] as bool,
+    roles: [for (final r in j['roles'] as List) ?AppRole.fromDb(r as String)],
+    privacyConsentVersion: j['privacy_consent_version'] as int?,
+    privacyConsentAt: _date(j['privacy_consent_at']),
+  );
 }
 
 DateTime? _date(Object? v) => v == null ? null : DateTime.parse(v as String);
@@ -126,50 +126,56 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<Profile> loadProfile() => _guard(() async {
-        final id = _client.auth.currentUser!.id;
-        final person = await _client
-            .from('people')
-            .select('id, full_name, phone, must_change_password')
-            .eq('id', id)
-            .maybeSingle();
-        if (person == null) throw const AuthError(AuthFailure.noProfile);
-        final roleRows = await _client.from('person_roles').select('role').eq('person_id', id);
-        final held = {for (final row in roleRows) AppRole.fromDb(row['role'] as String)};
-        // مشرف الفئة comes from being put in charge of a فئة, not from person_roles.
-        try {
-          final supervised = await _client.from('group_supervisors').select('group_id').eq('person_id', id).limit(1);
-          if (supervised.isNotEmpty) held.add(AppRole.supervisor);
-        } on PostgrestException {
-          // The database does not know category supervisors yet.
-        }
-        int? consentVersion;
-        DateTime? consentAt;
-        try {
-          final consent =
-              await _client.from('people').select('privacy_consent_version, privacy_consent_at').eq('id', id).single();
-          consentVersion = consent['privacy_consent_version'] as int?;
-          consentAt = _date(consent['privacy_consent_at']);
-        } on PostgrestException {
-          // The database cannot store the acceptance yet: don't hold the parent on a
-          // screen they cannot get past.
-          consentVersion = privacyTermsVersion;
-        }
-        return Profile(
-          id: id,
-          fullName: person['full_name'] as String,
-          phone: person['phone'] as String,
-          mustChangePassword: person['must_change_password'] as bool,
-          roles: [for (final r in AppRole.values) if (held.contains(r)) r],
-          privacyConsentVersion: consentVersion,
-          privacyConsentAt: consentAt,
-        );
-      });
+    final id = _client.auth.currentUser!.id;
+    final person = await _client
+        .from('people')
+        .select('id, full_name, phone, must_change_password')
+        .eq('id', id)
+        .maybeSingle();
+    if (person == null) throw const AuthError(AuthFailure.noProfile);
+    final roleRows = await _client.from('person_roles').select('role').eq('person_id', id);
+    final held = {for (final row in roleRows) AppRole.fromDb(row['role'] as String)};
+    // مشرف الفئة comes from being put in charge of a فئة, not from person_roles.
+    try {
+      final supervised = await _client.from('group_supervisors').select('group_id').eq('person_id', id).limit(1);
+      if (supervised.isNotEmpty) held.add(AppRole.supervisor);
+    } on PostgrestException {
+      // The database does not know category supervisors yet.
+    }
+    int? consentVersion;
+    DateTime? consentAt;
+    try {
+      final consent = await _client
+          .from('people')
+          .select('privacy_consent_version, privacy_consent_at')
+          .eq('id', id)
+          .single();
+      consentVersion = consent['privacy_consent_version'] as int?;
+      consentAt = _date(consent['privacy_consent_at']);
+    } on PostgrestException {
+      // The database cannot store the acceptance yet: don't hold the parent on a
+      // screen they cannot get past.
+      consentVersion = privacyTermsVersion;
+    }
+    return Profile(
+      id: id,
+      fullName: person['full_name'] as String,
+      phone: person['phone'] as String,
+      mustChangePassword: person['must_change_password'] as bool,
+      roles: [
+        for (final r in AppRole.values)
+          if (held.contains(r)) r,
+      ],
+      privacyConsentVersion: consentVersion,
+      privacyConsentAt: consentAt,
+    );
+  });
 
   @override
   Future<void> changePassword(String newPassword) => _guard(() async {
-        await _client.auth.updateUser(UserAttributes(password: newPassword));
-        await _client.rpc('mark_password_changed');
-      });
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+    await _client.rpc('mark_password_changed');
+  });
 
   @override
   Future<void> acceptPrivacyTerms(int version) =>
@@ -177,10 +183,10 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> requestDeletion() => _guard(
-        () => _client
-            .from('account_deletion_requests')
-            .upsert({'person_id': _client.auth.currentUser!.id}, ignoreDuplicates: true),
-      );
+    () => _client.from('account_deletion_requests').upsert({
+      'person_id': _client.auth.currentUser!.id,
+    }, ignoreDuplicates: true),
+  );
 
   @override
   Future<void> signOut() async {

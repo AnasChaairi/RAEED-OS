@@ -155,9 +155,7 @@ void main() {
     final repo = seededInstructorRepo(me: me, today: today);
     repo.groups
       ..[0] = repo.groups[0].withInstructors(['sara'], supervisors: ['nadia'])
-      ..add(
-        const Group(id: 'knights', name: 'فئة الفرسان', logoLetter: 'ف', logoColor: 2).withInstructors([me]),
-      );
+      ..add(const Group(id: 'knights', name: 'فئة الفرسان', logoLetter: 'ف', logoColor: 2).withInstructors([me]));
     final store = InstructorStore(repo, await SharedPreferences.getInstance(), retryEvery: null, clock: () => now);
     await store.start('nadia', view: StaffView.supervising);
     expect([for (final g in store.data.groups) g.id], ['stars']);

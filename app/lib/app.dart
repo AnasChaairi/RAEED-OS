@@ -78,19 +78,19 @@ class RaeedApp extends StatelessWidget {
                   repo: profiles,
                   clock: instructor.now,
                   child: MessagesScope(
-                  repo: messages,
-                  child: InboxScope(
-                  store: inbox,
-                  child: MaterialApp(
-            title: 'رائد',
-            debugShowCheckedModeBanner: false,
-            theme: buildRaeedTheme(),
-            locale: const Locale('ar', 'MA'),
-            supportedLocales: const [Locale('ar', 'MA')],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            home: const SessionGate(),
-                  ),
-                  ),
+                    repo: messages,
+                    child: InboxScope(
+                      store: inbox,
+                      child: MaterialApp(
+                        title: 'رائد',
+                        debugShowCheckedModeBanner: false,
+                        theme: buildRaeedTheme(),
+                        locale: const Locale('ar', 'MA'),
+                        supportedLocales: const [Locale('ar', 'MA')],
+                        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+                        home: const SessionGate(),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -118,14 +118,14 @@ class SessionGate extends StatelessWidget {
         SessionStage.mustAcceptPrivacy => const PrivacyConsentScreen(),
         SessionStage.choosingRole => const ChooseRoleScreen(),
         SessionStage.noRole => const _Notice(
-            key: ValueKey('no-role'),
-            message: 'حسابك موجود لكن لم يُحدَّد له دور بعد. تواصل مع المشرف العام.',
-          ),
+          key: ValueKey('no-role'),
+          message: 'حسابك موجود لكن لم يُحدَّد له دور بعد. تواصل مع المشرف العام.',
+        ),
         SessionStage.profileError => _Notice(
-            key: const ValueKey('profile-error'),
-            message: failureMessage(session.profileFailure!),
-            onRetry: session.retry,
-          ),
+          key: const ValueKey('profile-error'),
+          message: failureMessage(session.profileFailure!),
+          onRetry: session.retry,
+        ),
         SessionStage.ready => HomeShell(role: session.role!),
       },
     );
@@ -137,8 +137,8 @@ class _Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: Center(child: Image.asset('assets/images/raeed-logo.png', width: 160, semanticLabel: 'رائد')),
-      );
+    body: Center(child: Image.asset('assets/images/raeed-logo.png', width: 160, semanticLabel: 'رائد')),
+  );
 }
 
 class _Notice extends StatelessWidget {

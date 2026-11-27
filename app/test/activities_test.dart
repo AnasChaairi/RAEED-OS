@@ -124,14 +124,26 @@ void main() {
     await tester.tap(find.byKey(const Key('edit-activity')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('activity-title')), 'مخيم الصيف');
-    await tester.dragUntilVisible(find.byKey(const Key('activity-conflicts')), find.byType(ListView).last, const Offset(0, -300));
+    await tester.dragUntilVisible(
+      find.byKey(const Key('activity-conflicts')),
+      find.byType(ListView).last,
+      const Offset(0, -300),
+    );
     expect(find.textContaining('ستظهر حصة واحدة ملغاة بسببه'), findsOneWidget);
-    await tester.dragUntilVisible(find.byKey(const Key('save-activity')), find.byType(ListView).last, const Offset(0, -300));
+    await tester.dragUntilVisible(
+      find.byKey(const Key('save-activity')),
+      find.byType(ListView).last,
+      const Offset(0, -300),
+    );
     await tester.tap(find.byKey(const Key('save-activity')));
     await tester.pumpAndSettle();
     expect(repo.calls, contains('updateActivity camp مخيم الصيف'));
 
-    await tester.dragUntilVisible(find.byKey(const Key('cancel-activity')), find.byType(ListView).last, const Offset(0, -300));
+    await tester.dragUntilVisible(
+      find.byKey(const Key('cancel-activity')),
+      find.byType(ListView).last,
+      const Offset(0, -300),
+    );
     await tester.tap(find.byKey(const Key('cancel-activity')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('cancel-activity-reason')), 'الطقس');

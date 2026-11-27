@@ -114,10 +114,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       'نسيت كلمة المرور؟ تواصل مع المشرف العام لإعادة تعيينها.',
                       style: text.bodySmall?.copyWith(color: RaeedColors.grey),
                     ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      FormError(_error!),
-                    ],
+                    if (_error != null) ...[const SizedBox(height: 16), FormError(_error!)],
                     const SizedBox(height: 24),
                     FilledButton(
                       key: const Key('sign-in'),

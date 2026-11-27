@@ -57,7 +57,11 @@ class ParentSnapshot {
     this.staffNames = const {},
     this.parents = const [],
     this.activities = const [],
+    this.breaks = const [],
   });
+
+  /// Holidays, Ramadan and the academy's stops, for the month calendar.
+  final List<CalendarBreak> breaks;
 
   final List<ParentChild> children;
 
@@ -124,6 +128,7 @@ class ParentSnapshot {
     'staff_names': staffNames,
     'parents': [for (final p in parents) p.toJson()],
     'activities': [for (final a in activities) a.toJson()],
+    'breaks': [for (final b in breaks) b.toJson()],
   };
 
   static ParentSnapshot fromJson(Map<String, dynamic> j) => ParentSnapshot(
@@ -137,6 +142,7 @@ class ParentSnapshot {
     activities: [
       for (final a in (j['activities'] as List?) ?? const []) SpecialActivity.fromJson(a as Map<String, dynamic>),
     ],
+    breaks: [for (final b in (j['breaks'] as List?) ?? const []) CalendarBreak.fromJson(b as Map<String, dynamic>)],
   );
 }
 

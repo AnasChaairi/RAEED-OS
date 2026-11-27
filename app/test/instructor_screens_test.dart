@@ -200,7 +200,9 @@ void main() {
 
   testWidgets('the advisor plans the sessions of every group and leaves attendance to instructors', (tester) async {
     final repo = seededInstructorRepo(me: me, today: today);
-    repo.groups.add(const Group(id: 'knights', name: 'فئة الفرسان', logoLetter: 'ف', logoColor: 2, instructorIds: ['hamza']));
+    repo.groups.add(
+      const Group(id: 'knights', name: 'فئة الفرسان', logoLetter: 'ف', logoColor: 2, instructorIds: ['hamza']),
+    );
     repo.sessions.add(
       Session(id: 'knights-today', groupId: 'knights', title: 'رياضة', date: today, start: 960, end: 1020, floor: 0),
     );
@@ -328,8 +330,11 @@ void main() {
     await tab(tester, 'الحصص');
     await tester.tap(find.text('فئة النجوم · حفظ سورة الملك'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('add-observation')), 200,
-        scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('add-observation')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('add-observation')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('observation-body')), 'الأطفال حفظوا نصف السورة');
@@ -355,13 +360,7 @@ void main() {
     );
     repo.staffPhones['sara'] = '+212611223344';
     repo.absences.add(
-      InstructorAbsence(
-        id: 'ab1',
-        sessionId: 'next-week',
-        personId: 'sara',
-        reason: 'موعد طبي',
-        createdAt: today,
-      ),
+      InstructorAbsence(id: 'ab1', sessionId: 'next-week', personId: 'sara', reason: 'موعد طبي', createdAt: today),
     );
     await openInstructor(tester, repo: repo, role: AppRole.supervisor);
     expect(find.byKey(const Key('new-plan')), findsNothing, reason: 'planned from فئتي, under الحصص');
@@ -394,8 +393,10 @@ void main() {
     expect(find.byKey(const Key('call-instructor')), findsOneWidget);
     // Only her absences are listed: next week's, with its reason.
     expect(find.byKey(const Key('presence-last-week')), findsNothing);
-    expect(find.descendant(of: find.byKey(const Key('presence-next-week')), matching: find.text('غائب')),
-        findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const Key('presence-next-week')), matching: find.text('غائب')),
+      findsOneWidget,
+    );
     expect(find.textContaining('موعد طبي'), findsOneWidget);
   });
 
@@ -411,7 +412,9 @@ void main() {
     expect(find.byKey(const Key('group-week-label')), findsOneWidget, reason: 'one week at a time');
     await tester.tap(find.byKey(const Key('group-previous-week')));
     await tester.pumpAndSettle();
-    await tester.tap(find.descendant(of: find.byType(SessionCard), matching: find.textContaining('مراجعة الحفظ')).first);
+    await tester.tap(
+      find.descendant(of: find.byType(SessionCard), matching: find.textContaining('مراجعة الحفظ')).first,
+    );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('delete-session')), 200);
     await tester.tap(find.byKey(const Key('delete-session')));
@@ -453,8 +456,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('report-absence')));
     await tester.pumpAndSettle();
-    expect(tester.widget<FilledButton>(find.byKey(const Key('confirm-absence'))).onPressed, isNull,
-        reason: 'a reason is needed');
+    expect(
+      tester.widget<FilledButton>(find.byKey(const Key('confirm-absence'))).onPressed,
+      isNull,
+      reason: 'a reason is needed',
+    );
     await tester.enterText(find.byKey(const Key('absence-reason')), 'موعد طبي');
     await tester.pump();
     await tester.tap(find.byKey(const Key('confirm-absence')));

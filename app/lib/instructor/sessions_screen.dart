@@ -90,6 +90,10 @@ class _SessionsTabState extends State<SessionsTab> {
                     activities: data.activities,
                     replacedBy: data.replacedBy,
                     dayItems: dayCards,
+                    breaks: [
+                      for (final b in data.breaks)
+                        if (b.concerns(data.groups.map((g) => g.id))) b,
+                    ],
                   )
                 else ...[
                   Row(

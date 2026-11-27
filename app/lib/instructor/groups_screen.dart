@@ -382,6 +382,10 @@ class _GroupSessionsState extends State<_GroupSessions> {
               activities: groupActivities,
               replacedBy: widget.data.replacedBy,
               dayItems: dayCards,
+              breaks: [
+                for (final b in widget.data.breaks)
+                  if (b.concerns([widget.groupId])) b,
+              ],
             )
           else ...[
             Row(

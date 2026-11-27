@@ -36,7 +36,10 @@ class FakeAuthRepository implements AuthRepository {
       fullName: a.fullName,
       phone: '+$signedInAs',
       mustChangePassword: a.mustChangePassword,
-      roles: [for (final r in AppRole.values) if (a.roles.contains(r)) r],
+      roles: [
+        for (final r in AppRole.values)
+          if (a.roles.contains(r)) r,
+      ],
       privacyConsentVersion: a.privacyConsentVersion,
     );
   }

@@ -181,6 +181,10 @@ class ParentScheduleTab extends StatelessWidget {
                 activities: groupActivities,
                 replacedBy: data.replacedBy,
                 dayItems: dayCards,
+                breaks: [
+                  for (final b in data.breaks)
+                    if (b.concerns([group])) b,
+                ],
                 emptyDay: 'لا حصص ولا أنشطة في هذا اليوم.',
               )
             else

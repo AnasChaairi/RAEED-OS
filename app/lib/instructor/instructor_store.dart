@@ -64,16 +64,12 @@ class InstructorStore extends ChangeNotifier {
   /// it is for.
   bool canManageActivity(SpecialActivity a) =>
       _view == StaffView.all ||
-      (_view == StaffView.supervising &&
-          a.groupIds.isNotEmpty &&
-          a.groupIds.every((g) => _data.group(g) != null));
+      (_view == StaffView.supervising && a.groupIds.isNotEmpty && a.groupIds.every((g) => _data.group(g) != null));
 
   /// Staff take an activity's attendance from its first day, for the children of their
   /// groups.
   bool canRecordActivity(SpecialActivity a) =>
-      !a.cancelled &&
-      !a.startsAt.isAfter(_clock().add(const Duration(minutes: 30))) &&
-      _data.childrenOf(a).isNotEmpty;
+      !a.cancelled && !a.startsAt.isAfter(_clock().add(const Duration(minutes: 30))) && _data.childrenOf(a).isNotEmpty;
 
   /// True once there is something to show, from the server or from the phone.
   bool get loaded => _loaded;
@@ -289,10 +285,8 @@ class InstructorStore extends ChangeNotifier {
   Future<List<SessionObservation>> observationsFor(String sessionId) => _repo.observationsFor(sessionId);
 
   /// The last two months' observations on this view's groups. Throws [SetupError].
-  Future<List<SessionObservation>> recentObservations() => _repo.recentObservations(
-    [for (final g in _data.groups) g.id],
-    _clock().subtract(const Duration(days: 60)),
-  );
+  Future<List<SessionObservation>> recentObservations() =>
+      _repo.recentObservations([for (final g in _data.groups) g.id], _clock().subtract(const Duration(days: 60)));
 
   /// Throws [SetupError].
   Future<void> addObservation(String sessionId, String body) => _repo.addObservation(sessionId, body);

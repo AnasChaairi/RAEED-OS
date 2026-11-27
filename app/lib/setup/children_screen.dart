@@ -55,25 +55,38 @@ class _ChildrenListState extends State<ChildrenList> {
             children: [
               TextField(
                 key: const Key('children-search'),
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'ابحث باسم الطفل أو ولي الأمر أو الهاتف'),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'ابحث باسم الطفل أو ولي الأمر أو الهاتف',
+                ),
                 onChanged: (v) => setState(() => _query = v),
               ),
               if (data.children.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Text('لا يوجد أطفال بعد. أضف أول طفل بالزر في الأسفل.',
-                      textAlign: TextAlign.center, style: TextStyle(color: RaeedColors.grey)),
+                  child: Text(
+                    'لا يوجد أطفال بعد. أضف أول طفل بالزر في الأسفل.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: RaeedColors.grey),
+                  ),
                 ),
               for (final (title, logo, kids) in sections) ...[
                 Padding(
                   padding: const EdgeInsets.only(top: 14, bottom: 6),
-                  child: Row(children: [
-                    if (logo != null) ...[logo, const SizedBox(width: 8)],
-                    Text('$title · ${kids.length}',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: RaeedColors.grey)),
-                  ]),
+                  child: Row(
+                    children: [
+                      if (logo != null) ...[logo, const SizedBox(width: 8)],
+                      Text(
+                        '$title · ${kids.length}',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: RaeedColors.grey),
+                      ),
+                    ],
+                  ),
                 ),
-                for (final c in kids) ...[_ChildRow(child: c, data: data, profile: widget.profiles), const SizedBox(height: 8)],
+                for (final c in kids) ...[
+                  _ChildRow(child: c, data: data, profile: widget.profiles),
+                  const SizedBox(height: 8),
+                ],
               ],
             ],
           );
@@ -87,8 +100,10 @@ class ChildrenScreen extends StatelessWidget {
   const ChildrenScreen({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(appBar: AppBar(title: const Text('الأطفال وأولياء الأمور')), body: const ChildrenList());
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('الأطفال وأولياء الأمور')),
+    body: const ChildrenList(),
+  );
 }
 
 class _ChildRow extends StatelessWidget {
@@ -106,7 +121,10 @@ class _ChildRow extends StatelessWidget {
       title: child.fullName,
       lines: [parents.isEmpty ? 'بدون ولي أمر' : 'ولي الأمر: $parents'],
       trailing: child.consentRecordedAt == null
-          ? const Tooltip(message: 'الموافقة غير مسجّلة', child: Icon(Icons.assignment_late_outlined, color: Color(0xFFF06C00)))
+          ? const Tooltip(
+              message: 'الموافقة غير مسجّلة',
+              child: Icon(Icons.assignment_late_outlined, color: Color(0xFFF06C00)),
+            )
           : null,
       onTap: () => profile ? openChildProfile(context, child.id) : openChildForm(context, child: child),
     );
@@ -181,15 +199,17 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
       _error = null;
     });
     try {
-      final issued = await store.saveChild(ChildDraft(
-        id: widget.child?.id,
-        fullName: _name.text.trim(),
-        birthDate: _birthDate,
-        gender: _gender,
-        groupId: _groupId,
-        parents: parents,
-        consent: _consent,
-      ));
+      final issued = await store.saveChild(
+        ChildDraft(
+          id: widget.child?.id,
+          fullName: _name.text.trim(),
+          birthDate: _birthDate,
+          gender: _gender,
+          groupId: _groupId,
+          parents: parents,
+          consent: _consent,
+        ),
+      );
       if (!mounted) return;
       setState(() => _busy = false);
       if (issued.isNotEmpty) await showIssuedPasswords(context, issued);
@@ -334,20 +354,22 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(children: [
-                        Expanded(
-                          child: Text(
-                            _existingParents.length + i == 0 ? 'ولي الأمر الأول' : 'ولي الأمر الثاني (اختياري)',
-                            style: text.labelLarge,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _existingParents.length + i == 0 ? 'ولي الأمر الأول' : 'ولي الأمر الثاني (اختياري)',
+                              style: text.labelLarge,
+                            ),
                           ),
-                        ),
-                        if (_parentCount > 1)
-                          IconButton(
-                            tooltip: 'حذف',
-                            icon: const Icon(Icons.close),
-                            onPressed: () => setState(() => _newParents.removeAt(i).dispose()),
-                          ),
-                      ]),
+                          if (_parentCount > 1)
+                            IconButton(
+                              tooltip: 'حذف',
+                              icon: const Icon(Icons.close),
+                              onPressed: () => setState(() => _newParents.removeAt(i).dispose()),
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: 6),
                       TextFormField(
                         key: Key('parent-name-$i'),
@@ -375,8 +397,10 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
                               ? const SizedBox.shrink()
                               : Padding(
                                   padding: const EdgeInsets.only(top: 6),
-                                  child: Text('هذا الرقم مسجّل باسم ${match.fullName}، سيُربط به الطفل.',
-                                      style: text.bodySmall?.copyWith(color: RaeedColors.blue)),
+                                  child: Text(
+                                    'هذا الرقم مسجّل باسم ${match.fullName}، سيُربط به الطفل.',
+                                    style: text.bodySmall?.copyWith(color: RaeedColors.blue),
+                                  ),
                                 );
                         },
                       ),
@@ -421,8 +445,11 @@ class _ChildFormScreenState extends State<ChildFormScreen> {
               if (_newParents.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: Text('بعد الحفظ: كلمة مرور مؤقتة لكل ولي أمر جديد لتسليمها له',
-                      textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
+                  child: Text(
+                    'بعد الحفظ: كلمة مرور مؤقتة لكل ولي أمر جديد لتسليمها له',
+                    textAlign: TextAlign.center,
+                    style: text.bodySmall?.copyWith(color: RaeedColors.grey),
+                  ),
                 ),
               FilledButton(
                 key: const Key('save-child'),
@@ -536,7 +563,9 @@ class _ParentPickerState extends State<_ParentPicker> {
             ),
             Expanded(
               child: parents.isEmpty
-                  ? const Center(child: Text('لا يوجد ولي أمر مطابق.', style: TextStyle(color: RaeedColors.grey)))
+                  ? const Center(
+                      child: Text('لا يوجد ولي أمر مطابق.', style: TextStyle(color: RaeedColors.grey)),
+                    )
                   : ListView(
                       children: [
                         for (final p in parents)

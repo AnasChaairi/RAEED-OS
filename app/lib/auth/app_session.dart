@@ -154,9 +154,7 @@ class AppSession extends ChangeNotifier {
     final p = _profile!;
     if (p.mustChangePassword) return _set(SessionStage.mustChangePassword);
     // Offline, the acceptance could not be saved: ask on the next start with a connection.
-    if (p.roles.contains(AppRole.parent) &&
-        !_offlineProfile &&
-        (p.privacyConsentVersion ?? 0) < privacyTermsVersion) {
+    if (p.roles.contains(AppRole.parent) && !_offlineProfile && (p.privacyConsentVersion ?? 0) < privacyTermsVersion) {
       return _set(SessionStage.mustAcceptPrivacy);
     }
     if (p.roles.isEmpty) return _set(SessionStage.noRole);

@@ -104,7 +104,11 @@ class SetupHub extends StatelessWidget {
               WarningCard(title: 'قبل البدء', lines: warnings),
             ] else if (data.children.isNotEmpty) ...[
               const SizedBox(height: 16),
-              Text('كل شيء جاهز.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: RaeedColors.grey)),
+              Text(
+                'كل شيء جاهز.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: RaeedColors.grey),
+              ),
             ],
           ],
         );

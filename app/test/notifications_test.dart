@@ -20,19 +20,23 @@ class FakeNotificationsRepository implements NotificationsRepository {
 }
 
 AppNotification note(String id, String kind, {bool read = false, String? child}) => AppNotification(
-      id: id,
-      kind: kind,
-      title: 'عنوان $id',
-      body: 'نص $id',
-      createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
-      read: read,
-      childId: child,
-    );
+  id: id,
+  kind: kind,
+  title: 'عنوان $id',
+  body: 'نص $id',
+  createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+  read: read,
+  childId: child,
+);
 
 void main() {
   testWidgets('the bell shows the unread count and opening the list marks them read', (tester) async {
     final repo = FakeNotificationsRepository()
-      ..items.addAll([note('a', 'child_message_reply'), note('b', 'session_cancelled'), note('c', 'absence_alert', read: true)]);
+      ..items.addAll([
+        note('a', 'child_message_reply'),
+        note('b', 'session_cancelled'),
+        note('c', 'absence_alert', read: true),
+      ]);
     final store = InboxStore(repo);
     await store.load();
     AppNotification? tapped;

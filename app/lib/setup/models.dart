@@ -103,7 +103,13 @@ class Child {
 }
 
 class Season {
-  const Season({required this.id, required this.name, required this.startsOn, required this.endsOn, this.terms = const []});
+  const Season({
+    required this.id,
+    required this.name,
+    required this.startsOn,
+    required this.endsOn,
+    this.terms = const [],
+  });
 
   final String id;
   final String name;
