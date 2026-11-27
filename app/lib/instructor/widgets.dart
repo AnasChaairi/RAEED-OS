@@ -109,6 +109,7 @@ class SessionCard extends StatelessWidget {
       s.seriesId == null ? 'مرة واحدة' : 'أسبوعي',
       if (s.instructorIds.isNotEmpty) [for (final id in s.instructorIds) data.staffNames[id] ?? 'مؤطر'].join('، '),
       if (taken && !s.cancelled) 'الحضور مسجّل',
+      if (!off && data.childAbsencesFor(s.id).isNotEmpty) 'غياب مبلَّغ: ${data.childAbsencesFor(s.id).length}',
     ];
     final away = [for (final a in data.absencesFor(s.id)) data.staffNames[a.personId] ?? 'مؤطر'];
     return Card(

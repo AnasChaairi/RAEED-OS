@@ -104,6 +104,39 @@ void main() {
     expect(o.repo.attendance['today/youssef']!.status, AttendanceStatus.present);
   });
 
+  testWidgets('a child whose parent reported the absence starts as excused, with the reason', (tester) async {
+    final repo = seededInstructorRepo(me: me, today: today)
+      ..childAbsences.add(
+        ChildAbsenceReport(
+          id: 'r1',
+          sessionId: 'today',
+          childId: 'adam',
+          reportedBy: 'parent',
+          reason: 'مريض',
+          createdAt: DateTime(2027, 2, 5),
+        ),
+      );
+    final o = await openInstructor(tester, repo: repo);
+    await tester.tap(find.byKey(const Key('hero-attendance')));
+    await tester.pumpAndSettle();
+    expect(find.text('حاضر 2'), findsOneWidget);
+    expect(find.text('معذور 1'), findsOneWidget);
+    expect(find.text('أبلغ وليّ الأمر بالغياب: مريض'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('status-adam-present')));
+    await tester.pump();
+    expect(find.text('حاضر 3'), findsOneWidget, reason: 'staff can still change it');
+    await tester.tap(find.byKey(const Key('status-adam-excused')));
+    await tester.tap(find.byKey(const Key('save-attendance')));
+    await tester.pumpAndSettle();
+    expect(o.repo.attendance['today/adam']!.status, AttendanceStatus.excused);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await o.store.refresh();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('offline, the sheet is saved on the phone and sent when the connection is back', (tester) async {
     final o = await openInstructor(tester);
     o.repo.offline = true;

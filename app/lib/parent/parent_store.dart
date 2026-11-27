@@ -83,6 +83,18 @@ class ParentStore extends ChangeNotifier {
     }
   }
 
+  /// Throws [SetupError].
+  Future<void> reportAbsence(String sessionId, String childId, String reason) async {
+    await _repo.reportAbsence(sessionId, childId, reason);
+    await refresh();
+  }
+
+  /// Throws [SetupError].
+  Future<void> withdrawAbsence(String reportId) async {
+    await _repo.withdrawAbsence(reportId);
+    await refresh();
+  }
+
   void clear() {
     _personId = null;
     _data = const ParentSnapshot();

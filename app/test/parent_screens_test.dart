@@ -203,6 +203,65 @@ void main() {
     expect(find.byKey(const Key('open-map')), findsOneWidget);
   });
 
+  testWidgets('a parent reports an absence with a reason, then takes it back', (tester) async {
+    final o = await openParent(tester);
+    await tester.tap(find.text('حفظ سورة الملك'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('report-child-absence')));
+    await tester.pumpAndSettle();
+    final confirm = find.byKey(const Key('confirm-child-absence'));
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNull, reason: 'the reason is required');
+    await tester.enterText(find.byKey(const Key('child-absence-reason')), 'سفر عائلي');
+    await tester.pump();
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(o.repo.calls, ['reportAbsence sat adam سفر عائلي']);
+    expect(find.text('سُجّل غياب آدم عن هذه الحصة'), findsOneWidget);
+    expect(find.text('المبرر: سفر عائلي'), findsOneWidget);
+    expect(find.byKey(const Key('report-child-absence')), findsNothing);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('parent-absent-sat')), findsOneWidget, reason: 'the schedule shows it too');
+
+    await tester.tap(find.text('حفظ سورة الملك'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('withdraw-child-absence')));
+    await tester.pumpAndSettle();
+    expect(o.repo.calls.last, 'withdrawAbsence r1');
+    expect(find.byKey(const Key('child-absence-reported')), findsNothing);
+    expect(find.byKey(const Key('report-child-absence')), findsOneWidget);
+  });
+
+  testWidgets('no absence can be reported once the session has started', (tester) async {
+    final repo = FakeParentRepository()..data = seededParent();
+    await openParent(tester, repo: repo);
+    // A session that started at 12:00 today (now is 12:20).
+    repo.data = ParentSnapshot(
+      children: repo.data.children,
+      sessions: [
+        ...repo.data.sessions,
+        Session(
+          id: 'now',
+          groupId: 'stars',
+          title: 'حصة جارية',
+          date: DateTime(2027, 2, 10),
+          start: 720,
+          end: 800,
+          floor: 1,
+        ),
+      ]..sort((a, b) => a.startsAt.compareTo(b.startsAt)),
+      staffNames: repo.data.staffNames,
+      parents: repo.data.parents,
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, 400));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حصة جارية'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('add-to-calendar')), findsOneWidget);
+    expect(find.byKey(const Key('report-child-absence')), findsNothing);
+  });
+
   testWidgets('a cancelled session says so and has no calendar button', (tester) async {
     await openParent(tester);
     await tester.scrollUntilVisible(find.byKey(const Key('parent-session-cancel')), 200);

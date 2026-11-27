@@ -518,6 +518,44 @@ class InstructorAbsence {
   );
 }
 
+/// A parent's notice that their child will miss a coming session, with the reason. The
+/// attendance sheet starts that child as معذور.
+class ChildAbsenceReport {
+  const ChildAbsenceReport({
+    required this.id,
+    required this.sessionId,
+    required this.childId,
+    required this.reportedBy,
+    required this.reason,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String sessionId;
+  final String childId;
+  final String reportedBy;
+  final String reason;
+  final DateTime createdAt;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'session_id': sessionId,
+    'child_id': childId,
+    'reported_by': reportedBy,
+    'reason': reason,
+    'created_at': createdAt.toUtc().toIso8601String(),
+  };
+
+  static ChildAbsenceReport fromJson(Map<String, dynamic> j) => ChildAbsenceReport(
+    id: j['id'] as String,
+    sessionId: j['session_id'] as String,
+    childId: j['child_id'] as String,
+    reportedBy: j['reported_by'] as String,
+    reason: j['reason'] as String,
+    createdAt: DateTime.parse(j['created_at'] as String).toLocal(),
+  );
+}
+
 /// How one instructor stands on one session they were given.
 enum InstructorPresence {
   /// Still to come.
@@ -547,6 +585,7 @@ class InstructorSnapshot {
     this.staffNames = const {},
     this.staffPhones = const {},
     this.absences = const [],
+    this.childAbsences = const [],
     this.termStart,
     this.activities = const [],
     this.activityAttendance = const [],
@@ -569,6 +608,9 @@ class InstructorSnapshot {
 
   /// Instructors' notices of absence on these sessions.
   final List<InstructorAbsence> absences;
+
+  /// Parents' notices that a child will miss one of these sessions.
+  final List<ChildAbsenceReport> childAbsences;
   final DateTime? termStart;
 
   /// The أنشطة نوعية of these groups, sorted by start.
@@ -602,6 +644,12 @@ class InstructorSnapshot {
       absences.where((a) => a.sessionId == sessionId && a.personId == personId).firstOrNull;
 
   List<InstructorAbsence> absencesFor(String sessionId) => absences.where((a) => a.sessionId == sessionId).toList();
+
+  /// The parents' absence notices for [sessionId], by child id.
+  Map<String, ChildAbsenceReport> childAbsencesFor(String sessionId) => {
+    for (final a in childAbsences)
+      if (a.sessionId == sessionId) a.childId: a,
+  };
 
   /// [personId]'s presence on [s], which they were given. Two instructors may share a
   /// session and one takes the attendance, so any attendance counts for both.
@@ -675,6 +723,7 @@ class InstructorSnapshot {
         staffNames: staffNames,
         staffPhones: staffPhones,
         absences: absences,
+        childAbsences: childAbsences,
         termStart: termStart,
         activities: activities,
         activityAttendance: activityAttendance ?? this.activityAttendance,
@@ -702,6 +751,7 @@ class InstructorSnapshot {
     'staff_names': staffNames,
     'staff_phones': staffPhones,
     'absences': [for (final a in absences) a.toJson()],
+    'child_absences': [for (final a in childAbsences) a.toJson()],
     'term_start': termStart == null ? null : dbDay(termStart!),
     'activities': [for (final a in activities) a.toJson()],
     'activity_attendance': [for (final a in activityAttendance) a.toJson()],
@@ -730,6 +780,10 @@ class InstructorSnapshot {
     staffPhones: {for (final e in ((j['staff_phones'] as Map?) ?? {}).entries) e.key as String: e.value as String},
     absences: [
       for (final a in (j['absences'] as List?) ?? const []) InstructorAbsence.fromJson(a as Map<String, dynamic>),
+    ],
+    childAbsences: [
+      for (final a in (j['child_absences'] as List?) ?? const [])
+        ChildAbsenceReport.fromJson(a as Map<String, dynamic>),
     ],
     termStart: j['term_start'] == null ? null : DateTime.parse(j['term_start'] as String),
     activities: [
