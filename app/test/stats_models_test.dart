@@ -91,4 +91,103 @@ void main() {
     final stats = seeded().compute(StatsPeriod.week, DateTime(2027, 2, 20, 10, 30));
     expect(stats.sessionsHeld, 1, reason: 'only k-feb18 has ended');
   });
+
+  group('follow-up indicators', () {
+    // Adam: 4 sessions in the last 30 days, absent 3 times, late never. Omar: late 3 times.
+    StatsData followUp({List<StatActivity> activities = const [], Set<String> absences = const {}}) => StatsData(
+      groups: const [
+        Group(id: 'stars', name: 'النجوم', logoLetter: 'ن', logoColor: 1, instructorIds: ['yassine']),
+        Group(id: 'knights', name: 'الفرسان', logoLetter: 'ف', logoColor: 2, instructorIds: ['hamza']),
+      ],
+      staffNames: const {'yassine': 'ياسين', 'hamza': 'حمزة', 'sara': 'سارة'},
+      children: const [
+        StatChild(id: 'adam', fullName: 'آدم', groupId: 'stars'),
+        StatChild(id: 'omar', fullName: 'عمر', groupId: 'stars'),
+      ],
+      sessions: [
+        s('dec', 'stars', DateTime(2026, 12, 12)),
+        s('jan', 'stars', DateTime(2027, 1, 30)),
+        s('feb6', 'stars', DateTime(2027, 2, 6)),
+        s('feb13', 'stars', DateTime(2027, 2, 13)),
+        s('feb20', 'stars', DateTime(2027, 2, 20)),
+        StatSession(id: 'k-feb18', groupId: 'knights', date: DateTime(2027, 2, 18), start: 600, end: 660),
+        StatSession(
+          id: 'k-feb19',
+          groupId: 'knights',
+          date: DateTime(2027, 2, 19),
+          start: 600,
+          end: 660,
+          instructorIds: const ['sara'],
+        ),
+        s('feb27', 'stars', DateTime(2027, 2, 27)),
+      ],
+      marks: [
+        m('dec', 'adam', AttendanceStatus.present),
+        m('dec', 'omar', AttendanceStatus.present),
+        for (final id in ['jan', 'feb6', 'feb13', 'feb20']) ...[
+          m(id, 'adam', id == 'feb6' ? AttendanceStatus.present : AttendanceStatus.absent),
+          m(id, 'omar', id == 'jan' ? AttendanceStatus.present : AttendanceStatus.late),
+        ],
+      ],
+      activities: activities,
+      absences: absences,
+      seasonStart: DateTime(2026, 11, 1),
+    );
+
+    test('children over 25% absence in the period, and repeated absence and lateness in 30 days', () {
+      final stats = followUp().compute(StatsPeriod.term, now);
+      expect(stats.overThreshold.map((c) => (c.child.id, c.count, c.of)), [('adam', 3, 5)]);
+      expect(stats.repeatedAbsence.map((c) => (c.child.id, c.count)), [('adam', 3)]);
+      expect(stats.repeatedLate.map((c) => (c.child.id, c.count)), [('omar', 3)]);
+      // This month only feb6, feb13, feb20 are held: Adam missed 2 of 3.
+      expect(followUp().compute(StatsPeriod.month, now).overThreshold.single.of, 3);
+    });
+
+    test('a حصة replaced by a نشاط نوعي is left out everywhere', () {
+      final camp = StatActivity(
+        groupIds: const ['stars'],
+        startsAt: DateTime(2027, 2, 13, 8),
+        endsAt: DateTime(2027, 2, 14, 18),
+      );
+      final stats = followUp(activities: [camp]).compute(StatsPeriod.month, now);
+      expect(stats.repeatedAbsence, isEmpty, reason: 'feb13 no longer counts: 2 absences');
+      expect(stats.repeatedLate, isEmpty);
+      final stars = stats.groups.firstWhere((g) => g.group.id == 'stars');
+      expect((stars.sessions, stars.programmed), (2, 3), reason: 'feb6, feb20 held; feb27 still to come');
+    });
+
+    test('programmed counts the whole period, completed the held ones with attendance', () {
+      final stats = followUp().compute(StatsPeriod.month, now);
+      final stars = stats.groups.firstWhere((g) => g.group.id == 'stars');
+      final knights = stats.groups.firstWhere((g) => g.group.id == 'knights');
+      expect((stars.recorded, stars.programmed), (3, 4));
+      expect((knights.recorded, knights.programmed), (0, 2));
+      expect(stats.programmed, 6);
+    });
+
+    test('instructors who did not record: the picked ones, else the فئة\'s, not those who said they were absent', () {
+      expect(
+        followUp()
+            .compute(StatsPeriod.month, now)
+            .unrecorded
+            .map((g) => (g.name, g.sessions.map((s) => s.id).join(','))),
+        [('حمزة', 'k-feb18'), ('سارة', 'k-feb19')],
+      );
+      final excused = followUp(absences: {'k-feb19/sara'}).compute(StatsPeriod.month, now);
+      expect(excused.unrecorded.map((g) => g.personId), ['hamza']);
+    });
+
+    test('the monthly trend runs from the season start and says if it improves', () {
+      final stats = followUp().compute(StatsPeriod.month, now);
+      expect(stats.months.map((x) => x.month), [
+        DateTime(2026, 11),
+        DateTime(2026, 12),
+        DateTime(2027, 1),
+        DateTime(2027, 2),
+      ]);
+      expect(stats.months.map((x) => x.rate), [null, 1.0, 0.5, 4 / 6]);
+      expect(stats.months[3].sessions, 3);
+      expect(stats.monthChange, 17);
+    });
+  });
 }
