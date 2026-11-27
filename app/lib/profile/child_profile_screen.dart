@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/phone.dart';
+import '../auth/session_scope.dart';
 import '../instructor/models.dart';
 import '../instructor/widgets.dart' show statusColors;
+import '../messages/messages_screens.dart';
+import '../roles/app_role.dart';
 import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
@@ -26,6 +29,9 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   ChildProfile? _profile;
   SetupFailure? _failure;
 
+  /// Bumped on every load, so the conversations below reload with the profile.
+  int _loads = 0;
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +39,10 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _failure = null);
+    setState(() {
+      _failure = null;
+      _loads++;
+    });
     try {
       final p = await ProfileScope.of(context).repo.load(widget.childId);
       if (mounted) setState(() => _profile = p);
@@ -83,6 +92,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
     final rate = p.termRate(now);
     final recent = p.marks.length > 14 ? p.marks.sublist(p.marks.length - 14) : p.marks;
     final events = _history(p);
+    final generalSupervisor = SessionScope.of(context).role == AppRole.advisor;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 72,
@@ -213,6 +223,10 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                   ],
                 ),
               ),
+            if (generalSupervisor) ...[
+              const SectionLabel('مراسلات مشرف الفئة مع أولياء الأمور'),
+              ChildConversations(key: ValueKey(_loads), childId: widget.childId),
+            ],
             const SectionLabel('السجل'),
             if (events.isEmpty) Text('لا شيء بعد.', style: text.bodyMedium?.copyWith(color: RaeedColors.grey)),
             for (final e in events)

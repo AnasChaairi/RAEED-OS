@@ -220,12 +220,7 @@ class _UnreadChevron extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (n > 0)
-          Badge(
-            key: Key('child-count-$childId'),
-            backgroundColor: RaeedColors.error,
-            label: Text('$n'),
-          ),
+        if (n > 0) Badge(key: Key('child-count-$childId'), backgroundColor: RaeedColors.error, label: Text('$n')),
         const SizedBox(width: 4),
         const Icon(Icons.chevron_left),
       ],
@@ -520,4 +515,65 @@ class _Hint extends StatelessWidget {
       style: const TextStyle(color: RaeedColors.grey),
     ),
   );
+}
+
+/// A child's conversations between the category supervisor and the parents, read only,
+/// for the مشرف عام on the child's profile. Shows the newest three until asked for all.
+class ChildConversations extends StatefulWidget {
+  const ChildConversations({super.key, required this.childId});
+
+  final String childId;
+
+  @override
+  State<ChildConversations> createState() => _ChildConversationsState();
+}
+
+class _ChildConversationsState extends State<ChildConversations> {
+  Future<List<ChildMessage>>? _items;
+  bool _all = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _items ??= MessagesScope.of(context)?.load(childIds: [widget.childId]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final grey = text.bodyMedium?.copyWith(color: RaeedColors.grey);
+    if (_items == null) return Text('غير متاح.', style: grey);
+    final me = SessionScope.of(context).profile?.id;
+    return FutureBuilder<List<ChildMessage>>(
+      future: _items,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snap.hasError) {
+          final failure = snap.error is SetupError ? (snap.error! as SetupError).failure : SetupFailure.unknown;
+          return Text(setupFailureMessage(failure), style: grey);
+        }
+        final items = snap.data!;
+        if (items.isEmpty) return Text('لم يكتب مشرف الفئة لوالدي الطفل بعد.', style: grey);
+        final shown = _all || items.length <= 3 ? items : items.sublist(0, 3);
+        return Column(
+          key: const Key('child-conversations'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final m in shown) MessageCard(message: m, me: me, actions: const MessageActions()),
+            if (shown.length < items.length)
+              TextButton(
+                key: const Key('child-conversations-all'),
+                onPressed: () => setState(() => _all = true),
+                child: Text('عرض الكل (${items.length})'),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
