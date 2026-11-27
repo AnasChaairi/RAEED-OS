@@ -143,17 +143,16 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: [
-          SegmentedButton<int>(
+          _GroupTabs(
             key: const Key('group-tabs'),
-            showSelectedIcon: false,
-            segments: [
-              ButtonSegment(value: 0, label: Text('الأطفال ${kids.length}')),
-              const ButtonSegment(value: 1, label: Text('الحصص')),
-              if (store.schedules) const ButtonSegment(value: 2, label: Text('المؤطرون')),
-              if (store.schedules) const ButtonSegment(value: 3, label: Text('الواجبات')),
+            selected: _tab,
+            onSelect: (i) => setState(() => _tab = i),
+            tabs: [
+              (0, 'الأطفال', Icons.child_care, kids.length),
+              (1, 'الحصص', Icons.calendar_month, null),
+              if (store.schedules) (2, 'المؤطرون', Icons.badge_outlined, null),
+              if (store.schedules) (3, 'الواجبات', Icons.assignment_outlined, null),
             ],
-            selected: {_tab},
-            onSelectionChanged: (v) => setState(() => _tab = v.first),
           ),
           const SizedBox(height: 10),
           if (_tab == 0) ...[
@@ -211,6 +210,69 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               label: const Text('نشاط نوعي لهذه الفئة'),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The فئة page's sections: icon over a one-line label, the chosen one underlined. Every
+/// tab gets the same width, so four fit on a phone without wrapping.
+class _GroupTabs extends StatelessWidget {
+  const _GroupTabs({super.key, required this.tabs, required this.selected, required this.onSelect});
+
+  /// (value, label, icon, count).
+  final List<(int, String, IconData, int?)> tabs;
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: RaeedColors.line)),
+      ),
+      child: Row(
+        children: [
+          for (final (value, label, icon, count) in tabs)
+            Expanded(
+              child: InkWell(
+                key: Key('group-tab-$value'),
+                onTap: () => onSelect(value),
+                child: Container(
+                  padding: const EdgeInsets.only(top: 8, bottom: 6),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: value == selected ? RaeedColors.blue : Colors.transparent, width: 3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Badge(
+                        isLabelVisible: count != null,
+                        backgroundColor: value == selected ? RaeedColors.blue : RaeedColors.grey,
+                        label: Text('${count ?? ''}'),
+                        child: Icon(icon, color: value == selected ? RaeedColors.blue : RaeedColors.grey),
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: text.labelLarge?.copyWith(
+                            color: value == selected ? RaeedColors.blue : RaeedColors.grey,
+                            fontWeight: value == selected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
