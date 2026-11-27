@@ -82,6 +82,7 @@ ChildProfile adamProfile() => ChildProfile(
 Future<FakeProfileRepository> openAdvisor(
   WidgetTester tester, {
   FakeStatsRepository? stats,
+  StatsData? statsData,
   FakeSetupRepository? setup,
   MessagesRepository? messages,
 }) async {
@@ -99,7 +100,7 @@ Future<FakeProfileRepository> openAdvisor(
   final profiles = FakeProfileRepository()..profiles['adam'] = adamProfile();
   final extra = stage4(
     prefs,
-    stats: (stats ?? FakeStatsRepository())..data = seededStats(),
+    stats: (stats ?? FakeStatsRepository())..data = statsData ?? seededStats(),
     profiles: profiles,
     clock: () => now,
   );
@@ -121,12 +122,20 @@ Future<FakeProfileRepository> openAdvisor(
   return profiles;
 }
 
+/// Scrolls the statistics until [key] is at the top of the list.
+Future<void> reveal(WidgetTester tester, String key) async {
+  await tester.scrollUntilVisible(find.byKey(Key(key)), 200, scrollable: find.byType(Scrollable).first);
+  await tester.ensureVisible(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('statistics open on this month, with what needs attention', (tester) async {
     await openAdvisor(tester);
     expect(find.byKey(const Key('stats-rate')), findsOneWidget);
     // feb6 2/2, feb20 1/2, k-feb20 1/1.
     expect(tester.widget<Text>(find.byKey(const Key('stats-rate'))).data, '80%');
+    await reveal(tester, 'attention-unrecorded');
     expect(find.descendant(of: find.byKey(const Key('attention-alerts')), matching: find.text('1')), findsOneWidget);
     expect(
       find.descendant(of: find.byKey(const Key('attention-unrecorded')), matching: find.text('1')),
@@ -134,6 +143,8 @@ void main() {
       reason: 'k-feb18 has no attendance',
     );
 
+    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('period-week')));
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(find.byKey(const Key('stats-rate'))).data, '67%');
@@ -141,10 +152,11 @@ void main() {
 
   testWidgets('a group shows its instructors and children, and a child opens the profile', (tester) async {
     final profiles = await openAdvisor(tester);
+    await reveal(tester, 'stats-group-stars');
     await tester.tap(find.byKey(const Key('stats-group-stars')));
     await tester.pumpAndSettle();
     expect(find.text('ياسين، سارة الإدريسي'), findsOneWidget);
-    expect(find.text('2 / 2'), findsOneWidget);
+    expect(find.text('2 / 2'), findsNWidgets(2), reason: 'recorded of held, and completed of programmed');
     expect(find.descendant(of: find.byKey(const Key('stats-kid-adam')), matching: find.text('50%')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('stats-kid-adam')));
@@ -205,6 +217,7 @@ void main() {
       ),
     );
     await openAdvisor(tester, messages: messages);
+    await reveal(tester, 'stats-group-stars');
     await tester.tap(find.byKey(const Key('stats-group-stars')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('stats-kid-adam')));
@@ -226,6 +239,59 @@ void main() {
     expect(messages.calls, isEmpty);
   });
 
+  testWidgets('follow-up numbers open the names, and the monthly trend says where attendance goes', (tester) async {
+    await openAdvisor(
+      tester,
+      statsData: StatsData(
+        groups: seededStats().groups,
+        staffNames: seededStats().staffNames,
+        children: seededStats().children,
+        seasonStart: DateTime(2027, 1, 1),
+        sessions: [
+          for (final d in [23, 30]) StatSession(id: 'jan$d', groupId: 'stars', date: DateTime(2027, 1, d), end: 690),
+          for (final d in [6, 13, 20]) StatSession(id: 'feb$d', groupId: 'stars', date: DateTime(2027, 2, d), end: 690),
+          StatSession(id: 'k-feb18', groupId: 'knights', date: DateTime(2027, 2, 18), end: 690),
+        ],
+        marks: [
+          for (final d in [23, 30]) StatMark(sessionId: 'jan$d', childId: 'adam', status: AttendanceStatus.present),
+          for (final d in [6, 13, 20]) ...[
+            StatMark(sessionId: 'feb$d', childId: 'adam', status: AttendanceStatus.absent),
+            StatMark(sessionId: 'feb$d', childId: 'omar', status: AttendanceStatus.late),
+          ],
+        ],
+      ),
+    );
+    expect(find.text('في تراجع: -50 نقطة مقارنة بالشهر السابق'), findsOneWidget, reason: 'January 100%, February 50%');
+    expect(find.byKey(const Key('monthly-picked')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const Key('monthly-picked'))).data, 'فبراير 2027: 50% · 3 حصص');
+    await tester.tap(find.byKey(const Key('month-2027-1')));
+    await tester.pump();
+    expect(tester.widget<Text>(find.byKey(const Key('monthly-picked'))).data, 'يناير 2027: 100% · حصتان');
+
+    await reveal(tester, 'attention-instructors');
+    await tester.tap(find.byKey(const Key('attention-instructors')));
+    await tester.pumpAndSettle();
+    expect(find.text('حمزة'), findsOneWidget);
+    expect(find.text('حصة واحدة'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    tester.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(0);
+    await tester.pumpAndSettle();
+
+    await reveal(tester, 'attention-threshold');
+    expect(find.descendant(of: find.byKey(const Key('attention-threshold')), matching: find.text('1')), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const Key('attention-repeated-late')), matching: find.text('1')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('attention-repeated-absence')));
+    await tester.pumpAndSettle();
+    expect(find.text('فئة النجوم · غاب 3 مرات من 5 حصص'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('count-kid-adam')));
+    await tester.pumpAndSettle();
+    expect(find.text('فئة النجوم · 9 سنوات · منذ 2024'), findsOneWidget);
+  });
+
   testWidgets('the pilot measures show against their targets for the chosen period', (tester) async {
     final stats = FakeStatsRepository()
       ..pilot = PilotMetrics(
@@ -243,7 +309,7 @@ void main() {
       );
     await openAdvisor(tester, stats: stats);
     expect(stats.views, 1, reason: 'opening the statistics is counted');
-    await tester.scrollUntilVisible(find.byKey(const Key('open-pilot')), 200);
+    await reveal(tester, 'open-pilot');
     await tester.tap(find.byKey(const Key('open-pilot')));
     await tester.pumpAndSettle();
     expect(stats.pilotAsked.single, (DateTime(2027, 2), now));
