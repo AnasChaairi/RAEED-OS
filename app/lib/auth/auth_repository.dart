@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../roles/app_role.dart';
 import 'phone.dart';
+import 'privacy_terms.dart';
 
 /// The signed-in person, from public.people and public.person_roles.
 class Profile {
@@ -11,6 +12,8 @@ class Profile {
     required this.phone,
     required this.mustChangePassword,
     required this.roles,
+    this.privacyConsentVersion,
+    this.privacyConsentAt,
   });
 
   final String id;
@@ -21,12 +24,19 @@ class Profile {
   /// Always in the order advisor, instructor, parent.
   final List<AppRole> roles;
 
-  Profile copyWith({bool? mustChangePassword}) => Profile(
+  /// The version of the Law 09-08 statement this person accepted, and when. Null when
+  /// they have not accepted any.
+  final int? privacyConsentVersion;
+  final DateTime? privacyConsentAt;
+
+  Profile copyWith({bool? mustChangePassword, int? privacyConsentVersion, DateTime? privacyConsentAt}) => Profile(
         id: id,
         fullName: fullName,
         phone: phone,
         mustChangePassword: mustChangePassword ?? this.mustChangePassword,
         roles: roles,
+        privacyConsentVersion: privacyConsentVersion ?? this.privacyConsentVersion,
+        privacyConsentAt: privacyConsentAt ?? this.privacyConsentAt,
       );
 
   Map<String, Object?> toJson() => {
@@ -35,6 +45,8 @@ class Profile {
         'phone': phone,
         'must_change_password': mustChangePassword,
         'roles': [for (final r in roles) r.dbName],
+        'privacy_consent_version': privacyConsentVersion,
+        'privacy_consent_at': privacyConsentAt?.toIso8601String(),
       };
 
   static Profile fromJson(Map<String, Object?> j) => Profile(
@@ -43,8 +55,12 @@ class Profile {
         phone: j['phone'] as String,
         mustChangePassword: j['must_change_password'] as bool,
         roles: [for (final r in j['roles'] as List) ?AppRole.fromDb(r as String)],
+        privacyConsentVersion: j['privacy_consent_version'] as int?,
+        privacyConsentAt: _date(j['privacy_consent_at']),
       );
 }
+
+DateTime? _date(Object? v) => v == null ? null : DateTime.parse(v as String);
 
 enum AuthFailure {
   /// The number is not a Moroccan phone number.
@@ -83,6 +99,9 @@ abstract interface class AuthRepository {
 
   /// Sets a new password and clears people.must_change_password.
   Future<void> changePassword(String newPassword);
+
+  /// Records that the signed-in person accepted [version] of the Law 09-08 statement.
+  Future<void> acceptPrivacyTerms(int version);
 
   /// Asks the advisor to delete this account and its data. Asking twice is harmless.
   Future<void> requestDeletion();
@@ -123,12 +142,26 @@ class SupabaseAuthRepository implements AuthRepository {
         } on PostgrestException {
           // The database does not know category supervisors yet.
         }
+        int? consentVersion;
+        DateTime? consentAt;
+        try {
+          final consent =
+              await _client.from('people').select('privacy_consent_version, privacy_consent_at').eq('id', id).single();
+          consentVersion = consent['privacy_consent_version'] as int?;
+          consentAt = _date(consent['privacy_consent_at']);
+        } on PostgrestException {
+          // The database cannot store the acceptance yet: don't hold the parent on a
+          // screen they cannot get past.
+          consentVersion = privacyTermsVersion;
+        }
         return Profile(
           id: id,
           fullName: person['full_name'] as String,
           phone: person['phone'] as String,
           mustChangePassword: person['must_change_password'] as bool,
           roles: [for (final r in AppRole.values) if (held.contains(r)) r],
+          privacyConsentVersion: consentVersion,
+          privacyConsentAt: consentAt,
         );
       });
 
@@ -137,6 +170,10 @@ class SupabaseAuthRepository implements AuthRepository {
         await _client.auth.updateUser(UserAttributes(password: newPassword));
         await _client.rpc('mark_password_changed');
       });
+
+  @override
+  Future<void> acceptPrivacyTerms(int version) =>
+      _guard(() => _client.rpc('accept_privacy_terms', params: {'p_version': version}));
 
   @override
   Future<void> requestDeletion() => _guard(

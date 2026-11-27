@@ -253,6 +253,17 @@ void main() {
     expect(find.textContaining('فعّلها من إعدادات الهاتف'), findsOneWidget);
   });
 
+  testWidgets('the 09-08 statement can be read again from the account', (tester) async {
+    await openParent(tester);
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('حسابي')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('privacy-terms-open')), 200);
+    await tester.tap(find.byKey(const Key('privacy-terms-open')));
+    await tester.pumpAndSettle();
+    expect(find.text('حماية المعطيات الشخصية'), findsOneWidget);
+    expect(find.byKey(const Key('privacy-accept')), findsNothing, reason: 'already accepted');
+  });
+
   testWidgets('the password is changed from the account', (tester) async {
     await openParent(tester);
     await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('حسابي')));

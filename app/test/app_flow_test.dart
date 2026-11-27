@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
+import 'package:raeed_os/auth/privacy_terms.dart';
 import 'package:raeed_os/roles/app_role.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/setup/setup_store.dart';
@@ -28,6 +29,7 @@ FakeAuthRepository fakeAuth() => FakeAuthRepository(accounts: {
         password: 'temp1234',
         roles: {AppRole.parent},
         mustChangePassword: true,
+        privacyConsentVersion: null,
       ),
     });
 
@@ -126,7 +128,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.changePasswordCalls, 1);
     expect(auth.accounts[newPhone]!.mustChangePassword, isFalse);
+
+    // Then the Law 09-08 statement: nothing happens until the box is ticked.
+    expect(find.text(privacyTermsTitle), findsOneWidget);
+    expect(find.textContaining('09-08'), findsWidgets);
+    await tester.scrollUntilVisible(find.byKey(const Key('privacy-accept')), 200);
+    await tester.tap(find.byKey(const Key('privacy-accept')));
+    await tester.pumpAndSettle();
+    expect(auth.acceptPrivacyCalls, 0);
+    await tester.tap(find.byKey(const Key('privacy-agree')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('privacy-accept')));
+    await tester.pumpAndSettle();
+    expect(auth.acceptPrivacyCalls, 1);
+    expect(auth.accounts[newPhone]!.privacyConsentVersion, privacyTermsVersion);
     expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
+  });
+
+  testWidgets('a parent who accepted the 09-08 statement is not asked again', (tester) async {
+    final auth = fakeAuth()..signedInAs = newPhone;
+    auth.accounts[newPhone]!
+      ..mustChangePassword = false
+      ..privacyConsentVersion = privacyTermsVersion;
+    await pumpApp(tester, auth);
+    expect(find.text(privacyTermsTitle), findsNothing);
+    expect(tabLabels(tester), ['جدول أطفالي', 'الملاحظات', 'حسابي']);
+  });
+
+  testWidgets('a parent who accepted an older 09-08 text is asked again', (tester) async {
+    final auth = fakeAuth()..signedInAs = newPhone;
+    auth.accounts[newPhone]!
+      ..mustChangePassword = false
+      ..privacyConsentVersion = privacyTermsVersion - 1;
+    await pumpApp(tester, auth);
+    expect(find.text(privacyTermsTitle), findsOneWidget);
+  });
+
+  testWidgets('no connection while accepting is explained and the parent stays', (tester) async {
+    final auth = fakeAuth()..signedInAs = newPhone;
+    auth.accounts[newPhone]!.mustChangePassword = false;
+    await pumpApp(tester, auth);
+    auth.offline = true;
+    await tester.scrollUntilVisible(find.byKey(const Key('privacy-accept')), 200);
+    await tester.tap(find.byKey(const Key('privacy-agree')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('privacy-accept')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('لا يوجد اتصال بالإنترنت'), findsOneWidget);
+    expect(find.text(privacyTermsTitle), findsOneWidget);
+  });
+
+  testWidgets('staff without the parent role never see the 09-08 screen', (tester) async {
+    final auth = fakeAuth();
+    auth.accounts[advisorPhone]!.privacyConsentVersion = null;
+    await pumpApp(tester, auth);
+    await signIn(tester, '0691015402', 'secret-pass');
+    expect(find.text(privacyTermsTitle), findsNothing);
+    expect(tabLabels(tester), hasLength(5));
   });
 
   testWidgets('several roles: choose one, then switch from the avatar', (tester) async {
