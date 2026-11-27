@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../setup/setup_repository.dart';
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import '../widgets/month_calendar.dart';
 import 'activities_screen.dart';
 import 'attendance_screen.dart';
 import 'instructor_repository.dart';
@@ -60,66 +61,99 @@ class _SessionsTabState extends State<SessionsTab> {
             if (on.isNotEmpty) activityDays[d] = on;
           }
           final dayList = {...days.keys, ...activityDays.keys}.toList()..sort();
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-            children: [
-              if (store.offline) const OfflineBanner(),
-              Row(
-                children: [
-                  IconButton(
-                    key: const Key('previous-week'),
-                    tooltip: 'الأسبوع السابق',
-                    onPressed: () => setState(() => _weekOffset--),
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${_weekOffset == 0 ? 'هذا الأسبوع' : 'الأسبوع'} · من ${weekStart.day}'
-                      '${weekStart.month == weekEnd.month ? '' : ' ${monthNames[weekStart.month - 1]}'}'
-                      ' إلى ${weekEnd.day} ${monthNames[weekEnd.month - 1]}',
-                      key: const Key('week-label'),
-                      textAlign: TextAlign.center,
-                      style: text.titleSmall,
-                    ),
-                  ),
-                  IconButton(
-                    key: const Key('next-week'),
-                    tooltip: 'الأسبوع التالي',
-                    onPressed: () => setState(() => _weekOffset++),
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                ],
+          List<Widget> dayCards(BuildContext context, DateTime day) => [
+            for (final a in data.activitiesOn(day)) ...[
+              ActivityCard(
+                activity: a,
+                day: day,
+                groupNames: activityGroupNames(a, data.groups),
+                replaced: a.dayNumber(day) == 1 ? data.replacedSessions(a).length : 0,
+                onTap: () => openActivity(context, a.id),
               ),
-              if (data.groups.isEmpty)
-                _Hint(
-                  store.view == StaffView.all
-                      ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
-                      : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.',
-                )
-              else if (dayList.isEmpty)
-                _Hint(
-                  store.schedules
-                      ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
-                      : 'لا حصص هذا الأسبوع. يخطّط المشرف العام الحصص وتظهر هنا.',
-                ),
-              for (final day in dayList) ...[
-                SectionLabel(dayLabel(day, now)),
-                for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
-                  ActivityCard(
-                    activity: a,
-                    day: day,
-                    groupNames: activityGroupNames(a, data.groups),
-                    replaced: a.dayNumber(day) == 1 ? data.replacedSessions(a).length : 0,
-                    onTap: () => openActivity(context, a.id),
+              const SizedBox(height: 8),
+            ],
+            for (final s in data.sessions.where((s) => s.date == day)) ...[
+              SessionCard(session: s, data: data, onTap: () => openSession(context, s.id)),
+              const SizedBox(height: 8),
+            ],
+          ];
+          return ScheduleModeBuilder(
+            builder: (context, mode) => ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+              children: [
+                if (store.offline) const OfflineBanner(),
+                if (data.groups.isNotEmpty) const ScheduleModeToggle(),
+                if (mode == ScheduleMode.month && data.groups.isNotEmpty)
+                  MonthCalendar(
+                    now: now,
+                    sessions: data.sessions,
+                    activities: data.activities,
+                    replacedBy: data.replacedBy,
+                    dayItems: dayCards,
+                    breaks: [
+                      for (final b in data.breaks)
+                        if (b.concerns(data.groups.map((g) => g.id))) b,
+                    ],
+                  )
+                else ...[
+                  Row(
+                    children: [
+                      IconButton(
+                        key: const Key('previous-week'),
+                        tooltip: 'الأسبوع السابق',
+                        onPressed: () => setState(() => _weekOffset--),
+                        icon: const Icon(Icons.chevron_right),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_weekOffset == 0 ? 'هذا الأسبوع' : 'الأسبوع'} · من ${weekStart.day}'
+                          '${weekStart.month == weekEnd.month ? '' : ' ${monthNames[weekStart.month - 1]}'}'
+                          ' إلى ${weekEnd.day} ${monthNames[weekEnd.month - 1]}',
+                          key: const Key('week-label'),
+                          textAlign: TextAlign.center,
+                          style: text.titleSmall,
+                        ),
+                      ),
+                      IconButton(
+                        key: const Key('next-week'),
+                        tooltip: 'الأسبوع التالي',
+                        onPressed: () => setState(() => _weekOffset++),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                ],
-                for (final s in days[day] ?? const <Session>[]) ...[
-                  SessionCard(session: s, data: data, onTap: () => openSession(context, s.id)),
-                  const SizedBox(height: 8),
+                  if (data.groups.isEmpty)
+                    _Hint(
+                      store.view == StaffView.all
+                          ? 'لا توجد فئات بعد. أنشئ فئة من تبويب الفئات ثم خطّط حصصها هنا.'
+                          : 'لم تُسند إليك أي فئة بعد. تواصل مع المشرف العام.',
+                    )
+                  else if (dayList.isEmpty)
+                    _Hint(
+                      store.schedules
+                          ? 'لا حصص هذا الأسبوع. أضف حصة بالزر في الأسفل.'
+                          : 'لا حصص هذا الأسبوع. يخطّط المشرف العام الحصص وتظهر هنا.',
+                    ),
+                  for (final day in dayList) ...[
+                    SectionLabel(dayLabel(day, now)),
+                    for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
+                      ActivityCard(
+                        activity: a,
+                        day: day,
+                        groupNames: activityGroupNames(a, data.groups),
+                        replaced: a.dayNumber(day) == 1 ? data.replacedSessions(a).length : 0,
+                        onTap: () => openActivity(context, a.id),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    for (final s in days[day] ?? const <Session>[]) ...[
+                      SessionCard(session: s, data: data, onTap: () => openSession(context, s.id)),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
                 ],
               ],
-            ],
+            ),
           );
         },
       ),

@@ -550,6 +550,7 @@ class InstructorSnapshot {
     this.termStart,
     this.activities = const [],
     this.activityAttendance = const [],
+    this.breaks = const [],
   });
 
   final List<Group> groups;
@@ -573,6 +574,9 @@ class InstructorSnapshot {
   /// The أنشطة نوعية of these groups, sorted by start.
   final List<SpecialActivity> activities;
   final List<ActivityAttendance> activityAttendance;
+
+  /// Holidays, Ramadan and the academy's stops, for the month calendar.
+  final List<CalendarBreak> breaks;
 
   SpecialActivity? activity(String id) => activities.where((a) => a.id == id).firstOrNull;
 
@@ -674,6 +678,7 @@ class InstructorSnapshot {
         termStart: termStart,
         activities: activities,
         activityAttendance: activityAttendance ?? this.activityAttendance,
+        breaks: breaks,
       );
 
   Map<String, Object?> toJson() => {
@@ -700,6 +705,7 @@ class InstructorSnapshot {
     'term_start': termStart == null ? null : dbDay(termStart!),
     'activities': [for (final a in activities) a.toJson()],
     'activity_attendance': [for (final a in activityAttendance) a.toJson()],
+    'breaks': [for (final b in breaks) b.toJson()],
   };
 
   static InstructorSnapshot fromJson(Map<String, dynamic> j) => InstructorSnapshot(
@@ -733,6 +739,7 @@ class InstructorSnapshot {
       for (final a in (j['activity_attendance'] as List?) ?? const [])
         ActivityAttendance.fromJson(a as Map<String, dynamic>),
     ],
+    breaks: [for (final b in (j['breaks'] as List?) ?? const []) CalendarBreak.fromJson(b as Map<String, dynamic>)],
   );
 }
 
@@ -902,3 +909,62 @@ class ActivityAttendance {
 /// The first planned activity of [activities] that replaces [s], if any.
 SpecialActivity? activityReplacing(List<SpecialActivity> activities, Session s) =>
     activities.where((a) => a.replaces(s)).firstOrNull;
+
+/// What a [CalendarBreak] is: a school or national holiday, Ramadan, or the academy stopping.
+enum BreakKind {
+  holiday('عطلة'),
+  ramadan('رمضان'),
+  pause('توقف الأكاديمية');
+
+  const BreakKind(this.label);
+  final String label;
+
+  static BreakKind parse(String? s) => switch (s) {
+    'ramadan' => BreakKind.ramadan,
+    'pause' => BreakKind.pause,
+    _ => BreakKind.holiday,
+  };
+}
+
+/// A stretch of days from the year's programme, shown on the month calendar. Only shown:
+/// it cancels no حصة. With no [groupId] it is for every فئة.
+class CalendarBreak {
+  const CalendarBreak({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.startDate,
+    required this.endDate,
+    this.groupId,
+  });
+
+  final String id;
+  final BreakKind kind;
+  final String title;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String? groupId;
+
+  bool covers(DateTime day) => !dayOnly(day).isBefore(startDate) && !dayOnly(day).isAfter(endDate);
+
+  /// Whether it concerns one of [groupIds] (every break with no فئة does).
+  bool concerns(Iterable<String> groupIds) => groupId == null || groupIds.contains(groupId);
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'kind': kind.name,
+    'title': title,
+    'start_date': dbDay(startDate),
+    'end_date': dbDay(endDate),
+    'group_id': groupId,
+  };
+
+  static CalendarBreak fromJson(Map<String, dynamic> j) => CalendarBreak(
+    id: j['id'] as String,
+    kind: BreakKind.parse(j['kind'] as String?),
+    title: j['title'] as String,
+    startDate: DateTime.parse(j['start_date'] as String),
+    endDate: DateTime.parse(j['end_date'] as String),
+    groupId: j['group_id'] as String?,
+  );
+}

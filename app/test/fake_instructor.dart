@@ -18,6 +18,7 @@ class FakeInstructorRepository implements InstructorRepository {
   final staffPhones = <String, String>{};
   final absences = <InstructorAbsence>[];
   final activities = <SpecialActivity>[];
+  final breaks = <CalendarBreak>[];
   final activityAttendance = <String, ActivityAttendance>{};
 
   /// Who is signed in, for writes that take it from the session.
@@ -59,6 +60,7 @@ class FakeInstructorRepository implements InstructorRepository {
       activities: (activities.where((a) => a.groupIds.any(mine.contains)).toList()
         ..sort((a, b) => a.startsAt.compareTo(b.startsAt))),
       activityAttendance: activityAttendance.values.toList(),
+      breaks: breaks,
     );
   }
 

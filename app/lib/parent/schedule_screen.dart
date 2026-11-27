@@ -10,6 +10,7 @@ import '../instructor/models.dart';
 import '../instructor/widgets.dart' show OfflineBanner, dayLabel;
 import '../setup/widgets.dart';
 import '../theme/raeed_theme.dart';
+import '../widgets/month_calendar.dart';
 import 'parent_models.dart';
 import 'parent_store.dart';
 
@@ -65,105 +66,146 @@ class ParentScheduleTab extends StatelessWidget {
     final dayList = {...days.keys, ...activityDays.keys}.toList()..sort();
     void openActivity(SpecialActivity a) => Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => ParentActivityScreen(activityId: a.id, childId: childId!)),
+      MaterialPageRoute<void>(
+        builder: (_) => ParentActivityScreen(activityId: a.id, childId: childId!),
+      ),
     );
-    return RefreshIndicator(
-      onRefresh: store.refresh,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        children: [
-          if (store.offline) ...[
-            const OfflineBanner(text: 'لا يوجد إنترنت. هذا آخر جدول وصل إلى هاتفك.'),
-            const SizedBox(height: 8),
-          ],
-          if (data.children.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Text(
-                'لا يوجد طفل مرتبط بحسابك بعد. تواصل مع المشرف العام.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: RaeedColors.grey),
-              ),
-            ),
-          if (data.children.length > 1) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final c in data.children)
-                  ChoiceChip(
-                    key: Key('child-${c.id}'),
-                    label: Text([c.firstName, ?c.group?.name].join(' · ')),
-                    selected: c.id == childId,
-                    onSelected: (_) => store.showChild(c.id),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-          if (childId != null && data.child(childId)!.group == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text(
-                'لم يُسجَّل طفلك في فئة بعد. تواصل مع المشرف العام.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: RaeedColors.grey),
-              ),
-            )
-          else if (childId != null && sessions.isEmpty && activities.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text(
-                'لا حصص مبرمجة في الأسابيع القادمة.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: RaeedColors.grey),
-              ),
-            ),
-          if (nextActivity != null && nextActivity.startDate.isBefore(dayOnly(now).add(const Duration(days: 31))))
-            _ActivityBanner(
-              activity: nextActivity,
-              now: now,
-              replaced: sessions.where(nextActivity.replaces).length,
-              onTap: () => openActivity(nextActivity),
-            ),
-          if (changes.isNotEmpty)
-            Container(
-              key: const Key('changes-summary'),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: _starSoft, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${countLabel(changes.length, one: 'تغيير واحد', two: 'تغييران', few: 'تغييرات', many: 'تغييراً')} هذا الأسبوع',
-                    style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  for (final s in changes) Text(_changeLine(s, data.replacedBy(s)), style: text.bodySmall),
-                ],
-              ),
-            ),
-          for (final day in dayList) ...[
-            SectionLabel(dayLabel(day, now)),
-            for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
-              ActivityCard(activity: a, day: day, groupNames: const [], onTap: () => openActivity(a)),
+    final group = childId == null ? null : data.child(childId)?.group?.id;
+    void openSession(Session s) => Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ParentSessionScreen(sessionId: s.id, childId: childId!),
+      ),
+    );
+    final groupSessions = group == null ? const <Session>[] : data.sessions.where((s) => s.groupId == group).toList();
+    final groupActivities = group == null
+        ? const <SpecialActivity>[]
+        : data.activities.where((a) => a.groupIds.contains(group)).toList();
+    List<Widget> dayCards(BuildContext context, DateTime day) => [
+      for (final a in groupActivities)
+        if (a.covers(day)) ...[
+          ActivityCard(activity: a, day: day, groupNames: const [], onTap: () => openActivity(a)),
+          const SizedBox(height: 8),
+        ],
+      for (final s in groupSessions.where((s) => s.date == day)) ...[
+        ParentSessionCard(
+          session: s,
+          isNext: s.id == next?.id,
+          replacedBy: s.cancelled ? null : data.replacedBy(s),
+          onTap: () => openSession(s),
+        ),
+        const SizedBox(height: 8),
+      ],
+    ];
+    return ScheduleModeBuilder(
+      builder: (context, mode) => RefreshIndicator(
+        onRefresh: store.refresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
+            if (store.offline) ...[
+              const OfflineBanner(text: 'لا يوجد إنترنت. هذا آخر جدول وصل إلى هاتفك.'),
               const SizedBox(height: 8),
             ],
-            for (final s in days[day] ?? const <Session>[]) ...[
-              ParentSessionCard(
-                session: s,
-                isNext: s.id == next?.id,
-                replacedBy: s.cancelled ? null : data.replacedBy(s),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => ParentSessionScreen(sessionId: s.id, childId: childId!),
-                  ),
+            if (data.children.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Text(
+                  'لا يوجد طفل مرتبط بحسابك بعد. تواصل مع المشرف العام.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: RaeedColors.grey),
                 ),
               ),
+            if (data.children.length > 1) ...[
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final c in data.children)
+                    ChoiceChip(
+                      key: Key('child-${c.id}'),
+                      label: Text([c.firstName, ?c.group?.name].join(' · ')),
+                      selected: c.id == childId,
+                      onSelected: (_) => store.showChild(c.id),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
             ],
+            if (group != null) const ScheduleModeToggle(listLabel: 'القادم', listIcon: Icons.view_agenda_outlined),
+            if (childId != null && data.child(childId)!.group == null)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'لم يُسجَّل طفلك في فئة بعد. تواصل مع المشرف العام.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: RaeedColors.grey),
+                ),
+              )
+            else if (mode == ScheduleMode.list && childId != null && sessions.isEmpty && activities.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'لا حصص مبرمجة في الأسابيع القادمة.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: RaeedColors.grey),
+                ),
+              ),
+            if (nextActivity != null && nextActivity.startDate.isBefore(dayOnly(now).add(const Duration(days: 31))))
+              _ActivityBanner(
+                activity: nextActivity,
+                now: now,
+                replaced: sessions.where(nextActivity.replaces).length,
+                onTap: () => openActivity(nextActivity),
+              ),
+            if (changes.isNotEmpty)
+              Container(
+                key: const Key('changes-summary'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: _starSoft, borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${countLabel(changes.length, one: 'تغيير واحد', two: 'تغييران', few: 'تغييرات', many: 'تغييراً')} هذا الأسبوع',
+                      style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    for (final s in changes) Text(_changeLine(s, data.replacedBy(s)), style: text.bodySmall),
+                  ],
+                ),
+              ),
+            if (mode == ScheduleMode.month && group != null)
+              MonthCalendar(
+                now: now,
+                sessions: groupSessions,
+                activities: groupActivities,
+                replacedBy: data.replacedBy,
+                dayItems: dayCards,
+                breaks: [
+                  for (final b in data.breaks)
+                    if (b.concerns([group])) b,
+                ],
+                emptyDay: 'لا حصص ولا أنشطة في هذا اليوم.',
+              )
+            else
+              for (final day in dayList) ...[
+                SectionLabel(dayLabel(day, now)),
+                for (final a in activityDays[day] ?? const <SpecialActivity>[]) ...[
+                  ActivityCard(activity: a, day: day, groupNames: const [], onTap: () => openActivity(a)),
+                  const SizedBox(height: 8),
+                ],
+                for (final s in days[day] ?? const <Session>[]) ...[
+                  ParentSessionCard(
+                    session: s,
+                    isNext: s.id == next?.id,
+                    replacedBy: s.cancelled ? null : data.replacedBy(s),
+                    onTap: () => openSession(s),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -343,7 +385,9 @@ class ParentSessionScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute<void>(builder: (_) => ParentActivityScreen(activityId: by.id, childId: childId)),
+                  MaterialPageRoute<void>(
+                    builder: (_) => ParentActivityScreen(activityId: by.id, childId: childId),
+                  ),
                 ),
               ),
             ),
@@ -466,10 +510,7 @@ Future<void> addActivityToCalendar(SpecialActivity a, ParentChild child) => _ope
   begin: a.startsAt,
   end: a.endsAt,
   where: a.place,
-  details: [
-    if ((a.meetingPlace ?? '').isNotEmpty) 'التجمع والاستلام: ${a.meetingPlace}',
-    ?a.details,
-  ].join('\n'),
+  details: [if ((a.meetingPlace ?? '').isNotEmpty) 'التجمع والاستلام: ${a.meetingPlace}', ?a.details].join('\n'),
 );
 
 Future<void> _openCalendar({
@@ -537,7 +578,10 @@ class _ActivityBanner extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: bg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: fg, width: 1.6)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: fg, width: 1.6),
+        ),
         child: InkWell(
           key: const Key('activity-banner'),
           borderRadius: BorderRadius.circular(18),
@@ -647,7 +691,8 @@ class ParentActivityScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text('المكان: ${a.place}', style: text.bodyLarge),
-                if ((a.meetingPlace ?? '').isNotEmpty) Text('التجمع والاستلام: ${a.meetingPlace}', style: text.bodyMedium),
+                if ((a.meetingPlace ?? '').isNotEmpty)
+                  Text('التجمع والاستلام: ${a.meetingPlace}', style: text.bodyMedium),
                 if ((a.mapUrl ?? '').isNotEmpty)
                   Align(
                     alignment: AlignmentDirectional.centerStart,
@@ -663,7 +708,9 @@ class ParentActivityScreen extends StatelessWidget {
           ),
           if ((a.details ?? '').isNotEmpty) ...[
             const SectionLabel('ما يجب معرفته'),
-            Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(a.details!))),
+            Card(
+              child: Padding(padding: const EdgeInsets.all(12), child: Text(a.details!)),
+            ),
           ],
           if (!a.cancelled && replaced.isNotEmpty) ...[
             const SectionLabel('الحصص الملغاة بسبب النشاط'),
