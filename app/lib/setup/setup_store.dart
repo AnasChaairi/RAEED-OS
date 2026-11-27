@@ -231,12 +231,7 @@ class SetupStore extends ChangeNotifier {
   }
 
   /// Throws [SetupError].
-  Future<void> saveSeason({
-    String? id,
-    required String name,
-    required DateTime startsOn,
-    required DateTime endsOn,
-  }) async {
+  Future<void> saveSeason({String? id, required String name, required DateTime startsOn, required DateTime endsOn}) async {
     await _repo.saveSeason(id: id, name: name, startsOn: startsOn, endsOn: endsOn);
     await load();
   }
@@ -253,11 +248,12 @@ class SetupStore extends ChangeNotifier {
     await load();
   }
 
-  static IssuedPassword? _issued(NewAccount account, String fullName, String phone) => account.temporaryPassword == null
-      ? null
-      : IssuedPassword(
-          fullName: fullName,
-          phone: '+${normalizePhone(phone) ?? phone}',
-          temporaryPassword: account.temporaryPassword!,
-        );
+  static IssuedPassword? _issued(NewAccount account, String fullName, String phone) =>
+      account.temporaryPassword == null
+          ? null
+          : IssuedPassword(
+              fullName: fullName,
+              phone: '+${normalizePhone(phone) ?? phone}',
+              temporaryPassword: account.temporaryPassword!,
+            );
 }

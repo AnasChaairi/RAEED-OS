@@ -21,15 +21,15 @@ class SetupScope extends InheritedNotifier<SetupStore> {
 }
 
 String setupFailureMessage(SetupFailure f) => switch (f) {
-  SetupFailure.offline => 'لا يوجد اتصال بالإنترنت. تحقّق من الاتصال وحاول مرة أخرى.',
-  SetupFailure.duplicateName => 'يوجد اسم مطابق من قبل. اختر اسماً آخر.',
-  SetupFailure.invalidPhone => 'رقم الهاتف غير صحيح. اكتبه هكذا: 06 12 34 56 78',
-  SetupFailure.tooManyParents => 'لا يمكن تسجيل أكثر من وليّي أمر لطفل واحد.',
-  SetupFailure.ownAdvisorRole => 'لا يمكنك إزالة دور المشرف العام عن حسابك.',
-  SetupFailure.ownAccount => 'لا يمكنك حذف حسابك بنفسك. اطلب ذلك من مشرف آخر.',
-  SetupFailure.notAllowed => 'ليست لديك صلاحية لهذا التغيير.',
-  SetupFailure.unknown => 'حدث خطأ. حاول مرة أخرى بعد قليل.',
-};
+      SetupFailure.offline => 'لا يوجد اتصال بالإنترنت. تحقّق من الاتصال وحاول مرة أخرى.',
+      SetupFailure.duplicateName => 'يوجد اسم مطابق من قبل. اختر اسماً آخر.',
+      SetupFailure.invalidPhone => 'رقم الهاتف غير صحيح. اكتبه هكذا: 06 12 34 56 78',
+      SetupFailure.tooManyParents => 'لا يمكن تسجيل أكثر من وليّي أمر لطفل واحد.',
+      SetupFailure.ownAdvisorRole => 'لا يمكنك إزالة دور المشرف العام عن حسابك.',
+      SetupFailure.ownAccount => 'لا يمكنك حذف حسابك بنفسك. اطلب ذلك من مشرف آخر.',
+      SetupFailure.notAllowed => 'ليست لديك صلاحية لهذا التغيير.',
+      SetupFailure.unknown => 'حدث خطأ. حاول مرة أخرى بعد قليل.',
+    };
 
 /// Group logo colours 1 to 8, with the text colour that reads on each.
 const groupLogoColors = <(LinearGradient, Color)>[
@@ -47,7 +47,7 @@ class GroupLogo extends StatelessWidget {
   const GroupLogo({super.key, required this.letter, required this.color, this.size = 44, this.image});
 
   GroupLogo.of(Group g, {Key? key, double size = 44})
-    : this(key: key, letter: g.logoLetter, color: g.logoColor, size: size, image: groupLogoImage(g.logoPath));
+      : this(key: key, letter: g.logoLetter, color: g.logoColor, size: size, image: groupLogoImage(g.logoPath));
 
   final String letter;
   final int color;
@@ -68,13 +68,7 @@ class GroupLogo extends StatelessWidget {
       decoration: BoxDecoration(gradient: gradient, borderRadius: radius),
       child: Text(
         letter,
-        style: TextStyle(
-          fontFamily: RaeedFonts.display,
-          fontWeight: FontWeight.w700,
-          fontSize: size * 0.45,
-          height: 1.2,
-          color: ink,
-        ),
+        style: TextStyle(fontFamily: RaeedFonts.display, fontWeight: FontWeight.w700, fontSize: size * 0.45, height: 1.2, color: ink),
       ),
     );
     if (image == null) return tile;
@@ -93,8 +87,9 @@ class GroupLogo extends StatelessWidget {
 }
 
 /// The public address of an uploaded group logo.
-ImageProvider? groupLogoImage(String? path) =>
-    path == null ? null : NetworkImage('${AppConfig.supabaseUrl}/storage/v1/object/public/$groupLogoBucket/$path');
+ImageProvider? groupLogoImage(String? path) => path == null
+    ? null
+    : NetworkImage('${AppConfig.supabaseUrl}/storage/v1/object/public/$groupLogoBucket/$path');
 
 /// A round initial for a person or child.
 class InitialAvatar extends StatelessWidget {
@@ -105,27 +100,20 @@ class InitialAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    alignment: Alignment.center,
-    decoration: const BoxDecoration(color: RaeedColors.surfaceAlt, shape: BoxShape.circle),
-    child: Text(
-      name.trim().isEmpty ? '؟' : name.trim().characters.first,
-      style: TextStyle(fontWeight: FontWeight.w600, color: RaeedColors.blue, fontSize: size * 0.42),
-    ),
-  );
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: RaeedColors.surfaceAlt, shape: BoxShape.circle),
+        child: Text(
+          name.trim().isEmpty ? '؟' : name.trim().characters.first,
+          style: TextStyle(fontWeight: FontWeight.w600, color: RaeedColors.blue, fontSize: size * 0.42),
+        ),
+      );
 }
 
 /// A tappable card row: leading, title, subtitle lines, chevron.
 class SetupRow extends StatelessWidget {
-  const SetupRow({
-    super.key,
-    required this.leading,
-    required this.title,
-    this.lines = const [],
-    this.trailing,
-    this.onTap,
-  });
+  const SetupRow({super.key, required this.leading, required this.title, this.lines = const [], this.trailing, this.onTap});
 
   final Widget leading;
   final String title;
@@ -172,9 +160,9 @@ class SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 12, bottom: 6),
-    child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: RaeedColors.grey)),
-  );
+        padding: const EdgeInsets.only(top: 12, bottom: 6),
+        child: Text(text, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: RaeedColors.grey)),
+      );
 }
 
 /// A highlighted note, star-coloured, for things that would break a journey.
@@ -193,10 +181,7 @@ class WarningCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: const Color(0xFF8A4B00)),
-          ),
+          Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: const Color(0xFF8A4B00))),
           for (final l in lines) Text(l, style: text.bodySmall?.copyWith(color: RaeedColors.ink)),
         ],
       ),
@@ -276,12 +261,7 @@ Future<void> showIssuedPasswords(BuildContext context, List<IssuedPassword> issu
                                 p.temporaryPassword,
                                 key: Key('password-${p.phone}'),
                                 textDirection: TextDirection.ltr,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 2,
-                                  color: RaeedColors.blue,
-                                ),
+                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 2, color: RaeedColors.blue),
                               ),
                             ],
                           ),
@@ -290,12 +270,9 @@ Future<void> showIssuedPasswords(BuildContext context, List<IssuedPassword> issu
                           tooltip: 'نسخ',
                           icon: const Icon(Icons.copy),
                           onPressed: () {
-                            Clipboard.setData(
-                              ClipboardData(
-                                text:
-                                    'رائد · ${p.fullName}\nرقم الهاتف: ${formatPhone(p.phone)}\nكلمة المرور المؤقتة: ${p.temporaryPassword}',
-                              ),
-                            );
+                            Clipboard.setData(ClipboardData(
+                              text: 'رائد · ${p.fullName}\nرقم الهاتف: ${formatPhone(p.phone)}\nكلمة المرور المؤقتة: ${p.temporaryPassword}',
+                            ));
                             ScaffoldMessenger.of(sheet).showSnackBar(const SnackBar(content: Text('تم النسخ')));
                           },
                         ),
@@ -306,11 +283,7 @@ Future<void> showIssuedPasswords(BuildContext context, List<IssuedPassword> issu
                 const SizedBox(height: 8),
               ],
               const SizedBox(height: 8),
-              FilledButton(
-                key: const Key('passwords-done'),
-                onPressed: () => Navigator.pop(sheet),
-                child: const Text('تم'),
-              ),
+              FilledButton(key: const Key('passwords-done'), onPressed: () => Navigator.pop(sheet), child: const Text('تم')),
             ],
           ),
         ),
@@ -358,13 +331,7 @@ class DateField extends StatelessWidget {
           final last = lastDate ?? DateTime(DateTime.now().year + 5, 12, 31);
           final picked = upcoming
               ? await showUpcomingDateSheet(context, title: label, initial: value, firstDate: first, lastDate: last)
-              : await showDateWheelsSheet(
-                  context,
-                  title: label,
-                  initial: value ?? suggested,
-                  firstDate: first,
-                  lastDate: last,
-                );
+              : await showDateWheelsSheet(context, title: label, initial: value ?? suggested, firstDate: first, lastDate: last);
           if (picked != null) {
             onChanged(picked);
             state.didChange(picked);
@@ -405,38 +372,35 @@ class GenderField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FormField<Gender>(
-    key: fieldKey,
-    initialValue: value,
-    validator: (v) => v == null ? 'اختر الجنس' : null,
-    builder: (state) => InputDecorator(
-      decoration: InputDecoration(
-        labelText: 'الجنس',
-        errorText: state.errorText,
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.zero,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: SegmentedButton<Gender>(
-          emptySelectionAllowed: true,
-          showSelectedIcon: false,
-          segments: [
-            for (final g in Gender.values)
-              ButtonSegment(
-                value: g,
-                label: Text(g.label, key: Key('gender-${g.dbName}')),
-              ),
-          ],
-          selected: {?value},
-          onSelectionChanged: (s) {
-            if (s.isEmpty) return;
-            onChanged(s.first);
-            state.didChange(s.first);
-          },
+        key: fieldKey,
+        initialValue: value,
+        validator: (v) => v == null ? 'اختر الجنس' : null,
+        builder: (state) => InputDecorator(
+          decoration: InputDecoration(
+            labelText: 'الجنس',
+            errorText: state.errorText,
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: SegmentedButton<Gender>(
+              emptySelectionAllowed: true,
+              showSelectedIcon: false,
+              segments: [
+                for (final g in Gender.values)
+                  ButtonSegment(value: g, label: Text(g.label, key: Key('gender-${g.dbName}'))),
+              ],
+              selected: {?value},
+              onSelectionChanged: (s) {
+                if (s.isEmpty) return;
+                onChanged(s.first);
+                state.didChange(s.first);
+              },
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 /// Asks before a deletion that cannot be undone. Returns true when confirmed.
@@ -469,14 +433,14 @@ class DeleteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 16),
-    child: TextButton.icon(
-      style: TextButton.styleFrom(foregroundColor: RaeedColors.error),
-      onPressed: onPressed,
-      icon: const Icon(Icons.delete_outline),
-      label: Text(label),
-    ),
-  );
+        padding: const EdgeInsets.only(top: 16),
+        child: TextButton.icon(
+          style: TextButton.styleFrom(foregroundColor: RaeedColors.error),
+          onPressed: onPressed,
+          icon: const Icon(Icons.delete_outline),
+          label: Text(label),
+        ),
+      );
 }
 
 /// Only the مشرف عام (advisor role) deletes children, categories, staff, seasons and terms.

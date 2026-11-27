@@ -114,17 +114,17 @@ class FakeSetupRepository implements SetupRepository {
   }
 
   Group _withInstructors(Group g, List<String> ids) => Group(
-    id: g.id,
-    name: g.name,
-    logoLetter: g.logoLetter,
-    logoColor: g.logoColor,
-    logoPath: g.logoPath,
-    ageMin: g.ageMin,
-    ageMax: g.ageMax,
-    archived: g.archived,
-    instructorIds: ids,
-    supervisorIds: g.supervisorIds,
-  );
+        id: g.id,
+        name: g.name,
+        logoLetter: g.logoLetter,
+        logoColor: g.logoColor,
+        logoPath: g.logoPath,
+        ageMin: g.ageMin,
+        ageMax: g.ageMax,
+        archived: g.archived,
+        instructorIds: ids,
+        supervisorIds: g.supervisorIds,
+      );
 
   /// Uploaded logos by path.
   final logos = <String, Uint8List>{};
@@ -168,11 +168,7 @@ class FakeSetupRepository implements SetupRepository {
   }
 
   @override
-  Future<NewAccount> createAccount({
-    required String fullName,
-    required String phone,
-    required Set<AppRole> roles,
-  }) async {
+  Future<NewAccount> createAccount({required String fullName, required String phone, required Set<AppRole> roles}) async {
     _check();
     final n = normalizePhone(phone);
     if (n == null) throw const SetupError(SetupFailure.invalidPhone);
@@ -241,15 +237,7 @@ class FakeSetupRepository implements SetupRepository {
   Future<void> moveChild(String childId, String? groupId) async {
     calls.add('moveChild $childId $groupId');
     final c = children[childId]!;
-    children[childId] = Child(
-      id: c.id,
-      fullName: c.fullName,
-      birthDate: c.birthDate,
-      gender: c.gender,
-      groupId: groupId,
-      parentIds: c.parentIds,
-      consentRecordedAt: c.consentRecordedAt,
-    );
+    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: groupId, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt);
   }
 
   @override
@@ -257,43 +245,18 @@ class FakeSetupRepository implements SetupRepository {
     calls.add('setChildParents $childId ${parentIds.join(',')}');
     if (parentIds.length > 2) throw const SetupError(SetupFailure.tooManyParents);
     final c = children[childId]!;
-    children[childId] = Child(
-      id: c.id,
-      fullName: c.fullName,
-      birthDate: c.birthDate,
-      gender: c.gender,
-      groupId: c.groupId,
-      parentIds: parentIds,
-      consentRecordedAt: c.consentRecordedAt,
-    );
+    children[childId] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, groupId: c.groupId, parentIds: parentIds, consentRecordedAt: c.consentRecordedAt);
   }
 
   @override
-  Future<String> saveSeason({
-    String? id,
-    required String name,
-    required DateTime startsOn,
-    required DateTime endsOn,
-  }) async {
+  Future<String> saveSeason({String? id, required String name, required DateTime startsOn, required DateTime endsOn}) async {
     final sid = id ?? _id('season');
-    seasons[sid] = Season(
-      id: sid,
-      name: name,
-      startsOn: startsOn,
-      endsOn: endsOn,
-      terms: seasons[sid]?.terms ?? const [],
-    );
+    seasons[sid] = Season(id: sid, name: name, startsOn: startsOn, endsOn: endsOn, terms: seasons[sid]?.terms ?? const []);
     return sid;
   }
 
   @override
-  Future<String> saveTerm({
-    String? id,
-    required String seasonId,
-    required String name,
-    required DateTime startsOn,
-    required DateTime endsOn,
-  }) async {
+  Future<String> saveTerm({String? id, required String seasonId, required String name, required DateTime startsOn, required DateTime endsOn}) async {
     final s = seasons[seasonId]!;
     final tid = id ?? _id('term');
     final terms = [...s.terms.where((t) => t.id != tid), Term(id: tid, name: name, startsOn: startsOn, endsOn: endsOn)]
@@ -320,14 +283,7 @@ class FakeSetupRepository implements SetupRepository {
     if (logo != null) logos.remove(logo);
     for (final c in children.values.toList()) {
       if (c.groupId == groupId) {
-        children[c.id] = Child(
-          id: c.id,
-          fullName: c.fullName,
-          birthDate: c.birthDate,
-          gender: c.gender,
-          parentIds: c.parentIds,
-          consentRecordedAt: c.consentRecordedAt,
-        );
+        children[c.id] = Child(id: c.id, fullName: c.fullName, birthDate: c.birthDate, gender: c.gender, parentIds: c.parentIds, consentRecordedAt: c.consentRecordedAt);
       }
     }
   }
@@ -351,13 +307,7 @@ class FakeSetupRepository implements SetupRepository {
     _check();
     calls.add('deleteTerm $termId');
     for (final s in seasons.values.toList()) {
-      seasons[s.id] = Season(
-        id: s.id,
-        name: s.name,
-        startsOn: s.startsOn,
-        endsOn: s.endsOn,
-        terms: s.terms.where((t) => t.id != termId).toList(),
-      );
+      seasons[s.id] = Season(id: s.id, name: s.name, startsOn: s.startsOn, endsOn: s.endsOn, terms: s.terms.where((t) => t.id != termId).toList());
     }
   }
 

@@ -6,8 +6,10 @@ import 'app_session.dart';
 class SessionScope extends InheritedNotifier<AppSession> {
   const SessionScope({super.key, required AppSession session, required super.child}) : super(notifier: session);
 
-  static AppSession of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<SessionScope>()!.notifier!;
+  static AppSession of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<SessionScope>()!.notifier!;
 
   /// For callbacks, which must not subscribe to changes.
-  static AppSession read(BuildContext context) => context.getInheritedWidgetOfExactType<SessionScope>()!.notifier!;
+  static AppSession read(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<SessionScope>()!.notifier!;
 }

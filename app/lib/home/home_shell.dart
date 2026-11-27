@@ -88,17 +88,18 @@ class _HomeShellState extends State<HomeShell> {
   /// A notification while the app is open: show it, and fetch what it is about.
   void _showPush(PushMessage m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(m.body.isEmpty ? m.title : '${m.title}\n${m.body}')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(m.body.isEmpty ? m.title : '${m.title}\n${m.body}')),
+    );
     _refreshRole();
   }
 
   /// The tab with the notes and replies: أولياء الأمور for the مشرف الفئة, الملاحظات for parents.
   int? get _messagesTab => switch (widget.role) {
-    AppRole.supervisor => 2,
-    AppRole.parent => 1,
-    _ => null,
-  };
+        AppRole.supervisor => 2,
+        AppRole.parent => 1,
+        _ => null,
+      };
 
   void _select(int i) {
     setState(() => _index = i);
@@ -167,25 +168,25 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Widget _tabBody(int i) => switch ((widget.role, i)) {
-    (AppRole.advisor, 0) => const StatsTab(),
-    (AppRole.advisor, 1) => const SessionsTab(),
-    (AppRole.advisor, 2) => const GroupsList(),
-    (AppRole.advisor, 3) => const ChildrenList(profiles: true),
-    (AppRole.advisor, 4) => const SetupHub(),
-    (AppRole.instructor, 0) => const TodayTab(),
-    (AppRole.instructor, 1) => const SessionsTab(),
-    (AppRole.instructor, 2) => const MyGroupsTab(),
-    (AppRole.instructor, 3) => const AlertsTab(),
-    (AppRole.supervisor, 0) => const SessionsTab(),
-    (AppRole.supervisor, 1) => const MyGroupsTab(),
-    (AppRole.supervisor, 2) => const SupervisorChannelTab(),
-    (AppRole.supervisor, 3) => const ObservationsTab(),
-    (AppRole.supervisor, 4) => const AlertsTab(),
-    (AppRole.parent, 0) => const ParentScheduleTab(),
-    (AppRole.parent, 1) => const ParentMessagesTab(),
-    (AppRole.parent, 2) => const ParentAccountTab(),
-    _ => EmptyTab(tab: widget.role.tabs[i]),
-  };
+        (AppRole.advisor, 0) => const StatsTab(),
+        (AppRole.advisor, 1) => const SessionsTab(),
+        (AppRole.advisor, 2) => const GroupsList(),
+        (AppRole.advisor, 3) => const ChildrenList(profiles: true),
+        (AppRole.advisor, 4) => const SetupHub(),
+        (AppRole.instructor, 0) => const TodayTab(),
+        (AppRole.instructor, 1) => const SessionsTab(),
+        (AppRole.instructor, 2) => const MyGroupsTab(),
+        (AppRole.instructor, 3) => const AlertsTab(),
+        (AppRole.supervisor, 0) => const SessionsTab(),
+        (AppRole.supervisor, 1) => const MyGroupsTab(),
+        (AppRole.supervisor, 2) => const SupervisorChannelTab(),
+        (AppRole.supervisor, 3) => const ObservationsTab(),
+        (AppRole.supervisor, 4) => const AlertsTab(),
+        (AppRole.parent, 0) => const ParentScheduleTab(),
+        (AppRole.parent, 1) => const ParentMessagesTab(),
+        (AppRole.parent, 2) => const ParentAccountTab(),
+        _ => EmptyTab(tab: widget.role.tabs[i]),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +219,10 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
-      body: IndexedStack(index: _index, children: [for (var i = 0; i < tabs.length; i++) _tabBody(i)]),
+      body: IndexedStack(
+        index: _index,
+        children: [for (var i = 0; i < tabs.length; i++) _tabBody(i)],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _select,

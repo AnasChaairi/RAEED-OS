@@ -30,11 +30,8 @@ class SeasonsScreen extends StatelessWidget {
               if (data.seasons.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Text(
-                    'لا يوجد موسم بعد. أضف موسم 2026–2027 بالزر في الأسفل.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: RaeedColors.grey),
-                  ),
+                  child: Text('لا يوجد موسم بعد. أضف موسم 2026–2027 بالزر في الأسفل.',
+                      textAlign: TextAlign.center, style: TextStyle(color: RaeedColors.grey)),
                 ),
               for (final s in data.seasons) ...[
                 Card(
@@ -43,27 +40,16 @@ class SeasonsScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(s.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                                  Text(
-                                    'من ${formatDate(s.startsOn)} إلى ${formatDate(s.endsOn)}',
-                                    style: text.bodySmall?.copyWith(color: RaeedColors.grey),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'تعديل',
-                              icon: const Icon(Icons.edit_outlined),
-                              onPressed: () => _editDates(context, season: s),
-                            ),
-                          ],
-                        ),
+                        Row(children: [
+                          Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(s.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                              Text('من ${formatDate(s.startsOn)} إلى ${formatDate(s.endsOn)}',
+                                  style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
+                            ]),
+                          ),
+                          IconButton(tooltip: 'تعديل', icon: const Icon(Icons.edit_outlined), onPressed: () => _editDates(context, season: s)),
+                        ]),
                         const Divider(),
                         if (s.terms.isEmpty)
                           Text('لا توجد فصول بعد.', style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
@@ -113,8 +99,8 @@ class SeasonsScreen extends StatelessWidget {
         deleteLabel: !canDelete(context)
             ? null
             : term != null
-            ? 'حذف الفصل'
-            : (season != null && !newTerm ? 'حذف الموسم' : null),
+                ? 'حذف الفصل'
+                : (season != null && !newTerm ? 'حذف الموسم' : null),
         deleteTitle: term != null ? 'حذف ${term.name}؟' : 'حذف ${season?.name}؟',
         deleteMessage: term != null
             ? 'يُحذف الفصل فقط. تبقى الأنشطة وسجلات الحضور، ولا تُحسب نسب الحضور لهذه الفترة إلا بعد إضافة فصل يغطيها.'
@@ -242,27 +228,11 @@ class _DatesSheetState extends State<_DatesSheet> {
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'اكتب الاسم' : null,
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DateField(
-                        label: 'من',
-                        value: _start,
-                        required: true,
-                        onChanged: (d) => setState(() => _start = d),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DateField(
-                        label: 'إلى',
-                        value: _end,
-                        required: true,
-                        onChanged: (d) => setState(() => _end = d),
-                      ),
-                    ),
-                  ],
-                ),
+                Row(children: [
+                  Expanded(child: DateField(label: 'من', value: _start, required: true, onChanged: (d) => setState(() => _start = d))),
+                  const SizedBox(width: 10),
+                  Expanded(child: DateField(label: 'إلى', value: _end, required: true, onChanged: (d) => setState(() => _end = d))),
+                ]),
                 if (_error != null) ...[const SizedBox(height: 12), FormError(_error!)],
                 const SizedBox(height: 16),
                 FilledButton(
@@ -271,11 +241,7 @@ class _DatesSheetState extends State<_DatesSheet> {
                   child: _busy ? const ButtonSpinner() : const Text('حفظ'),
                 ),
                 if (widget.deleteLabel != null && widget.onDelete != null)
-                  DeleteButton(
-                    key: const Key('delete-dates'),
-                    label: widget.deleteLabel!,
-                    onPressed: _busy ? null : _delete,
-                  ),
+                  DeleteButton(key: const Key('delete-dates'), label: widget.deleteLabel!, onPressed: _busy ? null : _delete),
               ],
             ),
           ),

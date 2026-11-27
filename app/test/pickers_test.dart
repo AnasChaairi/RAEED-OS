@@ -10,21 +10,19 @@ Future<T?> open<T>(WidgetTester tester, Future<T?> Function(BuildContext) show, 
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   T? result;
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: buildRaeedTheme(),
-      locale: const Locale('ar', 'MA'),
-      supportedLocales: const [Locale('ar', 'MA')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: TextButton(onPressed: () async => result = await show(context), child: const Text('open')),
-          ),
+  await tester.pumpWidget(MaterialApp(
+    theme: buildRaeedTheme(),
+    locale: const Locale('ar', 'MA'),
+    supportedLocales: const [Locale('ar', 'MA')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    home: Builder(
+      builder: (context) => Scaffold(
+        body: Center(
+          child: TextButton(onPressed: () async => result = await show(context), child: const Text('open')),
         ),
       ),
     ),
-  );
+  ));
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
   await act();
@@ -55,13 +53,8 @@ void main() {
 
   testWidgets('date cards: the next two weeks, then a later day from the month', (tester) async {
     final today = DateTime(2026, 10, 13);
-    Future<DateTime?> show(BuildContext c) => showUpcomingDateSheet(
-      c,
-      title: 'التاريخ',
-      firstDate: DateTime(2026),
-      lastDate: DateTime(2027, 6, 30),
-      today: today,
-    );
+    Future<DateTime?> show(BuildContext c) =>
+        showUpcomingDateSheet(c, title: 'التاريخ', firstDate: DateTime(2026), lastDate: DateTime(2027, 6, 30), today: today);
 
     final soon = await open(tester, show, () async {
       expect(find.text('اليوم'), findsOneWidget);
@@ -90,13 +83,7 @@ void main() {
     final today = DateTime(2026, 10, 13);
     final d = await open(
       tester,
-      (c) => showUpcomingDateSheet(
-        c,
-        title: 'ينتهي في',
-        firstDate: DateTime(2026, 10, 15),
-        lastDate: DateTime(2027),
-        today: today,
-      ),
+      (c) => showUpcomingDateSheet(c, title: 'ينتهي في', firstDate: DateTime(2026, 10, 15), lastDate: DateTime(2027), today: today),
       () async {
         // The cards start at the first allowed day.
         expect(find.byKey(const Key('date-day-2026-10-13')), findsNothing);
@@ -110,13 +97,7 @@ void main() {
   testWidgets('date wheels: start at the suggestion and follow the month wheel', (tester) async {
     final d = await open(
       tester,
-      (c) => showDateWheelsSheet(
-        c,
-        title: 'تاريخ الميلاد',
-        initial: DateTime(2018, 1, 31),
-        firstDate: DateTime(2005),
-        lastDate: DateTime(2026, 10, 13),
-      ),
+      (c) => showDateWheelsSheet(c, title: 'تاريخ الميلاد', initial: DateTime(2018, 1, 31), firstDate: DateTime(2005), lastDate: DateTime(2026, 10, 13)),
       () async {
         expect(find.text('31 يناير 2018'), findsOneWidget);
         // One step down the month wheel: February, so the 31st becomes the 28th.

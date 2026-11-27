@@ -10,17 +10,13 @@ Future<void> host(WidgetTester tester, Widget Function(StateSetter) build) async
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: buildRaeedTheme(),
-      locale: const Locale('ar', 'MA'),
-      supportedLocales: const [Locale('ar', 'MA')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: Scaffold(
-        body: StatefulBuilder(builder: (context, setState) => ListView(children: [build(setState)])),
-      ),
-    ),
-  );
+  await tester.pumpWidget(MaterialApp(
+    theme: buildRaeedTheme(),
+    locale: const Locale('ar', 'MA'),
+    supportedLocales: const [Locale('ar', 'MA')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    home: Scaffold(body: StatefulBuilder(builder: (context, setState) => ListView(children: [build(setState)]))),
+  ));
 }
 
 void main() {

@@ -5,11 +5,12 @@ import '../instructor/models.dart' show dayOnly, longDay, monthNames, weekdayNam
 import '../theme/raeed_theme.dart';
 
 /// Opens the time sheet: hour buttons, then the minutes. Returns minutes after midnight.
-Future<int?> showTimeSheet(BuildContext context, {required String title, int? initial}) => showModalBottomSheet<int>(
-  context: context,
-  isScrollControlled: true,
-  builder: (_) => _TimeSheet(title: title, initial: initial),
-);
+Future<int?> showTimeSheet(BuildContext context, {required String title, int? initial}) =>
+    showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _TimeSheet(title: title, initial: initial),
+    );
 
 /// Opens the next two weeks as day cards, with the whole month one tap away. For session dates.
 Future<DateTime?> showUpcomingDateSheet(
@@ -19,17 +20,18 @@ Future<DateTime?> showUpcomingDateSheet(
   required DateTime firstDate,
   required DateTime lastDate,
   DateTime? today,
-}) => showModalBottomSheet<DateTime>(
-  context: context,
-  isScrollControlled: true,
-  builder: (_) => _UpcomingDateSheet(
-    title: title,
-    initial: initial,
-    firstDate: dayOnly(firstDate),
-    lastDate: dayOnly(lastDate),
-    today: dayOnly(today ?? DateTime.now()),
-  ),
-);
+}) =>
+    showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _UpcomingDateSheet(
+        title: title,
+        initial: initial,
+        firstDate: dayOnly(firstDate),
+        lastDate: dayOnly(lastDate),
+        today: dayOnly(today ?? DateTime.now()),
+      ),
+    );
 
 /// Opens day, month and year wheels. For dates far from today, such as a birth date.
 Future<DateTime?> showDateWheelsSheet(
@@ -38,16 +40,17 @@ Future<DateTime?> showDateWheelsSheet(
   DateTime? initial,
   required DateTime firstDate,
   required DateTime lastDate,
-}) => showModalBottomSheet<DateTime>(
-  context: context,
-  isScrollControlled: true,
-  builder: (_) => _DateWheelsSheet(
-    title: title,
-    initial: _clamp(dayOnly(initial ?? DateTime.now()), dayOnly(firstDate), dayOnly(lastDate)),
-    firstDate: dayOnly(firstDate),
-    lastDate: dayOnly(lastDate),
-  ),
-);
+}) =>
+    showModalBottomSheet<DateTime>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _DateWheelsSheet(
+        title: title,
+        initial: _clamp(dayOnly(initial ?? DateTime.now()), dayOnly(firstDate), dayOnly(lastDate)),
+        firstDate: dayOnly(firstDate),
+        lastDate: dayOnly(lastDate),
+      ),
+    );
 
 DateTime _clamp(DateTime d, DateTime lo, DateTime hi) => d.isBefore(lo) ? lo : (d.isAfter(hi) ? hi : d);
 
@@ -63,44 +66,31 @@ class _Sheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              Row(children: [
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700))),
+                if (trailing != null)
+                  Text(trailing!, key: const Key('picker-summary'), style: const TextStyle(color: RaeedColors.grey)),
+              ]),
+              const SizedBox(height: 12),
+              ...children,
+              const SizedBox(height: 16),
+              Row(children: [
+                Expanded(
+                  child: FilledButton(key: const Key('picker-done'), onPressed: onDone, child: const Text('تم')),
                 ),
-              ),
-              if (trailing != null)
-                Text(
-                  trailing!,
-                  key: const Key('picker-summary'),
-                  style: const TextStyle(color: RaeedColors.grey),
-                ),
+                const SizedBox(width: 10),
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+              ]),
             ],
           ),
-          const SizedBox(height: 12),
-          ...children,
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton(key: const Key('picker-done'), onPressed: onDone, child: const Text('تم')),
-              ),
-              const SizedBox(width: 10),
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 /// A rounded button showing a number, filled when selected.
@@ -114,30 +104,27 @@ class _Choice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    child: Material(
-      color: selected ? RaeedColors.blue : RaeedColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: selected ? RaeedColors.blue : RaeedColors.line),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: SizedBox(
-          width: width,
-          height: 44,
-          child: Center(
-            child: Text(
-              label,
-              style: _numbers.copyWith(fontSize: 19, color: selected ? Colors.white : RaeedColors.ink),
+        button: true,
+        selected: selected,
+        child: Material(
+          color: selected ? RaeedColors.blue : RaeedColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: selected ? RaeedColors.blue : RaeedColors.line),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: SizedBox(
+              width: width,
+              height: 44,
+              child: Center(
+                child: Text(label, style: _numbers.copyWith(fontSize: 19, color: selected ? Colors.white : RaeedColors.ink)),
+              ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class _TimeSheet extends StatefulWidget {
@@ -242,7 +229,6 @@ class _UpcomingDateSheet extends StatefulWidget {
 
 class _UpcomingDateSheetState extends State<_UpcomingDateSheet> {
   late DateTime? _selected = widget.initial == null ? null : dayOnly(widget.initial!);
-
   /// The first card: today, or the first allowed day if that is later.
   late final DateTime _start = widget.today.isBefore(widget.firstDate) ? widget.firstDate : widget.today;
   late bool _month = _selected != null && !_inWindow(_selected!);
@@ -274,22 +260,20 @@ class _UpcomingDateSheetState extends State<_UpcomingDateSheet> {
   }
 
   List<Widget> _cards() => [
-    for (final week in const [0, 7])
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            for (var i = 0; i < 7; i++)
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: _card(DateTime(_start.year, _start.month, _start.day + week + i)),
+        for (final week in const [0, 7])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              for (var i = 0; i < 7; i++)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: _card(DateTime(_start.year, _start.month, _start.day + week + i)),
+                  ),
                 ),
-              ),
-          ],
-        ),
-      ),
-  ];
+            ]),
+          ),
+      ];
 
   Widget _card(DateTime d) {
     final selected = d == _selected;
@@ -297,8 +281,8 @@ class _UpcomingDateSheetState extends State<_UpcomingDateSheet> {
     final name = d == widget.today
         ? 'اليوم'
         : d == widget.today.add(const Duration(days: 1))
-        ? 'غداً'
-        : weekdayNames[d.weekday % 7];
+            ? 'غداً'
+            : weekdayNames[d.weekday % 7];
     final ink = selected ? Colors.white : (allowed ? RaeedColors.ink : RaeedColors.line);
     final soft = selected ? Colors.white : (allowed ? RaeedColors.grey : RaeedColors.line);
     return Semantics(
@@ -317,20 +301,11 @@ class _UpcomingDateSheetState extends State<_UpcomingDateSheet> {
             border: selected ? null : Border.all(color: RaeedColors.line),
           ),
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.fade,
-                softWrap: false,
-                style: TextStyle(fontSize: 11, color: soft),
-              ),
-              Text('${d.day}', style: _numbers.copyWith(fontSize: 23, color: ink, height: 1.2)),
-              Text(monthNames[d.month - 1], maxLines: 1, softWrap: false, style: TextStyle(fontSize: 10, color: soft)),
-            ],
-          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(name, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: TextStyle(fontSize: 11, color: soft)),
+            Text('${d.day}', style: _numbers.copyWith(fontSize: 23, color: ink, height: 1.2)),
+            Text(monthNames[d.month - 1], maxLines: 1, softWrap: false, style: TextStyle(fontSize: 10, color: soft)),
+          ]),
         ),
       ),
     );
@@ -343,55 +318,41 @@ class _UpcomingDateSheetState extends State<_UpcomingDateSheet> {
     final canBack = DateTime(m.year, m.month).isAfter(DateTime(widget.firstDate.year, widget.firstDate.month));
     final canForward = DateTime(m.year, m.month).isBefore(DateTime(widget.lastDate.year, widget.lastDate.month));
     const initials = ['ن', 'ث', 'ر', 'خ', 'ج', 'س', 'ح'];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              key: const Key('month-back'),
-              tooltip: 'الشهر السابق',
-              onPressed: canBack ? () => setState(() => _shownMonth = DateTime(m.year, m.month - 1)) : null,
-              icon: const Icon(Icons.chevron_right),
-            ),
-            Expanded(
-              child: Center(
-                child: Text('${monthNames[m.month - 1]} ${m.year}', style: _numbers.copyWith(fontSize: 21)),
-              ),
-            ),
-            IconButton(
-              key: const Key('month-forward'),
-              tooltip: 'الشهر التالي',
-              onPressed: canForward ? () => setState(() => _shownMonth = DateTime(m.year, m.month + 1)) : null,
-              icon: const Icon(Icons.chevron_left),
-            ),
-          ],
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Row(children: [
+        IconButton(
+          key: const Key('month-back'),
+          tooltip: 'الشهر السابق',
+          onPressed: canBack ? () => setState(() => _shownMonth = DateTime(m.year, m.month - 1)) : null,
+          icon: const Icon(Icons.chevron_right),
         ),
-        Row(
-          children: [
-            for (final s in initials)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    s,
-                    style: const TextStyle(color: RaeedColors.grey, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-          ],
+        Expanded(
+          child: Center(child: Text('${monthNames[m.month - 1]} ${m.year}', style: _numbers.copyWith(fontSize: 21))),
         ),
-        const SizedBox(height: 4),
-        GridView.count(
-          crossAxisCount: 7,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (var i = 0; i < lead; i++) const SizedBox(),
-            for (var day = 1; day <= days; day++) _monthDay(DateTime(m.year, m.month, day)),
-          ],
+        IconButton(
+          key: const Key('month-forward'),
+          tooltip: 'الشهر التالي',
+          onPressed: canForward ? () => setState(() => _shownMonth = DateTime(m.year, m.month + 1)) : null,
+          icon: const Icon(Icons.chevron_left),
         ),
-      ],
-    );
+      ]),
+      Row(children: [
+        for (final s in initials)
+          Expanded(
+            child: Center(child: Text(s, style: const TextStyle(color: RaeedColors.grey, fontWeight: FontWeight.w600))),
+          ),
+      ]),
+      const SizedBox(height: 4),
+      GridView.count(
+        crossAxisCount: 7,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          for (var i = 0; i < lead; i++) const SizedBox(),
+          for (var day = 1; day <= days; day++) _monthDay(DateTime(m.year, m.month, day)),
+        ],
+      ),
+    ]);
   }
 
   Widget _monthDay(DateTime d) {
@@ -465,25 +426,26 @@ class _DateWheelsSheetState extends State<_DateWheelsSheet> {
     required List<String> items,
     required ValueChanged<int> onChanged,
     required int flex,
-  }) => Expanded(
-    flex: flex,
-    child: SizedBox(
-      height: 200,
-      child: CupertinoPicker(
-        key: key,
-        scrollController: controller,
-        itemExtent: 46,
-        selectionOverlay: Container(
-          decoration: BoxDecoration(
-            color: RaeedColors.blue.withValues(alpha: 0.08),
-            border: Border.symmetric(horizontal: BorderSide(color: RaeedColors.blue.withValues(alpha: 0.35))),
+  }) =>
+      Expanded(
+        flex: flex,
+        child: SizedBox(
+          height: 200,
+          child: CupertinoPicker(
+            key: key,
+            scrollController: controller,
+            itemExtent: 46,
+            selectionOverlay: Container(
+              decoration: BoxDecoration(
+                color: RaeedColors.blue.withValues(alpha: 0.08),
+                border: Border.symmetric(horizontal: BorderSide(color: RaeedColors.blue.withValues(alpha: 0.35))),
+              ),
+            ),
+            onSelectedItemChanged: (i) => setState(() => onChanged(i)),
+            children: [for (final i in items) Center(child: Text(i, style: _numbers.copyWith(fontSize: 22)))],
           ),
         ),
-        onSelectedItemChanged: (i) => setState(() => onChanged(i)),
-        children: [for (final i in items) Center(child: Text(i, style: _numbers.copyWith(fontSize: 22)))],
-      ),
-    ),
-  );
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -493,31 +455,29 @@ class _DateWheelsSheetState extends State<_DateWheelsSheet> {
       trailing: '${value.day} ${monthNames[value.month - 1]} ${value.year}',
       onDone: () => Navigator.pop(context, value),
       children: [
-        Row(
-          children: [
-            _wheel(
-              key: const Key('wheel-day'),
-              controller: _dayWheel,
-              items: [for (var d = 1; d <= 31; d++) '$d'],
-              onChanged: (i) => _day = i + 1,
-              flex: 2,
-            ),
-            _wheel(
-              key: const Key('wheel-month'),
-              controller: _monthWheel,
-              items: monthNames,
-              onChanged: (i) => _month = i + 1,
-              flex: 4,
-            ),
-            _wheel(
-              key: const Key('wheel-year'),
-              controller: _yearWheel,
-              items: [for (var y = widget.firstDate.year; y <= widget.lastDate.year; y++) '$y'],
-              onChanged: (i) => _year = widget.firstDate.year + i,
-              flex: 3,
-            ),
-          ],
-        ),
+        Row(children: [
+          _wheel(
+            key: const Key('wheel-day'),
+            controller: _dayWheel,
+            items: [for (var d = 1; d <= 31; d++) '$d'],
+            onChanged: (i) => _day = i + 1,
+            flex: 2,
+          ),
+          _wheel(
+            key: const Key('wheel-month'),
+            controller: _monthWheel,
+            items: monthNames,
+            onChanged: (i) => _month = i + 1,
+            flex: 4,
+          ),
+          _wheel(
+            key: const Key('wheel-year'),
+            controller: _yearWheel,
+            items: [for (var y = widget.firstDate.year; y <= widget.lastDate.year; y++) '$y'],
+            onChanged: (i) => _year = widget.firstDate.year + i,
+            flex: 3,
+          ),
+        ]),
       ],
     );
   }

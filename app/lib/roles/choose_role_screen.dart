@@ -131,7 +131,11 @@ class RoleBadge extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
-      child: Icon(role.icon, size: size * 0.55, color: role == AppRole.advisor ? Colors.white : RaeedColors.ink),
+      child: Icon(
+        role.icon,
+        size: size * 0.55,
+        color: role == AppRole.advisor ? Colors.white : RaeedColors.ink,
+      ),
     );
   }
 }

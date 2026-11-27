@@ -26,22 +26,13 @@ Future<void> openActivity(BuildContext context, String id) =>
 
 Future<void> openActivityForm(BuildContext context, {SpecialActivity? activity, String? groupId}) => Navigator.push(
   context,
-  MaterialPageRoute<void>(
-    builder: (_) => ActivityFormScreen(activity: activity, groupId: groupId),
-  ),
+  MaterialPageRoute<void>(builder: (_) => ActivityFormScreen(activity: activity, groupId: groupId)),
 );
 
 /// An activity in a list: bigger than a session card, in its kind's colour, with its
 /// emoji. On a day after the first, it says which day of how many.
 class ActivityCard extends StatelessWidget {
-  const ActivityCard({
-    super.key,
-    required this.activity,
-    required this.groupNames,
-    this.day,
-    this.onTap,
-    this.replaced = 0,
-  });
+  const ActivityCard({super.key, required this.activity, required this.groupNames, this.day, this.onTap, this.replaced = 0});
 
   final SpecialActivity activity;
 
@@ -92,7 +83,10 @@ class ActivityCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        ['نشاط نوعي · ${a.kindLabel}', if (a.dayCount > 1) 'اليوم $n من ${a.dayCount}'].join(' · '),
+                        [
+                          'نشاط نوعي · ${a.kindLabel}',
+                          if (a.dayCount > 1) 'اليوم $n من ${a.dayCount}',
+                        ].join(' · '),
                         style: text.labelMedium?.copyWith(color: fg, fontWeight: FontWeight.w700),
                       ),
                       Text(
@@ -215,9 +209,7 @@ class ActivityDetailScreen extends StatelessWidget {
           ),
           if ((a.details ?? '').isNotEmpty) ...[
             const SectionLabel('تفاصيل لأولياء الأمور'),
-            Card(
-              child: Padding(padding: const EdgeInsets.all(12), child: Text(a.details!)),
-            ),
+            Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(a.details!))),
           ],
           if (!a.cancelled && replaced.isNotEmpty) ...[
             SectionLabel(
@@ -298,9 +290,7 @@ class ActivityDetailScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await InstructorScope.read(context).cancelActivity(a, reason);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('أُلغي النشاط وعادت الحصص إلى موعدها. سيُشعَر أولياء الأمور.')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('أُلغي النشاط وعادت الحصص إلى موعدها. سيُشعَر أولياء الأمور.')));
     } on SetupError catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(setupFailureMessage(e.failure))));
     }

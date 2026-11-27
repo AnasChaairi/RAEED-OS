@@ -33,7 +33,8 @@ class StaffScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
             children: [
               SectionLabel('المؤطرون (${instructors.length})'),
-              if (instructors.isEmpty) const Text('لا يوجد مؤطرون بعد.', style: TextStyle(color: RaeedColors.grey)),
+              if (instructors.isEmpty)
+                const Text('لا يوجد مؤطرون بعد.', style: TextStyle(color: RaeedColors.grey)),
               for (final p in instructors) ...[_StaffRow(person: p, data: data), const SizedBox(height: 8)],
               SectionLabel('المشرفون العامون (${advisors.length})'),
               for (final p in advisors) ...[_StaffRow(person: p, data: data), const SizedBox(height: 8)],
@@ -59,10 +60,7 @@ class _StaffRow extends StatelessWidget {
       leading: InitialAvatar(person.fullName),
       title: person.fullName,
       lines: [
-        [
-          for (final r in AppRole.values)
-            if (person.roles.contains(r)) r.label,
-        ].join(' · '),
+        [for (final r in AppRole.values) if (person.roles.contains(r)) r.label].join(' · '),
         if (groups.isNotEmpty) groups,
         if (supervised.isNotEmpty) 'مشرف الفئة: $supervised',
         if (person.mustChangePassword) 'لم يدخل بعد بكلمة مروره الخاصة',
@@ -130,8 +128,9 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
         if (issued != null) {
           await showIssuedPasswords(context, [issued]);
         } else {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(const SnackBar(content: Text('هذا الرقم مسجّل من قبل. أضيف له الدور ويحتفظ بكلمة مروره.')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('هذا الرقم مسجّل من قبل. أضيف له الدور ويحتفظ بكلمة مروره.')),
+          );
         }
       } else {
         await store.updateStaff(
@@ -160,11 +159,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
         content: Text('ستتوقف كلمة مرور ${person.fullName} الحالية، ويختار كلمة جديدة عند الدخول.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('إلغاء')),
-          FilledButton(
-            key: const Key('confirm-reset'),
-            onPressed: () => Navigator.pop(d, true),
-            child: const Text('إعادة التعيين'),
-          ),
+          FilledButton(key: const Key('confirm-reset'), onPressed: () => Navigator.pop(d, true), child: const Text('إعادة التعيين')),
         ],
       ),
     );
@@ -187,8 +182,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
     final ok = await confirmDeletion(
       context,
       title: 'حذف حساب ${person.fullName}؟',
-      message:
-          'يُزال من فئاته وأنشطته القادمة، ويُحذف حسابه ورقم هاتفه. '
+      message: 'يُزال من فئاته وأنشطته القادمة، ويُحذف حسابه ورقم هاتفه. '
           'إن كان اسمه على سجلات الحضور أو الملاحظات، تبقى السجلات باسم "حساب محذوف".'
           '${person.roles.contains(AppRole.parent) ? ' وهو ولي أمر أيضاً: يُفصل عن أطفاله.' : ''}',
     );
@@ -350,19 +344,19 @@ class PhoneField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextFormField(
-    key: fieldKey,
-    controller: controller,
-    keyboardType: TextInputType.phone,
-    textDirection: TextDirection.ltr,
-    decoration: InputDecoration(
-      labelText: label,
-      hintText: '06 12 34 56 78',
-      hintTextDirection: TextDirection.ltr,
-      prefixIcon: const Icon(Icons.phone_outlined),
-    ),
-    validator: (v) {
-      if (v == null || v.trim().isEmpty) return required ? 'اكتب رقم الهاتف' : null;
-      return normalizePhone(v) == null ? 'رقم الهاتف غير صحيح' : null;
-    },
-  );
+        key: fieldKey,
+        controller: controller,
+        keyboardType: TextInputType.phone,
+        textDirection: TextDirection.ltr,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: '06 12 34 56 78',
+          hintTextDirection: TextDirection.ltr,
+          prefixIcon: const Icon(Icons.phone_outlined),
+        ),
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) return required ? 'اكتب رقم الهاتف' : null;
+          return normalizePhone(v) == null ? 'رقم الهاتف غير صحيح' : null;
+        },
+      );
 }

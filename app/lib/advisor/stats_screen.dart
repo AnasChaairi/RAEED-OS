@@ -171,7 +171,8 @@ class StatsTab extends StatelessWidget {
               title: const Text('مؤشرات التجربة'),
               subtitle: const Text('التسجيل في الوقت، مدة التسجيل، المتابعة، دخول الأسر'),
               trailing: const Icon(Icons.chevron_left),
-              onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PilotScreen())),
+              onTap: () =>
+                  Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const PilotScreen())),
             ),
           ),
         ],

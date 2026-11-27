@@ -282,24 +282,30 @@ class SupabaseInstructorRepository implements InstructorRepository {
   );
 
   @override
-  Future<void> cancelActivity(String activityId, String reason) =>
-      guardSupabase(() => _db.rpc('cancel_activity', params: {'p_activity': activityId, 'p_reason': reason}));
+  Future<void> cancelActivity(String activityId, String reason) => guardSupabase(
+    () => _db.rpc('cancel_activity', params: {'p_activity': activityId, 'p_reason': reason}),
+  );
 
   @override
   Future<void> deleteActivity(String activityId) =>
       guardSupabase(() => _db.rpc('delete_activity', params: {'p_activity': activityId}));
 
   @override
-  Future<void> saveActivityAttendance(String activityId, Map<String, AttendanceStatus> statuses) => guardSupabase(
-    () async {
-      if (statuses.isEmpty) return;
-      final at = DateTime.now().toUtc().toIso8601String();
-      await _db.from('activity_attendance').upsert([
-        for (final e in statuses.entries)
-          {'activity_id': activityId, 'child_id': e.key, 'status': e.value.name, 'recorded_by': _me, 'recorded_at': at},
-      ], onConflict: 'activity_id,child_id');
-    },
-  );
+  Future<void> saveActivityAttendance(String activityId, Map<String, AttendanceStatus> statuses) =>
+      guardSupabase(() async {
+        if (statuses.isEmpty) return;
+        final at = DateTime.now().toUtc().toIso8601String();
+        await _db.from('activity_attendance').upsert([
+          for (final e in statuses.entries)
+            {
+              'activity_id': activityId,
+              'child_id': e.key,
+              'status': e.value.name,
+              'recorded_by': _me,
+              'recorded_at': at,
+            },
+        ], onConflict: 'activity_id,child_id');
+      });
 
   @override
   Future<void> pushAttendance(List<AttendanceRecord> records) => guardSupabase(() async {
@@ -394,17 +400,18 @@ class SupabaseInstructorRepository implements InstructorRepository {
   });
 
   @override
-  Future<List<SessionObservation>> recentObservations(List<String> groupIds, DateTime since) => guardSupabase(() async {
-    if (groupIds.isEmpty) return const [];
-    final rows = await _db
-        .from('session_observations')
-        .select('$_observationColumns, sessions!inner(group_id)')
-        .inFilter('sessions.group_id', groupIds)
-        .gte('created_at', since.toUtc().toIso8601String())
-        .order('created_at', ascending: false)
-        .limit(200);
-    return [for (final r in rows) SessionObservation.fromJson(r)];
-  });
+  Future<List<SessionObservation>> recentObservations(List<String> groupIds, DateTime since) =>
+      guardSupabase(() async {
+        if (groupIds.isEmpty) return const [];
+        final rows = await _db
+            .from('session_observations')
+            .select('$_observationColumns, sessions!inner(group_id)')
+            .inFilter('sessions.group_id', groupIds)
+            .gte('created_at', since.toUtc().toIso8601String())
+            .order('created_at', ascending: false)
+            .limit(200);
+        return [for (final r in rows) SessionObservation.fromJson(r)];
+      });
 
   @override
   Future<void> addObservation(String sessionId, String body) => guardSupabase(

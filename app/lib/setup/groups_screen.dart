@@ -31,7 +31,8 @@ class GroupsList extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
             children: [
-              if (data.groups.isEmpty) const _Empty(text: 'لا توجد فئات بعد. أضف أول فئة بالزر في الأسفل.'),
+              if (data.groups.isEmpty)
+                const _Empty(text: 'لا توجد فئات بعد. أضف أول فئة بالزر في الأسفل.'),
               for (final g in active) ...[_GroupRow(group: g, data: data), const SizedBox(height: 8)],
               if (archived.isNotEmpty) ...[
                 const SectionLabel('فئات مؤرشفة'),
@@ -49,10 +50,7 @@ class GroupsScreen extends StatelessWidget {
   const GroupsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('الفئات')),
-    body: const GroupsList(),
-  );
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('الفئات')), body: const GroupsList());
 }
 
 class _GroupRow extends StatelessWidget {
@@ -86,25 +84,16 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 40),
-    child: Text(
-      text,
-      textAlign: TextAlign.center,
-      style: const TextStyle(color: RaeedColors.grey),
-    ),
-  );
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: RaeedColors.grey)),
+      );
 }
 
 /// Lets the advisor choose a logo from the phone's photos, scaled down for upload.
 /// Replaced in tests.
 @visibleForTesting
 Future<Uint8List?> Function() pickGroupLogo = () async {
-  final file = await ImagePicker().pickImage(
-    source: ImageSource.gallery,
-    maxWidth: 512,
-    maxHeight: 512,
-    imageQuality: 85,
-  );
+  final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
   return file?.readAsBytes();
 };
 
@@ -161,21 +150,19 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
       _error = null;
     });
     try {
-      await SetupScope.read(context).saveGroup(
-        GroupDraft(
-          id: widget.group?.id,
-          name: _name.text.trim(),
-          logoLetter: _letter.text.trim(),
-          logoColor: _color,
-          newLogo: _newLogo,
-          removeLogo: _removeLogo,
-          ageMin: int.tryParse(_ageMin.text),
-          ageMax: int.tryParse(_ageMax.text),
-          archived: _archived,
-          instructorIds: _instructors.toList(),
-          supervisorIds: _supervisors.toList(),
-        ),
-      );
+      await SetupScope.read(context).saveGroup(GroupDraft(
+        id: widget.group?.id,
+        name: _name.text.trim(),
+        logoLetter: _letter.text.trim(),
+        logoColor: _color,
+        newLogo: _newLogo,
+        removeLogo: _removeLogo,
+        ageMin: int.tryParse(_ageMin.text),
+        ageMax: int.tryParse(_ageMax.text),
+        archived: _archived,
+        instructorIds: _instructors.toList(),
+        supervisorIds: _supervisors.toList(),
+      ));
       if (mounted) Navigator.pop(context);
     } on SetupError catch (e) {
       if (mounted) setState(() => _error = setupFailureMessage(e.failure));
@@ -227,8 +214,7 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
       final ok = await confirmDeletion(
         context,
         title: 'حذف فئة ${group.name}؟',
-        message:
-            'تُحذف معها ${n.sessions} من الأنشطة و${n.attendance} من سجلات الحضور وكل مواعيدها. '
+        message: 'تُحذف معها ${n.sessions} من الأنشطة و${n.attendance} من سجلات الحضور وكل مواعيدها. '
             '${n.children == 0 ? '' : 'يبقى أطفالها (${n.children}) بدون فئة. '}'
             'لا يمكن التراجع. لإخفائها مع إبقاء السجلات، استعمل «أرشفة الفئة».',
       );
@@ -301,9 +287,9 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
                       onPressed: _busy
                           ? null
                           : () => setState(() {
-                              _newLogo = null;
-                              _removeLogo = true;
-                            }),
+                                _newLogo = null;
+                                _removeLogo = true;
+                              }),
                       child: const Text('إزالة الصورة'),
                     ),
                 ],
@@ -367,10 +353,8 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
               ),
               const SectionLabel('المؤطرون'),
               if (data.instructors.isEmpty)
-                Text(
-                  'لا يوجد مؤطرون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
-                  style: text.bodySmall?.copyWith(color: RaeedColors.grey),
-                )
+                Text('لا يوجد مؤطرون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
+                    style: text.bodySmall?.copyWith(color: RaeedColors.grey))
               else
                 MultiSelectField<String>(
                   title: 'المؤطرون',
@@ -386,10 +370,8 @@ class _GroupFormScreenState extends State<GroupFormScreen> {
               ),
               const SizedBox(height: 6),
               if (data.staff.isEmpty)
-                Text(
-                  'لا يوجد مؤطرون أو مشرفون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
-                  style: text.bodySmall?.copyWith(color: RaeedColors.grey),
-                )
+                Text('لا يوجد مؤطرون أو مشرفون بعد. أضفهم من «المؤطرون والمشرفون» في الإعدادات.',
+                    style: text.bodySmall?.copyWith(color: RaeedColors.grey))
               else
                 MultiSelectField<String>(
                   key: const Key('group-supervisors'),

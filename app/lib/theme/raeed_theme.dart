@@ -101,18 +101,9 @@ ThemeData buildRaeedTheme() {
       filled: true,
       fillColor: RaeedColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: RaeedColors.line),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: RaeedColors.line),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: RaeedColors.blue, width: 1.5),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RaeedColors.line)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RaeedColors.line)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: RaeedColors.blue, width: 1.5)),
       labelStyle: const TextStyle(color: RaeedColors.grey),
       hintStyle: const TextStyle(color: RaeedColors.grey),
     ),
