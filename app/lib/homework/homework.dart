@@ -80,9 +80,13 @@ class Homework {
     this.wholeGroup = true,
     this.childIds = const [],
     this.marks = const {},
+    this.assignedBy,
   });
 
   final String id;
+
+  /// Who gave it, when the caller may read their name.
+  final String? assignedBy;
   final String groupId;
   final HomeworkTemplate template;
   final Map<String, String> fields;
@@ -128,6 +132,7 @@ class Homework {
 
   static Homework fromJson(Map<String, dynamic> j) => Homework(
     id: j['id'] as String,
+    assignedBy: (j['people'] as Map?)?['full_name'] as String?,
     groupId: j['group_id'] as String,
     template: HomeworkTemplate.fromDb(j['template'] as String),
     fields: {for (final e in (j['fields'] as Map? ?? const {}).entries) e.key as String: '${e.value ?? ''}'},
@@ -181,6 +186,9 @@ class HomeworkDraft {
 abstract interface class HomeworkRepository {
   /// Newest due date first, with who it is for and the marks the caller may read.
   Future<List<Homework>> load(List<String> groupIds);
+
+  /// The homework of the فئة [childId] is in now that is for them, newest due date first.
+  Future<List<Homework>> loadForChild(String childId);
   Future<void> create(HomeworkDraft draft);
   Future<void> update(String id, HomeworkDraft draft);
   Future<void> delete(String id);
@@ -199,11 +207,31 @@ class SupabaseHomeworkRepository implements HomeworkRepository {
     if (groupIds.isEmpty) return const [];
     final rows = await _db
         .from('homework')
-        .select('*, homework_children(child_id), homework_status(child_id, done, marked_at)')
+        .select(_columns)
         .inFilter('group_id', groupIds)
         .order('due_date', ascending: false)
         .limit(300);
     return [for (final r in rows) Homework.fromJson(r)];
+  });
+
+  static const _columns =
+      '*, people!homework_created_by_fkey(full_name), homework_children(child_id), homework_status(child_id, done, marked_at)';
+
+  @override
+  Future<List<Homework>> loadForChild(String childId) => guardSupabase(() async {
+    final links = await _db.from('child_groups').select('group_id').eq('child_id', childId).isFilter('to_date', null);
+    final groups = [for (final l in links) l['group_id'] as String];
+    if (groups.isEmpty) return const [];
+    final rows = await _db
+        .from('homework')
+        .select(_columns)
+        .inFilter('group_id', groups)
+        .order('due_date', ascending: false)
+        .limit(100);
+    return [
+      for (final r in rows)
+        if (Homework.fromJson(r) case final h when h.targets([childId]).isNotEmpty) h,
+    ];
   });
 
   @override

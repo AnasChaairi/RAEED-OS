@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../homework/homework_screens.dart';
 import '../theme/raeed_theme.dart';
 import '../widgets/form_error.dart';
 import '../widgets/select_field.dart';
@@ -31,6 +32,20 @@ class GroupsList extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
             children: [
+              Card(
+                child: ListTile(
+                  key: const Key('all-homework'),
+                  leading: const Icon(Icons.assignment, color: RaeedColors.blue),
+                  title: const Text('واجبات الفئات'),
+                  subtitle: const Text('كل ما كُلّف به الأطفال، ومن أنجزه'),
+                  trailing: const Icon(Icons.chevron_left),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => const AllHomeworkScreen()),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               if (data.groups.isEmpty)
                 const _Empty(text: 'لا توجد فئات بعد. أضف أول فئة بالزر في الأسفل.'),
               for (final g in active) ...[_GroupRow(group: g, data: data), const SizedBox(height: 8)],

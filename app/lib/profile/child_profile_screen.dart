@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/phone.dart';
 import '../auth/session_scope.dart';
+import '../homework/homework_screens.dart';
 import '../instructor/models.dart';
 import '../instructor/widgets.dart' show statusColors;
 import '../messages/messages_screens.dart';
@@ -223,6 +224,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
                   ],
                 ),
               ),
+            const SectionLabel('الواجبات'),
+            ChildHomework(key: ValueKey('hw$_loads'), childId: widget.childId, now: ProfileScope.of(context).clock()),
             if (generalSupervisor) ...[
               const SectionLabel('مراسلات مشرف الفئة مع أولياء الأمور'),
               ChildConversations(key: ValueKey(_loads), childId: widget.childId),

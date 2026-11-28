@@ -38,6 +38,19 @@ class FakeHomeworkRepository implements HomeworkRepository {
     ]..sort((a, b) => b.dueDate.compareTo(a.dueDate));
   }
 
+  /// Which فئة each child is in, for [loadForChild].
+  final childGroups = <String, String>{};
+
+  @override
+  Future<List<Homework>> loadForChild(String childId) async {
+    _check();
+    final g = childGroups[childId];
+    return [
+      for (final h in await load([?g]))
+        if (h.targets([childId]).isNotEmpty) h,
+    ];
+  }
+
   @override
   Future<void> create(HomeworkDraft draft) async {
     _check();
@@ -78,6 +91,7 @@ class FakeHomeworkRepository implements HomeworkRepository {
       wholeGroup: h.wholeGroup,
       childIds: h.childIds,
       marks: marks,
+      assignedBy: h.assignedBy,
     );
   }
 }

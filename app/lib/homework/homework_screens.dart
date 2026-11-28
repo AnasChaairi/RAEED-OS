@@ -251,6 +251,7 @@ class HomeworkCard extends StatelessWidget {
     required this.now,
     this.childName,
     this.subtitle,
+    this.groupName,
     this.footer,
     this.onTap,
   });
@@ -259,6 +260,9 @@ class HomeworkCard extends StatelessWidget {
   final DateTime now;
   final String? childName;
   final String? subtitle;
+
+  /// Shown when the list mixes فئات.
+  final String? groupName;
   final Widget? footer;
   final VoidCallback? onTap;
 
@@ -292,7 +296,7 @@ class HomeworkCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          [h.template.label, ?childName].join(' · '),
+                          [h.template.label, ?groupName, ?childName].join(' · '),
                           style: text.labelMedium?.copyWith(color: RaeedColors.grey),
                         ),
                         const SizedBox(height: 2),
@@ -314,6 +318,10 @@ class HomeworkCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (h.assignedBy != null) ...[
+                          const SizedBox(height: 2),
+                          Text('كلّف به: ${h.assignedBy}', style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
+                        ],
                         if (subtitle != null) ...[
                           const SizedBox(height: 4),
                           Text(subtitle!, style: text.bodySmall?.copyWith(color: RaeedColors.grey)),
@@ -413,9 +421,12 @@ class _GroupHomeworkState extends State<GroupHomework> with _HomeworkLoader {
 /// A homework for its supervisor: what each child's parents marked. The supervisor can
 /// mark too (for a child whose parents have no account), change it or delete it.
 class HomeworkDetailScreen extends StatefulWidget {
-  const HomeworkDetailScreen({super.key, required this.homework});
+  const HomeworkDetailScreen({super.key, required this.homework, this.readOnly = false});
 
   final Homework homework;
+
+  /// For the مشرف العام: sees everything, changes nothing.
+  final bool readOnly;
 
   @override
   State<HomeworkDetailScreen> createState() => _HomeworkDetailScreenState();
@@ -457,32 +468,34 @@ class _HomeworkDetailScreenState extends State<HomeworkDetailScreen> with _Homew
       appBar: AppBar(
         title: const Text('الواجب'),
         actions: [
-          FutureBuilder<List<Homework>>(
-            future: items,
-            builder: (context, snap) {
-              final h = snap.data?.where((x) => x.id == widget.homework.id).firstOrNull ?? widget.homework;
-              return IconButton(
-                key: const Key('edit-homework'),
-                tooltip: 'تعديل',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => HomeworkFormScreen(groupId: h.groupId, homework: h),
-                    ),
-                  );
-                  if (mounted) reload();
-                },
-              );
-            },
-          ),
-          IconButton(
-            key: const Key('delete-homework'),
-            tooltip: 'حذف',
-            icon: const Icon(Icons.delete_outline, color: RaeedColors.error),
-            onPressed: _delete,
-          ),
+          if (!widget.readOnly) ...[
+            FutureBuilder<List<Homework>>(
+              future: items,
+              builder: (context, snap) {
+                final h = snap.data?.where((x) => x.id == widget.homework.id).firstOrNull ?? widget.homework;
+                return IconButton(
+                  key: const Key('edit-homework'),
+                  tooltip: 'تعديل',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => HomeworkFormScreen(groupId: h.groupId, homework: h),
+                      ),
+                    );
+                    if (mounted) reload();
+                  },
+                );
+              },
+            ),
+            IconButton(
+              key: const Key('delete-homework'),
+              tooltip: 'حذف',
+              icon: const Icon(Icons.delete_outline, color: RaeedColors.error),
+              onPressed: _delete,
+            ),
+          ],
         ],
       ),
       body: ListView(
@@ -495,12 +508,19 @@ class _HomeworkDetailScreenState extends State<HomeworkDetailScreen> with _Homew
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                HomeworkCard(homework: h, now: now, subtitle: progressLabel(h, [for (final k in kids) k.id])),
+                HomeworkCard(
+                  homework: h,
+                  now: now,
+                  groupName: store.data.group(h.groupId)?.name,
+                  subtitle: progressLabel(h, [for (final k in kids) k.id]),
+                ),
                 const SizedBox(height: 12),
                 Text('الأطفال', style: text.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                  'يختار أولياء الأمور «تم» أو «لم يتم». يمكنك أيضاً التسجيل بنفسك.',
+                  widget.readOnly
+                      ? 'ما اختاره أولياء الأمور (أو مشرف الفئة) لكل طفل، وتاريخه.'
+                      : 'يختار أولياء الأمور «تم» أو «لم يتم». يمكنك أيضاً التسجيل بنفسك.',
                   style: text.bodySmall?.copyWith(color: RaeedColors.grey),
                 ),
                 const SizedBox(height: 8),
@@ -511,7 +531,8 @@ class _HomeworkDetailScreenState extends State<HomeworkDetailScreen> with _Homew
                     child: Column(
                       children: [
                         for (final k in kids)
-                          if (targets.contains(k.id)) _ChildMarkRow(child: k, homework: h, onMark: run),
+                          if (targets.contains(k.id))
+                            _ChildMarkRow(child: k, homework: h, onMark: widget.readOnly ? null : run),
                       ],
                     ),
                   ),
@@ -529,7 +550,7 @@ class _ChildMarkRow extends StatelessWidget {
 
   final RosterChild child;
   final Homework homework;
-  final Future<bool> Function(Future<void> Function(HomeworkRepository r)) onMark;
+  final Future<bool> Function(Future<void> Function(HomeworkRepository r))? onMark;
 
   @override
   Widget build(BuildContext context) {
@@ -547,7 +568,8 @@ class _ChildMarkRow extends StatelessWidget {
       trailing: PopupMenuButton<int>(
         key: Key('homework-child-mark-${child.id}'),
         tooltip: 'تسجيل',
-        onSelected: (v) => onMark((r) => r.mark(homework.id, child.id, v == 2 ? null : v == 1)),
+        enabled: onMark != null,
+        onSelected: (v) => onMark!((r) => r.mark(homework.id, child.id, v == 2 ? null : v == 1)),
         itemBuilder: (_) => const [
           PopupMenuItem(value: 1, child: Text('تم')),
           PopupMenuItem(value: 0, child: Text('لم يتم')),
@@ -797,6 +819,197 @@ class _HomeworkFormScreenState extends State<HomeworkFormScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// The مشرف العام's side ---------------------------------------------------------------------
+
+/// Every فئة's homework, for the مشرف العام, read only: who gave it, and per child what
+/// was marked. Filter by فئة with the chips at the top.
+class AllHomeworkScreen extends StatefulWidget {
+  const AllHomeworkScreen({super.key});
+
+  @override
+  State<AllHomeworkScreen> createState() => _AllHomeworkScreenState();
+}
+
+class _AllHomeworkScreenState extends State<AllHomeworkScreen> with _HomeworkLoader {
+  String? _group;
+
+  @override
+  List<String> get groupIds => [for (final g in InstructorScope.of(context).data.groups) g.id]..sort();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = InstructorScope.of(context);
+    final data = store.data;
+    final now = store.now();
+    return Scaffold(
+      appBar: AppBar(title: const Text('واجبات الفئات')),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          reload();
+          await items?.catchError((_) => <Homework>[]);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    key: const Key('homework-filter-all'),
+                    label: const Text('كل الفئات'),
+                    selected: _group == null,
+                    onSelected: (_) => setState(() => _group = null),
+                  ),
+                  for (final g in data.groups) ...[
+                    const SizedBox(width: 6),
+                    ChoiceChip(
+                      key: Key('homework-filter-${g.id}'),
+                      label: Text(g.name),
+                      selected: _group == g.id,
+                      onSelected: (_) => setState(() => _group = g.id),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            loaded((all) {
+              final shown = [
+                for (final h in all)
+                  if (_group == null || h.groupId == _group) h,
+              ];
+              if (shown.isEmpty) return const _Hint('لا واجبات بعد.');
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final h in shown) ...[
+                    HomeworkCard(
+                      key: Key('homework-${h.id}'),
+                      homework: h,
+                      now: now,
+                      groupName: data.group(h.groupId)?.name,
+                      subtitle: progressLabel(h, [for (final k in data.childrenIn(h.groupId)) k.id]),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(builder: (_) => HomeworkDetailScreen(homework: h, readOnly: true)),
+                        );
+                        if (mounted) reload();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A child's homework on their profile: each one with what was marked.
+class ChildHomework extends StatefulWidget {
+  const ChildHomework({super.key, required this.childId, required this.now});
+
+  final String childId;
+  final DateTime now;
+
+  @override
+  State<ChildHomework> createState() => _ChildHomeworkState();
+}
+
+class _ChildHomeworkState extends State<ChildHomework> {
+  Future<List<Homework>>? _items;
+  bool _all = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _items ??= HomeworkScope.of(context)?.loadForChild(widget.childId);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grey = Theme.of(context).textTheme.bodyMedium?.copyWith(color: RaeedColors.grey);
+    if (_items == null) return Text('غير متاح.', style: grey);
+    return FutureBuilder<List<Homework>>(
+      future: _items,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snap.hasError) {
+          final failure = snap.error is SetupError ? (snap.error! as SetupError).failure : SetupFailure.unknown;
+          return Text(setupFailureMessage(failure), style: grey);
+        }
+        final list = snap.data!;
+        if (list.isEmpty) return Text('لا واجبات بعد.', style: grey);
+        var done = 0, notDone = 0;
+        for (final h in list) {
+          final m = h.marks[widget.childId];
+          if (m == null) continue;
+          m.done ? done++ : notDone++;
+        }
+        final shown = _all ? list : list.take(3).toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'تم $done · لم يتم $notDone · لم يُحدَّد ${list.length - done - notDone}',
+              key: const Key('child-homework-summary'),
+              style: grey,
+            ),
+            const SizedBox(height: 8),
+            for (final h in shown) ...[
+              HomeworkCard(
+                key: Key('child-homework-${h.id}'),
+                homework: h,
+                now: widget.now,
+                footer: _MarkChip(mark: h.marks[widget.childId]),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (list.length > 3 && !_all)
+              TextButton(onPressed: () => setState(() => _all = true), child: Text('عرض الكل (${list.length})')),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MarkChip extends StatelessWidget {
+  const _MarkChip({required this.mark});
+
+  final HomeworkMark? mark;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, icon) = switch (mark?.done) {
+      true => ('تم', _doneColor, Icons.check_circle),
+      false => ('لم يتم', RaeedColors.error, Icons.cancel),
+      null => ('لم يُحدَّد بعد', RaeedColors.grey, Icons.radio_button_unchecked),
+    };
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 6),
+        Text(
+          mark == null ? label : '$label · ${mark!.markedAt.day}/${mark!.markedAt.month}',
+          style: TextStyle(color: color, fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 }
