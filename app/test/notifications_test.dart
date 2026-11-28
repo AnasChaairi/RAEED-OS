@@ -81,6 +81,13 @@ void main() {
     expect(note('x', 'child_message_reply').tabFor(AppRole.parent), 1);
     expect(note('x', 'absence_alert').tabFor(AppRole.instructor), 3);
     expect(note('x', 'instructor_absence').tabFor(AppRole.advisor), 1);
+    expect(note('x', 'session_observation').tabFor(AppRole.supervisor), 3);
+    expect(note('x', 'child_note').tabFor(AppRole.supervisor), 1);
+    expect(note('x', 'child_note').tabFor(AppRole.instructor), 2);
+    expect(note('x', 'session_assigned').tabFor(AppRole.instructor), 0);
+    expect(note('x', 'child_note').tabFor(AppRole.advisor), 3);
+    expect(note('x', 'homework_reminder').tabFor(AppRole.parent), 2);
+    expect(note('x', 'child_absent').tabFor(AppRole.parent), 0);
   });
 
   test('notes and replies count per child, and stay unread when the bell keeps them', () async {
