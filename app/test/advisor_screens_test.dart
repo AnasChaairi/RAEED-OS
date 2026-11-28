@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:raeed_os/advisor/stats_models.dart';
 import 'package:raeed_os/app.dart';
 import 'package:raeed_os/auth/app_session.dart';
+import 'package:raeed_os/homework/homework.dart';
 import 'package:raeed_os/instructor/instructor_store.dart';
 import 'package:raeed_os/instructor/models.dart';
 import 'package:raeed_os/messages/messages_repository.dart';
@@ -13,6 +14,7 @@ import 'package:raeed_os/setup/setup_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_auth.dart';
+import 'fake_homework.dart';
 import 'fake_instructor.dart';
 import 'fake_messages.dart';
 import 'fake_setup.dart';
@@ -85,6 +87,8 @@ Future<FakeProfileRepository> openAdvisor(
   StatsData? statsData,
   FakeSetupRepository? setup,
   MessagesRepository? messages,
+  FakeHomeworkRepository? homework,
+  FakeInstructorRepository? instructorRepo,
 }) async {
   tester.view.physicalSize = const Size(1170, 2600);
   tester.view.devicePixelRatio = 3;
@@ -109,12 +113,18 @@ Future<FakeProfileRepository> openAdvisor(
     RaeedApp(
       session: session,
       setup: SetupStore((setup ?? FakeSetupRepository())..addPerson(anas, 'أنس', '0691015402', {AppRole.advisor})),
-      instructor: InstructorStore(FakeInstructorRepository(), prefs, retryEvery: null, clock: () => now),
+      instructor: InstructorStore(
+        instructorRepo ?? FakeInstructorRepository(),
+        prefs,
+        retryEvery: null,
+        clock: () => now,
+      ),
       parent: extra.parent,
       stats: extra.stats,
       profiles: extra.profiles,
       push: extra.push,
       messages: messages,
+      homework: homework,
     ),
   );
   await session.start();
@@ -335,5 +345,76 @@ void main() {
     await tester.pumpAndSettle();
     expect(setup.calls, contains('deleteAccount suad'));
     expect(find.byKey(const Key('deletion-suad')), findsNothing);
+  });
+
+  testWidgets('the general supervisor reads every فئة\'s homework and each child\'s mark, without changing them', (
+    tester,
+  ) async {
+    final homework = FakeHomeworkRepository(
+      items: [
+        Homework(
+          id: 'h1',
+          groupId: 'stars',
+          template: HomeworkTemplate.research,
+          fields: const {'topic': 'الماء'},
+          dueDate: DateTime(2027, 2, 25),
+          assignedBy: 'سارة الإدريسي',
+          marks: {'omar': HomeworkMark(done: true, markedAt: DateTime(2027, 2, 19))},
+        ),
+      ],
+    )..childGroups['adam'] = 'stars';
+    await openAdvisor(
+      tester,
+      homework: homework,
+      instructorRepo: seededInstructorRepo(me: 'nobody', today: DateTime(2027, 2, 20)),
+    );
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('الفئات')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('all-homework')));
+    await tester.pumpAndSettle();
+    expect(find.text('إنجاز وتقديم بحث حول الماء'), findsOneWidget);
+    expect(find.text('كلّف به: سارة الإدريسي'), findsOneWidget);
+    expect(find.textContaining('تم 1 · لم يتم 0 · لم يُحدَّد 2'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('homework-h1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit-homework')), findsNothing);
+    expect(find.byKey(const Key('delete-homework')), findsNothing);
+    expect(
+      find.descendant(of: find.byKey(const Key('homework-child-omar')), matching: find.text('تم')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: find.byKey(const Key('homework-child-adam')), matching: find.text('لم يُحدَّد')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('homework-child-mark-omar')));
+    await tester.pumpAndSettle();
+    expect(find.text('مسح'), findsNothing, reason: 'read only');
+    expect(homework.calls, isEmpty);
+  });
+
+  testWidgets('a child\'s profile lists their homework and what was marked', (tester) async {
+    final homework = FakeHomeworkRepository(
+      items: [
+        Homework(
+          id: 'h1',
+          groupId: 'stars',
+          template: HomeworkTemplate.wird,
+          fields: const {'amount': 'ثمن حزب'},
+          dueDate: DateTime(2027, 2, 25),
+          marks: {'adam': HomeworkMark(done: false, markedAt: DateTime(2027, 2, 19))},
+        ),
+      ],
+    )..childGroups['adam'] = 'stars';
+    await openAdvisor(tester, homework: homework);
+    await reveal(tester, 'stats-group-stars');
+    await tester.tap(find.byKey(const Key('stats-group-stars')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('stats-kid-adam')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('child-homework-h1')), 200);
+    expect(find.text('ورد قرآني: ثمن حزب'), findsOneWidget);
+    expect(find.text('تم 0 · لم يتم 1 · لم يُحدَّد 0'), findsOneWidget);
+    expect(find.text('لم يتم · 19/2'), findsOneWidget);
   });
 }
