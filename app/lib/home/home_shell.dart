@@ -17,6 +17,7 @@ import '../instructor/sessions_screen.dart';
 import '../instructor/today_screen.dart';
 import '../instructor/widgets.dart';
 import '../messages/messages_screens.dart';
+import '../notifications/announcements.dart';
 import '../notifications/inbox.dart';
 import '../notifications/push.dart';
 import '../parent/account_screen.dart';
@@ -124,7 +125,12 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _openNotifications() async {
     final tapped = await Navigator.push<AppNotification>(
       context,
-      MaterialPageRoute(builder: (_) => NotificationsScreen(keepMessages: _messagesTab != null)),
+      MaterialPageRoute(
+        builder: (_) => NotificationsScreen(
+          keepMessages: _messagesTab != null,
+          canPublish: widget.role == AppRole.advisor,
+        ),
+      ),
     );
     if (!mounted || tapped == null) return;
     final tab = tapped.tabFor(widget.role);
@@ -221,9 +227,16 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _index,
-        children: [for (var i = 0; i < tabs.length; i++) _tabBody(i)],
+      body: Column(
+        children: [
+          AnnouncementBanner(canDelete: widget.role == AppRole.advisor),
+          Expanded(
+            child: IndexedStack(
+              index: _index,
+              children: [for (var i = 0; i < tabs.length; i++) _tabBody(i)],
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

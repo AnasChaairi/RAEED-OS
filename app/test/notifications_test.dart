@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:raeed_os/notifications/announcements.dart';
 import 'package:raeed_os/notifications/inbox.dart';
 import 'package:raeed_os/roles/app_role.dart';
 
@@ -14,12 +15,29 @@ class FakeNotificationsRepository implements NotificationsRepository {
   Future<void> markRead([List<String>? ids]) async {
     markCalls++;
     for (var i = 0; i < items.length; i++) {
-      items[i] = items[i].asRead();
+      if (ids == null || ids.contains(items[i].id)) items[i] = items[i].asRead();
     }
   }
+
+  final news = <Announcement>[];
+  final published = <({String title, String body, Set<AnnouncementAudience> audience})>[];
+
+  @override
+  Future<List<Announcement>> loadAnnouncements() async => List.of(news);
+
+  @override
+  Future<int> publishAnnouncement(
+      {required String title, required String body, required Set<AnnouncementAudience> audience}) async {
+    published.add((title: title, body: body, audience: audience));
+    news.insert(0, Announcement(id: 'n${news.length}', title: title, body: body, createdAt: DateTime.now(), audience: audience, recipients: 42));
+    return 42;
+  }
+
+  @override
+  Future<void> deleteAnnouncement(String id) async => news.removeWhere((a) => a.id == id);
 }
 
-AppNotification note(String id, String kind, {bool read = false, String? child}) => AppNotification(
+AppNotification note(String id, String kind, {bool read = false, String? child, String? announcement}) => AppNotification(
       id: id,
       kind: kind,
       title: 'عنوان $id',
@@ -27,6 +45,7 @@ AppNotification note(String id, String kind, {bool read = false, String? child})
       createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
       read: read,
       childId: child,
+      announcementId: announcement,
     );
 
 void main() {
@@ -111,5 +130,68 @@ void main() {
     await store.markMessagesRead(childId: 'k1');
     expect(store.unreadMessages(childId: 'k1'), 0);
     expect(store.unreadMessages(), 1);
+  });
+
+  testWidgets('the مشرف العام publishes a إخبار عام for some roles only', (tester) async {
+    final repo = FakeNotificationsRepository();
+    final store = InboxStore(repo);
+    await tester.pumpWidget(InboxScope(
+      store: store,
+      child: const MaterialApp(home: NotificationsScreen(canPublish: true, openAnnouncements: true)),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد إخبارات عامة بعد.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('new-announcement')));
+    await tester.pumpAndSettle();
+    // Everyone is picked until a role is.
+    expect(tester.widget<ChoiceChip>(find.byKey(const Key('audience-all'))).selected, isTrue);
+    await tester.tap(find.byKey(const Key('publish-announcement')));
+    await tester.pump();
+    expect(find.text('اكتب عنواناً.'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('announcement-title')), 'عطلة');
+    await tester.enterText(find.byKey(const Key('announcement-body')), 'الأكاديمية مغلقة يوم السبت.');
+    await tester.tap(find.byKey(const Key('audience-parent')));
+    await tester.tap(find.byKey(const Key('audience-instructor')));
+    await tester.pump();
+    expect(tester.widget<ChoiceChip>(find.byKey(const Key('audience-all'))).selected, isFalse);
+    await tester.tap(find.byKey(const Key('publish-announcement')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('أولياء الأمور، المؤطرون'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm-publish')));
+    await tester.pumpAndSettle();
+
+    expect(repo.published.single.audience, {AnnouncementAudience.parent, AnnouncementAudience.instructor});
+    expect(find.text('عطلة'), findsOneWidget);
+    expect(find.textContaining('إلى: أولياء الأمور، المؤطرون · أُرسل إلى 42'), findsOneWidget);
+  });
+
+  testWidgets('picking every role goes back to everyone', (tester) async {
+    final store = InboxStore(FakeNotificationsRepository());
+    await tester.pumpWidget(InboxScope(store: store, child: const MaterialApp(home: ComposeAnnouncementScreen())));
+    for (final a in AnnouncementAudience.values) {
+      await tester.tap(find.byKey(Key('audience-${a.dbName}')));
+      await tester.pump();
+    }
+    expect(tester.widget<ChoiceChip>(find.byKey(const Key('audience-all'))).selected, isTrue);
+  });
+
+  testWidgets('an unread إخبار عام opens its tab and the banner reads it', (tester) async {
+    final repo = FakeNotificationsRepository()
+      ..news.add(Announcement(id: 'x1', title: 'حفل', body: 'حفل نهاية السنة', createdAt: DateTime.now()))
+      ..items.add(note('o1', 'announcement', announcement: 'x1'));
+    final store = InboxStore(repo);
+    await store.load();
+    await tester.pumpWidget(InboxScope(
+      store: store,
+      child: const MaterialApp(home: Scaffold(body: AnnouncementBanner(canDelete: false))),
+    ));
+    expect(find.byKey(const Key('announcement-banner')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('announcement-banner')));
+    await tester.pumpAndSettle();
+    expect(find.text('حفل نهاية السنة'), findsOneWidget);
+    expect(store.unreadAnnouncements, isEmpty);
+    expect(find.byKey(const Key('delete-announcement')), findsNothing);
   });
 }
